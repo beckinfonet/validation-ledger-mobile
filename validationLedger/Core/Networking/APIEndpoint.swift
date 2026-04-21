@@ -3,8 +3,8 @@
 // Conforming structs carry:
 //   - path: String — server-relative URL path (no scheme/host; APIClient prepends baseURL)
 //   - method: HTTPMethod
-//   - body: RequestBody? — nil for GET (uses internal EmptyBody sentinel)
-//   - RequestBody: the Encodable body type (internal struct EmptyBody for GETs)
+//   - body: RequestBody? — nil for GET (uses public EmptyBody sentinel)
+//   - RequestBody: the Encodable body type (public struct EmptyBody for GETs)
 //   - Response: the Decodable response type
 //
 // APIClient.request<E: APIEndpoint>(_ endpoint: E) is the one call site that ties them together.
@@ -27,6 +27,13 @@ public enum HTTPMethod: String, Sendable {
     case delete = "DELETE"
 }
 
-/// Sentinel body type for GET endpoints (which have no body). Internal — consumed by KYCStatusEndpoint.
+/// Sentinel body type for GET endpoints (which have no body). Public (not internal) because
+/// `KYCStatusEndpoint` declares a public `typealias RequestBody = EmptyBody`, and Swift rejects
+/// a public type alias whose underlying type is internal.
+/// `nonisolated` is required under the project's SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor setting
+/// so the Encodable conformance is not main-actor-isolated — APIEndpoint's `RequestBody: Sendable`
+/// constraint rejects main-actor-isolated conformances.
 /// Declared at file scope so multiple GET endpoints can share it without each declaring its own.
-struct EmptyBody: Encodable, Sendable {}
+nonisolated public struct EmptyBody: Encodable, Sendable {
+    public init() {}
+}
