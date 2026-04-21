@@ -20,12 +20,14 @@ final class DevMenuViewController: UITableViewController {
         case roleSwitcher
         case keychainInspector
         case logViewer
+        case networkConfig  // Phase 2 Plan 07 addition — NET-03 SC-2 demonstrator
 
         var title: String {
             switch self {
             case .roleSwitcher:      return "Role Switcher"
             case .keychainInspector: return "Keychain Inspector"
             case .logViewer:         return "Log Viewer (OSLogStore)"
+            case .networkConfig:     return "Network Config"
             }
         }
 
@@ -34,6 +36,7 @@ final class DevMenuViewController: UITableViewController {
             case .roleSwitcher:      return "Swap to any of the 5 roles (D-07)"
             case .keychainInspector: return "Enumerate Keychain items under app service (D-11)"
             case .logViewer:         return "Last 15 min of OSLog entries (LOG-03)"
+            case .networkConfig:     return "Toggle mock ↔ live (NET-03)"
             }
         }
     }
@@ -95,6 +98,12 @@ final class DevMenuViewController: UITableViewController {
 
         case .logViewer:
             let vc = LogViewerViewController()
+            navigationController?.pushViewController(vc, animated: true)
+
+        case .networkConfig:
+            // NET-03 SC-2 demonstrator — posts a notification; SceneDelegate observes and
+            // performs a root-swap with a fresh AppContainer constructed with the new config.
+            let vc = NetworkConfigToggleViewController()
             navigationController?.pushViewController(vc, animated: true)
         }
     }
