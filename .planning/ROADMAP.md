@@ -57,8 +57,8 @@ Plans:
 **Plans:** 7 plans
 Plans:
 - [x] 02-01-PLAN.md — Wave 0: NetworkError + RequestInterceptor protocols + CR-01/WR-01 Phase 1 fixes
-- [ ] 02-02-PLAN.md — Wave 1: NET-01 APIEndpoint protocol + APIClient facade + 7 M1 endpoint structs
-- [ ] 02-03-PLAN.md — Wave 1: NET-02 MockURLProtocol fixture registry + 14 JSON fixtures + endpoint decode tests
+- [x] 02-02-PLAN.md — Wave 1: NET-01 APIEndpoint protocol + APIClient facade + 7 M1 endpoint structs
+- [x] 02-03-PLAN.md — Wave 1: NET-02 MockURLProtocol fixture registry + 14 JSON fixtures + endpoint decode tests
 - [ ] 02-04-PLAN.md — Wave 2: NET-04 IdempotencyInterceptor + NET-05 RetryInterceptor + tests
 - [ ] 02-05-PLAN.md — Wave 2: SEC-01 dual-pin SPKI cert pinning + SPKIHasher + PinningSessionDelegate + cert-rotation runbook
 - [ ] 02-06-PLAN.md — Wave 2: DEV-01/02/03/05 Secure Enclave two-key keystore + DeviceFingerprint + ADR 0004

@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 
 Phase: 2 of 5 (Networking Contract & Device Keys) — **EXECUTING**
 Prior: Phase 1 complete (2026-04-21); 8 HUMAN-UAT items pending
-Plan: 1 of 7 in Phase 2
-Status: Executing — Wave 0 complete (NetworkError + interceptor protocols + CR-01/WR-01 closed); starting Wave 1 Plan 02-02 (NET-01 typed endpoints)
-Last activity: 2026-04-21 — Wave 0 merged; 37 tests across 9 suites pass (up from 32 after Phase 1)
+Plan: 3 of 7 in Phase 2
+Status: Executing — Waves 0 + 1 complete; starting Wave 2 (02-04 interceptors ∥ 02-05 cert pinning ∥ 02-06 Secure Enclave, parallel-safe)
+Last activity: 2026-04-21 — Wave 1 merged: 02-02 (7 typed endpoints + APIClient) + 02-03 (14 fixtures + APIClientEndpointTests). 51 tests across 10 suites pass with `-parallel-testing-enabled NO` (Plan 02-07 must propagate flag to ci-simulator.yml)
 
-Progress: Phase 1 [██████████] 100% · Phase 2 [█░░░░░░░░░] 14% · Milestone M1 [██░░░░░░░░] 22%
+Progress: Phase 1 [██████████] 100% · Phase 2 [████░░░░░░] 43% · Milestone M1 [██░░░░░░░░] 29%
 
 ## Performance Metrics
 
