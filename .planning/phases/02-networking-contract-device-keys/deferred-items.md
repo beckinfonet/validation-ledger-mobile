@@ -30,3 +30,11 @@ endpoint structs in this plan.
 was not modified by this plan — the warnings pre-date Plan 02 and will not block the
 build (they are warnings in Swift 5 mode, errors only in Swift 6 mode, and the project
 is on Swift 5.0 per `SWIFT_VERSION = 5.0`).
+
+## 2026-04-21 — Plan 06 executor
+
+**Pre-existing failing test (OUT OF SCOPE for Plan 06):**
+- `validationLedgerTests/Networking/APIClientEndpointTests.swift:49` — "OTPRequestEndpoint: success fixture decodes into typed Response" fails with `.httpError(statusCode: 404)`
+- Introduced in commit `526e29b` (Plan 02-03)
+- NOT caused by Plan 06 changes (KeyStore/Identity work)
+- Flagged for Plan 03/04 re-visit (fixture path resolution in parallel-executor handler registry)
