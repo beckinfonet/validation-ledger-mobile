@@ -1,0 +1,4 @@
+{
+  "error_code": "kyc.chunk_hash_mismatch",
+  "message": "Chunk SHA-256 does not match payload hash."
+}

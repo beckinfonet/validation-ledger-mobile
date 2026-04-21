@@ -14,6 +14,14 @@ nonisolated public struct KYCStatusEndpoint: APIEndpoint {
             public let artifactID: String
             public let status: String             // "pending_review" | "verified" | "rejected"
             public let rejectionReason: String?   // nullable; backend-provided controlled vocabulary
+
+            // Explicit CodingKeys: acronym bridge — see OTPRequestEndpoint.Response for rationale.
+            // Raw values are camelCase (post-.convertFromSnakeCase form).
+            private enum CodingKeys: String, CodingKey {
+                case artifactID = "artifactId"
+                case status
+                case rejectionReason
+            }
         }
         public let overallStatus: String          // "pending" | "under_review" | "verified" | "rejected"
         public let artifacts: [Artifact]

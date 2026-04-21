@@ -1,0 +1,4 @@
+{
+  "error_code": "auth.session_expired",
+  "message": "Your session has expired. Please log in again."
+}

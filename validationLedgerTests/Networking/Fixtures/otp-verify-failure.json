@@ -1,0 +1,5 @@
+{
+  "error_code": "auth.invalid_code",
+  "message": "Invalid OTP code. Please try again.",
+  "remaining_attempts": 2
+}

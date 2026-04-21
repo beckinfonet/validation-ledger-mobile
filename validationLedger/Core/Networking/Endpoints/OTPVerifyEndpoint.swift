@@ -16,6 +16,14 @@ nonisolated public struct OTPVerifyEndpoint: APIEndpoint {
         public let sessionToken: String
         public let role: String   // "shipper" | "broker" | "carrier" | "dispatch" | "factoring"
         public let userID: String
+
+        // Explicit CodingKeys: acronym bridge — see OTPRequestEndpoint.Response for rationale.
+        // Raw values are camelCase (post-.convertFromSnakeCase form).
+        private enum CodingKeys: String, CodingKey {
+            case sessionToken
+            case role
+            case userID = "userId"
+        }
     }
     public let path = "/auth/otp/verify"
     public let method: HTTPMethod = .post
