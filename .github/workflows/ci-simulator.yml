@@ -40,12 +40,19 @@ jobs:
         # Honors D-02 ordering: lint gate first.
 
       - name: Build + Test (simulator only — D-03 excludes Secure Enclave)
+        # `-parallel-testing-enabled NO` is required — Swift Testing @Suite's run in parallel by
+        # default, and multiple sibling suites (APIClientEndpointTests, MockURLProtocolRegistryTests,
+        # AppContainerNetworkConfigTests) all mutate MockURLProtocol's global handler registry. The
+        # .serialized trait only serializes WITHIN a suite, not across sibling suites — parallel
+        # execution thrashes the shared registry and produces 404 flakes (Plan 02-03 deferred-items
+        # diagnosis; Plan 02-07 Task 7 closes). Total test-time cost is ~6s vs ~20s parallel.
         run: |
           set -o pipefail
           xcodebuild test \
             -project validationLedger.xcodeproj \
             -scheme validationLedger \
             -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' \
+            -parallel-testing-enabled NO \
             -enableCodeCoverage YES \
             -resultBundlePath $PWD/build/TestResults.xcresult \
             -only-testing:validationLedgerTests \
