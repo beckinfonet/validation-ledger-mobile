@@ -3,6 +3,23 @@ phase: 01-foundational-conventions-scaffolding
 plan: 07
 subsystem: ci-pipelines
 
+# Task 5 checkpoint resolution (2026-04-21)
+#
+# User approved with notes (same pattern as Plan 05 Task 3):
+# - Automated Step 1 only (clean build + full tests + scripts + YAML validation — all green)
+# - Steps 2-5 (GitHub remote push + PR trigger + planted-violation + device CI + 5-criteria walkthrough)
+#   INTENTIONALLY DEFERRED to /gsd-verify-work (Phase 1 HUMAN-UAT)
+# - Rationale: project has no GitHub remote configured yet; device CI requires self-hosted runner setup;
+#   the automated gates (full test suite + coverage + privacy-manifest + lint + D-13 Release-strings)
+#   already cover the compile-time / lint / coverage invariants empirically.
+task_5_status: approved-automated-only
+task_5_manual_deferred_to: /gsd-verify-work (Phase 1 HUMAN-UAT)
+task_5_deferred_steps:
+  - "Step 2: PR trigger → simulator CI green (needs git remote + push)"
+  - "Step 3: Planted-violation → CI reject cycle (needs PR infrastructure)"
+  - "Step 4: Device CI on paired iPhone 15 Pro Max (needs self-hosted runner registration + DEVICE_UDID secret)"
+  - "Step 5: 5-criteria ROADMAP walkthrough (user confirmation)"
+
 tags: [ci, github-actions, yaml, simulator, device, secure-enclave, ui-tests, privacy-manifest, coverage, found-04, found-06, ci-01, ci-02, d-01, d-02, d-03, d-04, d-05, d-06, wave-3]
 
 # Dependency graph
