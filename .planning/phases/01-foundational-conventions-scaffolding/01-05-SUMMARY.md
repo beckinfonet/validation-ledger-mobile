@@ -3,6 +3,18 @@ phase: 01-foundational-conventions-scaffolding
 plan: 05
 subsystem: app-composition-root
 
+# Task 3 checkpoint resolution (2026-04-21)
+#
+# User approved with notes:
+# - Automated gates only (Debug build + Release build + 30 tests + Release-strings D-13 proof)
+# - Manual 8-step simulator verification INTENTIONALLY DEFERRED to /gsd-verify-work
+#   or to the Phase 1 HUMAN-UAT cycle post-verify. Rationale: the automated gates
+#   already cover the compile-time and release-stripping invariants empirically; the
+#   manual verification is a UX smoke test best batched with Phase 1's end-of-phase
+#   human verification pass.
+task_3_status: approved-automated-only
+task_3_manual_deferred_to: /gsd-verify-work (Phase 1 HUMAN-UAT)
+
 tags: [app, composition-root, devmenu, uikit, debug-only, appdelegate, scenedelegate, appcontainer, appcoordinator, ios17, adr-0002]
 
 # Dependency graph
