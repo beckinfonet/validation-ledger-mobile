@@ -56,7 +56,7 @@ Plans:
   5. Cert-pinning dual-pin (leaf + backup SPKI hash) rejects a connection to a staging host configured with a third, un-pinned cert — verified by a networking integration test, and the cert-rotation runbook at `docs/cert-rotation.md` documents the 30-day rotation window.
 **Plans:** 7 plans
 Plans:
-- [ ] 02-01-PLAN.md — Wave 0: NetworkError + RequestInterceptor protocols + CR-01/WR-01 Phase 1 fixes
+- [x] 02-01-PLAN.md — Wave 0: NetworkError + RequestInterceptor protocols + CR-01/WR-01 Phase 1 fixes
 - [ ] 02-02-PLAN.md — Wave 1: NET-01 APIEndpoint protocol + APIClient facade + 7 M1 endpoint structs
 - [ ] 02-03-PLAN.md — Wave 1: NET-02 MockURLProtocol fixture registry + 14 JSON fixtures + endpoint decode tests
 - [ ] 02-04-PLAN.md — Wave 2: NET-04 IdempotencyInterceptor + NET-05 RetryInterceptor + tests

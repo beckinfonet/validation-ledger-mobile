@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 
 Phase: 2 of 5 (Networking Contract & Device Keys) — **EXECUTING**
 Prior: Phase 1 complete (2026-04-21); 8 HUMAN-UAT items pending
-Plan: 0 of 7 in Phase 2
-Status: Executing — Wave 0 Plan 02-01 gate (NetworkError + interceptor protocols + CR-01/WR-01 fixes) in progress
-Last activity: 2026-04-21 — Phase 2 execution started
+Plan: 1 of 7 in Phase 2
+Status: Executing — Wave 0 complete (NetworkError + interceptor protocols + CR-01/WR-01 closed); starting Wave 1 Plan 02-02 (NET-01 typed endpoints)
+Last activity: 2026-04-21 — Wave 0 merged; 37 tests across 9 suites pass (up from 32 after Phase 1)
 
-Progress: Phase 1 [██████████] 100% · Phase 2 [░░░░░░░░░░] 0% · Milestone M1 [██░░░░░░░░] 20%
+Progress: Phase 1 [██████████] 100% · Phase 2 [█░░░░░░░░░] 14% · Milestone M1 [██░░░░░░░░] 22%
 
 ## Performance Metrics
 
