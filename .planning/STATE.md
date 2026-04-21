@@ -9,13 +9,13 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 
 ## Current Position
 
-Phase: 2 of 5 (Networking Contract & Device Keys) — **EXECUTING**
+Phase: 2 of 5 (Networking Contract & Device Keys) — **Awaiting verification**
 Prior: Phase 1 complete (2026-04-21); 8 HUMAN-UAT items pending
-Plan: 6 of 7 in Phase 2
-Status: Executing — Waves 0-2 complete; starting Wave 3 Plan 02-07 (NET-03 AppContainer + SEC-01 integration + DEV-03 refuse-launch + dev-menu toggle)
-Last activity: 2026-04-21 — Wave 2 merged: 02-04 (idempotency+retry interceptors, 14 tests) + 02-05 (dual-pin SPKI cert pinning, 9 tests) + 02-06 (Secure Enclave two-key pattern, 8 sim tests + device tests compile-only pending HUMAN-UAT). 82 tests across 15 suites pass.
+Plan: 7 of 7 in Phase 2
+Status: All 7 plans merged; 90 tests across 17 suites pass; 76.82% Core/ coverage (> 70% gate). Next: code review + verifier.
+Last activity: 2026-04-21 — Wave 3 merged: 02-07 (AppContainer NET-03 swap + PinningSessionDelegate on .live only + Environment.release enforcement + DevMenu NetworkConfig toggle + CertificatePinningIntegrationTests 3-cert set + RefuseLaunchWithoutSecureEnclaveTests + ci-simulator.yml -parallel-testing-enabled NO)
 
-Progress: Phase 1 [██████████] 100% · Phase 2 [████████░░] 86% · Milestone M1 [███░░░░░░░] 37%
+Progress: Phase 1 [██████████] 100% · Phase 2 [██████████] 100% (plans) — verification pending · Milestone M1 [████░░░░░░] 40%
 
 ## Performance Metrics
 

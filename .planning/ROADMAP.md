@@ -62,7 +62,7 @@ Plans:
 - [x] 02-04-PLAN.md — Wave 2: NET-04 IdempotencyInterceptor + NET-05 RetryInterceptor + tests
 - [x] 02-05-PLAN.md — Wave 2: SEC-01 dual-pin SPKI cert pinning + SPKIHasher + PinningSessionDelegate + cert-rotation runbook
 - [x] 02-06-PLAN.md — Wave 2: DEV-01/02/03/05 Secure Enclave two-key keystore + DeviceFingerprint + ADR 0004 *(device tests pending HUMAN-UAT)*
-- [ ] 02-07-PLAN.md — Wave 3: NET-03 AppContainer integration + SEC-01 integration test + DEV-03 SC-4 forced-stub test + dev-menu toggle
+- [x] 02-07-PLAN.md — Wave 3: NET-03 AppContainer integration + SEC-01 integration test + DEV-03 SC-4 forced-stub test + dev-menu toggle *(Task 8 HUMAN-UAT pending)*
 
 ### Phase 3: OTP Auth + Role Shell + Session (the fixed Phase 1 goal)
 **Goal**: Deliver the user-decision-fixed Phase 1 visible win: any of the 5 roles (Shipper, Broker, Carrier, Dispatch, Factoring) can enter a phone number, verify a mocked OTP, land on a role-distinct tab shell with placeholder tabs, cold-boot back into that session without re-OTP, and cleanly log out — with `SessionLockService` as the single source of truth for biometric re-prompt across cold-boot and 5-minute-background paths.
