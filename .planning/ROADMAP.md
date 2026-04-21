@@ -42,7 +42,7 @@ Plans:
 - [x] 01-04-PLAN.md — Wave 1: Roles enum + 5 TabBarControllers + UI/DesignSystem + Features/ placeholders + PrivacyInfo.xcprivacy + ATS-strict Info.plist
 - [x] 01-05-PLAN.md — Wave 2: App composition root — AppDelegate + SceneDelegate + AppContainer + AppCoordinator + DevMenu (DEBUG-only shake gesture, role switcher, Keychain inspector, log viewer) *(Task 3 manual verification deferred to HUMAN-UAT)*
 - [x] 01-06-PLAN.md — Wave 2: SwiftLint + 4 custom rules (D-19) + SwiftFormat + pre-commit hook + planted-violation validation
-- [ ] 01-07-PLAN.md — Wave 3: CI workflows (simulator + device) + CI-02 placeholder UI tests + D-06 device smoke test + PrivacyInfo + coverage gates
+- [x] 01-07-PLAN.md — Wave 3: CI workflows (simulator + device) + CI-02 placeholder UI tests + D-06 device smoke test + PrivacyInfo + coverage gates *(Task 5 manual verification deferred to HUMAN-UAT)*
 
 ### Phase 2: Networking Contract & Device Keys
 **Goal**: Stand up the contract-first networking stack — typed models for every M1 endpoint, MockURLProtocol returning canned JSON, dual-pin certificate pinning, idempotency-key interceptor — and the Secure Enclave keystore so Phase 3's OTP verify can register a device-bound EC P-256 keypair. After this phase, the networking and key primitives exist; what's missing is an end-user flow to exercise them.
@@ -98,7 +98,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundational Conventions & Scaffolding | 6/7 | In progress | - |
+| 1. Foundational Conventions & Scaffolding | 7/7 | Awaiting verification | - |
 | 2. Networking Contract & Device Keys | 0/TBD | Not started | - |
 | 3. OTP Auth + Role Shell + Session | 0/TBD | Not started | - |
 | 4. App Attest & Physical-Device CI Hardening | 0/TBD | Not started | - |
