@@ -7,10 +7,28 @@
 	objects = {
 
 /* Begin PBXFileReference section */
+		A10000000000000000000002 /* validationLedgerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = validationLedgerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000000000000000000002 /* validationLedgerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = validationLedgerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A30000000000000000000002 /* validationLedgerDeviceTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = validationLedgerDeviceTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		EE92A0C12F9731A80095025B /* validationLedger.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = validationLedger.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		A10000000000000000000009 /* validationLedgerTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = validationLedgerTests;
+			sourceTree = "<group>";
+		};
+		A20000000000000000000009 /* validationLedgerUITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = validationLedgerUITests;
+			sourceTree = "<group>";
+		};
+		A30000000000000000000009 /* validationLedgerDeviceTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = validationLedgerDeviceTests;
+			sourceTree = "<group>";
+		};
 		EE92A0C32F9731A80095025B /* validationLedger */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = validationLedger;
@@ -19,6 +37,27 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		A10000000000000000000007 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A20000000000000000000007 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A30000000000000000000007 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EE92A0BE2F9731A80095025B /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -33,6 +72,9 @@
 			isa = PBXGroup;
 			children = (
 				EE92A0C32F9731A80095025B /* validationLedger */,
+				A10000000000000000000009 /* validationLedgerTests */,
+				A20000000000000000000009 /* validationLedgerUITests */,
+				A30000000000000000000009 /* validationLedgerDeviceTests */,
 				EE92A0C22F9731A80095025B /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +83,9 @@
 			isa = PBXGroup;
 			children = (
 				EE92A0C12F9731A80095025B /* validationLedger.app */,
+				A10000000000000000000002 /* validationLedgerTests.xctest */,
+				A20000000000000000000002 /* validationLedgerUITests.xctest */,
+				A30000000000000000000002 /* validationLedgerDeviceTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,6 +93,75 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		A10000000000000000000001 /* validationLedgerTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000000000000000000003 /* Build configuration list for PBXNativeTarget "validationLedgerTests" */;
+			buildPhases = (
+				A10000000000000000000006 /* Sources */,
+				A10000000000000000000007 /* Frameworks */,
+				A10000000000000000000008 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A1000000000000000000000A /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A10000000000000000000009 /* validationLedgerTests */,
+			);
+			name = validationLedgerTests;
+			packageProductDependencies = (
+			);
+			productName = validationLedgerTests;
+			productReference = A10000000000000000000002 /* validationLedgerTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		A20000000000000000000001 /* validationLedgerUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A20000000000000000000003 /* Build configuration list for PBXNativeTarget "validationLedgerUITests" */;
+			buildPhases = (
+				A20000000000000000000006 /* Sources */,
+				A20000000000000000000007 /* Frameworks */,
+				A20000000000000000000008 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A2000000000000000000000A /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A20000000000000000000009 /* validationLedgerUITests */,
+			);
+			name = validationLedgerUITests;
+			packageProductDependencies = (
+			);
+			productName = validationLedgerUITests;
+			productReference = A20000000000000000000002 /* validationLedgerUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		A30000000000000000000001 /* validationLedgerDeviceTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A30000000000000000000003 /* Build configuration list for PBXNativeTarget "validationLedgerDeviceTests" */;
+			buildPhases = (
+				A30000000000000000000006 /* Sources */,
+				A30000000000000000000007 /* Frameworks */,
+				A30000000000000000000008 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A3000000000000000000000A /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				A30000000000000000000009 /* validationLedgerDeviceTests */,
+			);
+			name = validationLedgerDeviceTests;
+			packageProductDependencies = (
+			);
+			productName = validationLedgerDeviceTests;
+			productReference = A30000000000000000000002 /* validationLedgerDeviceTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 		EE92A0C02F9731A80095025B /* validationLedger */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = EE92A0CC2F9731AA0095025B /* Build configuration list for PBXNativeTarget "validationLedger" */;
@@ -80,6 +194,18 @@
 				LastSwiftUpdateCheck = 2640;
 				LastUpgradeCheck = 2640;
 				TargetAttributes = {
+					A10000000000000000000001 = {
+						CreatedOnToolsVersion = 26.4;
+						TestTargetID = EE92A0C02F9731A80095025B;
+					};
+					A20000000000000000000001 = {
+						CreatedOnToolsVersion = 26.4;
+						TestTargetID = EE92A0C02F9731A80095025B;
+					};
+					A30000000000000000000001 = {
+						CreatedOnToolsVersion = 26.4;
+						TestTargetID = EE92A0C02F9731A80095025B;
+					};
 					EE92A0C02F9731A80095025B = {
 						CreatedOnToolsVersion = 26.4;
 					};
@@ -100,11 +226,35 @@
 			projectRoot = "";
 			targets = (
 				EE92A0C02F9731A80095025B /* validationLedger */,
+				A10000000000000000000001 /* validationLedgerTests */,
+				A20000000000000000000001 /* validationLedgerUITests */,
+				A30000000000000000000001 /* validationLedgerDeviceTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		A10000000000000000000008 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A20000000000000000000008 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A30000000000000000000008 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EE92A0BF2F9731A80095025B /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -115,6 +265,27 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		A10000000000000000000006 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A20000000000000000000006 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A30000000000000000000006 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EE92A0BD2F9731A80095025B /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -123,6 +294,48 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXContainerItemProxy section */
+		A1000000000000000000000B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EE92A0B92F9731A80095025B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EE92A0C02F9731A80095025B;
+			remoteInfo = validationLedger;
+		};
+		A2000000000000000000000B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EE92A0B92F9731A80095025B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EE92A0C02F9731A80095025B;
+			remoteInfo = validationLedger;
+		};
+		A3000000000000000000000B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EE92A0B92F9731A80095025B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EE92A0C02F9731A80095025B;
+			remoteInfo = validationLedger;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXTargetDependency section */
+		A1000000000000000000000A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EE92A0C02F9731A80095025B /* validationLedger */;
+			targetProxy = A1000000000000000000000B /* PBXContainerItemProxy */;
+		};
+		A2000000000000000000000A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EE92A0C02F9731A80095025B /* validationLedger */;
+			targetProxy = A2000000000000000000000B /* PBXContainerItemProxy */;
+		};
+		A3000000000000000000000A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EE92A0C02F9731A80095025B /* validationLedger */;
+			targetProxy = A3000000000000000000000B /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		EE92A0CA2F9731AA0095025B /* Debug */ = {
@@ -310,6 +523,118 @@
 			};
 			name = Release;
 		};
+		A10000000000000000000004 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = M3W6Y259JR;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.maldin.validationLedger.validationLedgerTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/validationLedger.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/validationLedger";
+			};
+			name = Debug;
+		};
+		A10000000000000000000005 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = M3W6Y259JR;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.maldin.validationLedger.validationLedgerTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/validationLedger.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/validationLedger";
+			};
+			name = Release;
+		};
+		A20000000000000000000004 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = M3W6Y259JR;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.maldin.validationLedger.validationLedgerUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = validationLedger;
+			};
+			name = Debug;
+		};
+		A20000000000000000000005 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = M3W6Y259JR;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.maldin.validationLedger.validationLedgerUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = validationLedger;
+			};
+			name = Release;
+		};
+		A30000000000000000000004 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = M3W6Y259JR;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.maldin.validationLedger.validationLedgerDeviceTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/validationLedger.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/validationLedger";
+			};
+			name = Debug;
+		};
+		A30000000000000000000005 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = M3W6Y259JR;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.maldin.validationLedger.validationLedgerDeviceTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/validationLedger.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/validationLedger";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -327,6 +652,33 @@
 			buildConfigurations = (
 				EE92A0CD2F9731AA0095025B /* Debug */,
 				EE92A0CE2F9731AA0095025B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A10000000000000000000003 /* Build configuration list for PBXNativeTarget "validationLedgerTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A10000000000000000000004 /* Debug */,
+				A10000000000000000000005 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A20000000000000000000003 /* Build configuration list for PBXNativeTarget "validationLedgerUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A20000000000000000000004 /* Debug */,
+				A20000000000000000000005 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A30000000000000000000003 /* Build configuration list for PBXNativeTarget "validationLedgerDeviceTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A30000000000000000000004 /* Debug */,
+				A30000000000000000000005 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
