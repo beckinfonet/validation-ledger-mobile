@@ -1,0 +1,8 @@
+/*
+  Localizable.strings
+  validationLedger — English (en)
+
+  Phase 1 ships this file empty so TechStack.md §6 "English v1; string catalog
+  structured for Spanish in v2" is reserved. User-facing strings land starting
+  in Phase 3 (OTP entry screens).
+*/
