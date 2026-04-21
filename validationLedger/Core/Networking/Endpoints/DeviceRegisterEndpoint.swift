@@ -26,6 +26,13 @@ nonisolated public struct DeviceRegisterEndpoint: APIEndpoint {
     public struct Response: Decodable, Sendable {
         public let deviceID: String
         public let registeredAt: Date
+
+        // Explicit CodingKeys: acronym bridge — see OTPRequestEndpoint.Response for rationale.
+        // Raw values are camelCase (post-.convertFromSnakeCase form).
+        private enum CodingKeys: String, CodingKey {
+            case deviceID = "deviceId"
+            case registeredAt
+        }
     }
     public let path = "/device/register"
     public let method: HTTPMethod = .post

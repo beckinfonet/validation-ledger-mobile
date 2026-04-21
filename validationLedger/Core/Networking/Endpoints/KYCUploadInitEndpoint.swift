@@ -25,6 +25,13 @@ nonisolated public struct KYCUploadInitEndpoint: APIEndpoint {
     public struct Response: Decodable, Sendable {
         public let uploadID: String
         public let chunkSize: Int
+
+        // Explicit CodingKeys: acronym bridge — see OTPRequestEndpoint.Response for rationale.
+        // Raw values are camelCase (post-.convertFromSnakeCase form).
+        private enum CodingKeys: String, CodingKey {
+            case uploadID = "uploadId"
+            case chunkSize
+        }
     }
     public let path = "/kyc/upload/init"
     public let method: HTTPMethod = .post

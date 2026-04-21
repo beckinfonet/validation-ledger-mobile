@@ -16,6 +16,17 @@ nonisolated public struct OTPRequestEndpoint: APIEndpoint {
     public struct Response: Decodable, Sendable {
         public let otpSessionID: String
         public let expiresInSeconds: Int
+
+        // Explicit CodingKeys: `.convertFromSnakeCase` maps "otp_session_id" -> "otpSessionId"
+        // (lowercase 'd'), but the property is `otpSessionID` (uppercase). With
+        // `.convertFromSnakeCase` enabled, the decoder converts JSON keys to camelCase BEFORE
+        // matching against CodingKeys — so CodingKeys raw values must be the camelCase form
+        // (e.g., "otpSessionId"), not the original snake_case. Acronyms in property names are a
+        // known JSONDecoder strategy limitation — this bridges the gap.
+        private enum CodingKeys: String, CodingKey {
+            case otpSessionID = "otpSessionId"
+            case expiresInSeconds
+        }
     }
     public let path = "/auth/otp/request"
     public let method: HTTPMethod = .post
