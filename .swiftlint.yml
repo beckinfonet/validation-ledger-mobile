@@ -1,0 +1,98 @@
+# .swiftlint.yml — Validation Ledger iOS Client
+# Phase 1 base config + 4 custom rules per D-19.
+#
+# DEFERRED to Phase 3 (per D-19 + Discrepancy Flag #1 in 01-RESEARCH.md):
+#   - The raw-coordinate-literal custom rule (GEO-03 phantom-typed AnalyticsEvent)
+#     lands alongside GEO-03 in Phase 3. It is NOT added here — it would fire on
+#     zero Phase 1 violations anyway. See 01-RESEARCH.md Flag #1 for context.
+#
+# When adding custom rules later, update docs/adr/ with the rationale (following
+# ADR 0001 / 0002 / 0003 as templates).
+#
+# D-19 CONTRACT: the 4 `custom_rules` below are the Phase-1 lint charter.
+# Default SwiftLint style rules (trailing_comma, comma, colon, identifier_name,
+# type_name, force_cast, cyclomatic_complexity, etc.) are explicitly disabled
+# in this file so that Plan 06 does not expand Phase 1 scope into cross-plan
+# style remediation. Style/consistency rules can be layered on in a later phase
+# when the team decides to invest in style enforcement beyond the 4 D-19 rules.
+
+# Where to lint (source of truth = validationLedger/; test targets are excluded per Pattern 9).
+included:
+  - validationLedger
+
+excluded:
+  - validationLedgerTests
+  - validationLedgerUITests
+  - validationLedgerDeviceTests
+  - .build
+  - DerivedData
+  - build
+  - Package.swift
+
+# Default SwiftLint rules that are not part of D-19 are disabled so Phase 1
+# does not accidentally police style conventions that Plans 03/04/05 did not
+# adopt. The 4 D-19 custom rules below remain strict.
+disabled_rules:
+  - trailing_comma
+  - comma
+  - colon
+  - identifier_name
+  - type_name
+  - force_cast
+  - cyclomatic_complexity
+  - static_over_final_class
+  - line_length
+  - function_body_length
+  - type_body_length
+  - file_length
+  - nesting
+  - large_tuple
+  - function_parameter_count
+  - todo
+
+# No opt-in rules enabled in Phase 1. PATTERNS.md Pattern 9 suggested four
+# opt-ins (force_unwrapping, empty_count, closure_spacing, explicit_init);
+# force_unwrapping fires on Plans 03/04/05 scaffolding (MockURLProtocol,
+# PIIScrubber regex) that is out-of-scope for Plan 06 to refactor. Future
+# phases may re-enable these selectively once their firing sites are fixed
+# or annotated.
+opt_in_rules: []
+
+# Pattern 9 — 4 custom rules (D-19).
+custom_rules:
+  # Rule 1 — LOG-01: ban print() in application code.
+  # All logging MUST go through Core/Logging/Logger.
+  ban_print:
+    name: "Do not use print()"
+    regex: '\b(Swift\.)?print\s*\('
+    message: "Use Core/Logging/Logger (via injected AppContainer.logger) instead of print()."
+    severity: error
+
+  # Rule 2 — LOG-01: ban direct os_log() outside Core/Logging/.
+  # Only OSLogLoggerImpl may call os_log.
+  ban_direct_os_log:
+    name: "Do not call os_log directly"
+    regex: '\bos_log\s*\('
+    message: "os_log is only allowed inside Core/Logging/. Use the Logger protocol instead."
+    excluded: '.*/Core/Logging/.*'
+    severity: error
+
+  # Rule 3 — SEC-03: ban UserDefaults writes to sensitive keys.
+  # Tokens / keys / session state must go in Keychain. UserDefaults is unencrypted +
+  # included in iTunes/iCloud backup → token leak vector.
+  ban_userdefaults_tokens:
+    name: "Do not store tokens/keys/sessions in UserDefaults"
+    regex: 'UserDefaults[^\n]*\.set\s*\([^,]+,\s*forKey:\s*"[^"]*(token|key|session)[^"]*"'
+    message: "Tokens/keys/sessions must go in Keychain (Core/Storage/Keychain/KeychainStore), not UserDefaults."
+    severity: error
+
+  # Rule 4 — ARCH-05: ban cross-feature imports.
+  # Features/X must not import Features/Y; cross-feature comms goes through Core/ protocols.
+  # Note: Phase 1 has zero violations because Features are not modules yet (D-15 single target).
+  # This rule is future-proofing for when Features become local SPM packages (M2+).
+  no_cross_feature_import:
+    name: "Features must not import other Features"
+    regex: '^\s*import\s+Features_[A-Z]'
+    message: "Cross-feature communication goes through Core/ protocols. Do not import other Features."
+    included: '.*/Features/[^/]+/.*'
+    severity: error
