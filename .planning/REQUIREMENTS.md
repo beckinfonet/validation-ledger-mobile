@@ -177,83 +177,90 @@ Explicit exclusions — both "not in M1" and "not in v1 at all."
 
 ## Traceability
 
-Empty until `gsd-roadmapper` maps each v1 requirement to a phase.
+Every v1 requirement is mapped to exactly one roadmap phase. Status updated as phases complete.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | — | Pending |
-| FOUND-02 | — | Pending |
-| FOUND-03 | — | Pending |
-| FOUND-04 | — | Pending |
-| FOUND-05 | — | Pending |
-| FOUND-06 | — | Pending |
-| FOUND-07 | — | Pending |
-| FOUND-08 | — | Pending |
-| ARCH-01 | — | Pending |
-| ARCH-02 | — | Pending |
-| ARCH-03 | — | Pending |
-| ARCH-04 | — | Pending |
-| ARCH-05 | — | Pending |
-| ARCH-06 | — | Pending |
-| STACK-01 | — | Pending |
-| STACK-02 | — | Pending |
-| STACK-03 | — | Pending |
-| STACK-04 | — | Pending |
-| NET-01 | — | Pending |
-| NET-02 | — | Pending |
-| NET-03 | — | Pending |
-| NET-04 | — | Pending |
-| NET-05 | — | Pending |
-| AUTH-01 | — | Pending |
-| AUTH-02 | — | Pending |
-| AUTH-03 | — | Pending |
-| AUTH-04 | — | Pending |
-| AUTH-05 | — | Pending |
-| AUTH-06 | — | Pending |
-| DEV-01 | — | Pending |
-| DEV-02 | — | Pending |
-| DEV-03 | — | Pending |
-| DEV-04 | — | Pending |
-| DEV-05 | — | Pending |
-| DEV-06 | — | Pending |
-| SHELL-01 | — | Pending |
-| SHELL-02 | — | Pending |
-| SHELL-03 | — | Pending |
-| SHELL-04 | — | Pending |
-| SESS-01 | — | Pending |
-| SESS-02 | — | Pending |
-| SESS-03 | — | Pending |
-| SESS-04 | — | Pending |
-| GEO-01 | — | Pending |
-| GEO-02 | — | Pending |
-| GEO-03 | — | Pending |
-| SEC-01 | — | Pending |
-| SEC-02 | — | Pending |
-| SEC-03 | — | Pending |
-| KYC-01 | — | Pending |
-| KYC-02 | — | Pending |
-| KYC-03 | — | Pending |
-| KYC-04 | — | Pending |
-| KYC-05 | — | Pending |
-| KYC-06 | — | Pending |
-| UPL-01 | — | Pending |
-| UPL-02 | — | Pending |
-| UPL-03 | — | Pending |
-| UPL-04 | — | Pending |
-| UPL-05 | — | Pending |
-| LOG-01 | — | Pending |
-| LOG-02 | — | Pending |
-| LOG-03 | — | Pending |
-| CI-01 | — | Pending |
-| CI-02 | — | Pending |
-| CI-03 | — | Pending |
-| CI-04 | — | Pending |
+| FOUND-01 | Phase 1 | Pending |
+| FOUND-02 | Phase 1 | Pending |
+| FOUND-03 | Phase 1 | Pending |
+| FOUND-04 | Phase 1 | Pending |
+| FOUND-05 | Phase 1 | Pending |
+| FOUND-06 | Phase 1 | Pending |
+| FOUND-07 | Phase 1 | Pending |
+| FOUND-08 | Phase 1 | Pending |
+| ARCH-01 | Phase 1 | Pending |
+| ARCH-02 | Phase 1 | Pending |
+| ARCH-03 | Phase 1 | Pending |
+| ARCH-04 | Phase 1 | Pending |
+| ARCH-05 | Phase 1 | Pending |
+| ARCH-06 | Phase 1 | Pending |
+| STACK-01 | Phase 1 | Pending |
+| STACK-02 | Phase 1 | Pending |
+| STACK-03 | Phase 1 | Pending |
+| STACK-04 | Phase 1 | Pending |
+| NET-01 | Phase 2 | Pending |
+| NET-02 | Phase 2 | Pending |
+| NET-03 | Phase 2 | Pending |
+| NET-04 | Phase 2 | Pending |
+| NET-05 | Phase 2 | Pending |
+| AUTH-01 | Phase 3 | Pending |
+| AUTH-02 | Phase 3 | Pending |
+| AUTH-03 | Phase 3 | Pending |
+| AUTH-04 | Phase 3 | Pending |
+| AUTH-05 | Phase 3 | Pending |
+| AUTH-06 | Phase 3 | Pending |
+| DEV-01 | Phase 2 | Pending |
+| DEV-02 | Phase 2 | Pending |
+| DEV-03 | Phase 2 | Pending |
+| DEV-04 | Phase 4 | Pending |
+| DEV-05 | Phase 2 | Pending |
+| DEV-06 | Phase 3 | Pending |
+| SHELL-01 | Phase 3 | Pending |
+| SHELL-02 | Phase 3 | Pending |
+| SHELL-03 | Phase 3 | Pending |
+| SHELL-04 | Phase 3 | Pending |
+| SESS-01 | Phase 3 | Pending |
+| SESS-02 | Phase 3 | Pending |
+| SESS-03 | Phase 3 | Pending |
+| SESS-04 | Phase 3 | Pending |
+| GEO-01 | Phase 3 | Pending |
+| GEO-02 | Phase 3 | Pending |
+| GEO-03 | Phase 3 | Pending |
+| SEC-01 | Phase 2 | Pending |
+| SEC-02 | Phase 1 | Pending |
+| SEC-03 | Phase 1 | Pending |
+| KYC-01 | Phase 5 | Pending |
+| KYC-02 | Phase 5 | Pending |
+| KYC-03 | Phase 5 | Pending |
+| KYC-04 | Phase 5 | Pending |
+| KYC-05 | Phase 5 | Pending |
+| KYC-06 | Phase 5 | Pending |
+| UPL-01 | Phase 5 | Pending |
+| UPL-02 | Phase 5 | Pending |
+| UPL-03 | Phase 5 | Pending |
+| UPL-04 | Phase 5 | Pending |
+| UPL-05 | Phase 5 | Pending |
+| LOG-01 | Phase 1 | Pending |
+| LOG-02 | Phase 1 | Pending |
+| LOG-03 | Phase 1 | Pending |
+| CI-01 | Phase 1 | Pending |
+| CI-02 | Phase 1 | Pending |
+| CI-03 | Phase 4 | Pending |
+| CI-04 | Phase 1 | Pending |
 
 **Coverage:**
-- v1 requirements: 65 total
-- Mapped to phases: 0 (pending roadmapper)
-- Unmapped: 65 ⚠️ — will be resolved by `gsd-roadmapper`
+- v1 requirements: 67 total (correction: prior summary stated "65"; actual row count is 67 — FOUND 8 + ARCH 6 + STACK 4 + NET 5 + AUTH 6 + DEV 6 + SHELL 4 + SESS 4 + GEO 3 + SEC 3 + KYC 6 + UPL 5 + LOG 3 + CI 4)
+- Mapped to phases: 67 ✓
+- Unmapped: 0 ✓
+
+**Phase distribution:**
+- Phase 1 (Foundational Conventions & Scaffolding): 26 requirements
+- Phase 2 (Networking Contract & Device Keys): 10 requirements
+- Phase 3 (OTP Auth + Role Shell + Session): 18 requirements
+- Phase 4 (App Attest & Physical-Device CI Hardening): 2 requirements
+- Phase 5 (KYC Capture & Upload Pipeline): 11 requirements
 
 ---
 *Requirements defined: 2026-04-20*
-*Last updated: 2026-04-20 after initial definition*
+*Last updated: 2026-04-20 after roadmap traceability map*
