@@ -9,13 +9,13 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 
 ## Current Position
 
-Phase: 1 of 5 (Foundational Conventions & Scaffolding) — **COMPLETE 2026-04-21**
-Next: Phase 2 (Networking Contract & Device Keys) — not yet started
-Plan: 7 of 7 in Phase 1
-Status: Phase 1 complete; 8 HUMAN-UAT items pending (simulator/PR/device interactive verification)
-Last activity: 2026-04-21 — Phase 1 verified (5/5 ROADMAP SCs; CR-02a fix commit ad69b72 closed the only programmatic gap); ROADMAP + REQUIREMENTS + PROJECT all updated to reflect completion
+Phase: 2 of 5 (Networking Contract & Device Keys) — **PLANNED, ready to execute**
+Prior: Phase 1 complete (2026-04-21); 8 HUMAN-UAT items pending
+Plan: 0 of 7 in Phase 2
+Status: Ready to execute — plan-checker APPROVED (7 plans, 4 waves, 10/10 REQ-IDs, CR-01/WR-01 carryover absorbed)
+Last activity: 2026-04-21 — Phase 2 plans written and verified: Wave 0 gate (NetworkError + interceptor protocols + CR-01/WR-01 fixes) → Wave 1 NET-01/02 endpoints + fixtures (serialized) → Wave 2 NET-04/05 interceptors ∥ SEC-01 cert pinning ∥ DEV-01..05 Secure Enclave (parallel-safe, zero files_modified overlap) → Wave 3 NET-03 + SEC-01 integration + DEV-03 refuse-launch (composition + device gates)
 
-Progress: Phase 1 [██████████] 100% · Milestone M1 [██░░░░░░░░] 20%
+Progress: Phase 1 [██████████] 100% · Phase 2 [░░░░░░░░░░] 0% · Milestone M1 [██░░░░░░░░] 20%
 
 ## Performance Metrics
 
