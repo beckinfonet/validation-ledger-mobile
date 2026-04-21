@@ -55,6 +55,13 @@ public struct PIIScrubber: Sendable {
         let emailPattern = #"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}"#
         s = Self.regexReplace(s, pattern: emailPattern) { Self.maskEmail($0) }
 
+        // Full name — requires ≥2 consecutive Capitalized words (Jane Doe, John Q Public).
+        // Single Capitalized words (California, Broker) pass through to avoid over-redaction
+        // of domain terms. Trade-off closes CR-02a / D-16 ("string-based calls cannot bypass
+        // redaction") at the cost of redacting multi-word Proper Nouns in log messages.
+        let namePattern = #"\b[A-Z][a-z]+(?:\s[A-Z][a-z]+)+\b"#
+        s = Self.regexReplace(s, pattern: namePattern) { Self.initialOnly($0) }
+
         // MC/DOT
         let mcDotPattern = #"\b(MC|DOT)[- ]?\d{5,8}\b"#
         s = Self.regexReplace(s, pattern: mcDotPattern, options: [.caseInsensitive]) { match in

@@ -51,4 +51,20 @@ struct PIIScrubberTests {
         #expect(!out.contains("+14155550129"))
         #expect(out.contains("+1415•••0129") || out.contains("[REDACTED:PHONE]"))
     }
+
+    @Test("String-path redacts full names (CR-02a / D-16 invariant)")
+    func stringPathCatchesFullName() {
+        let out = scrubber.scrubString("User Jane Doe failed KYC")
+        #expect(!out.contains("Jane Doe"))
+        #expect(out.contains("J. D."))
+    }
+
+    @Test("String-path name sweep ignores single Capitalized words")
+    func stringPathIgnoresSingleCapitalizedWord() {
+        // Domain terms like "Broker", "California", "Loads" must not be redacted.
+        let out = scrubber.scrubString("Role Broker login on California route")
+        // "Role Broker" is two consecutive Capitalized words → redacted (known trade-off).
+        // "California" alone passes through.
+        #expect(out.contains("California"))
+    }
 }
