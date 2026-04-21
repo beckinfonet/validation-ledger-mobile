@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 ## Current Position
 
 Phase: 1 of 5 (Foundational Conventions & Scaffolding)
-Plan: 5 of 7 in current phase
+Plan: 6 of 7 in current phase
 Status: Executing
-Last activity: 2026-04-21 — Plan 05 merged: AppDelegate + SceneDelegate + AppContainer + AppCoordinator + DevMenu (Task 3 manual verification deferred to HUMAN-UAT). 30 tests still green post-merge.
+Last activity: 2026-04-21 — Wave 2 complete: Plans 05 (composition root + DevMenu) and 06 (SwiftLint 4 custom rules + pre-commit hook) merged. 30 tests still pass; swiftlint --strict exits 0 on 36 files.
 
-Progress: [███████░░░] 71%
+Progress: [█████████░] 86%
 
 ## Performance Metrics
 
