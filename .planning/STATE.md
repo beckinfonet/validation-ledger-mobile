@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 ## Current Position
 
 Phase: 1 of 5 (Foundational Conventions & Scaffolding)
-Plan: 4 of 7 in current phase
+Plan: 5 of 7 in current phase
 Status: Executing
-Last activity: 2026-04-21 — Wave 1 complete: Plans 02 (SwiftPM+docs+ADRs) / 03 (Core services) / 04 (Roles+DS+Privacy) merged; 30 tests across 8 suites pass
+Last activity: 2026-04-21 — Plan 05 merged: AppDelegate + SceneDelegate + AppContainer + AppCoordinator + DevMenu (Task 3 manual verification deferred to HUMAN-UAT). 30 tests still green post-merge.
 
-Progress: [█████░░░░░] 57%
+Progress: [███████░░░] 71%
 
 ## Performance Metrics
 

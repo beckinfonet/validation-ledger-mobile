@@ -40,7 +40,7 @@ Plans:
 - [x] 01-02-PLAN.md — Wave 1: Package.swift (Nuke + SwiftLintPlugins) + .gitignore + .swiftformat + docs/{ci,cert-rotation}.md + 3 ADRs
 - [x] 01-03-PLAN.md — Wave 1: Core/ services — Logging + PIIScrubber + KeychainStore + KeyStore + SessionLockService + DeepLinkRouter + NetworkClient skeleton + tests
 - [x] 01-04-PLAN.md — Wave 1: Roles enum + 5 TabBarControllers + UI/DesignSystem + Features/ placeholders + PrivacyInfo.xcprivacy + ATS-strict Info.plist
-- [ ] 01-05-PLAN.md — Wave 2: App composition root — AppDelegate + SceneDelegate + AppContainer + AppCoordinator + DevMenu (DEBUG-only shake gesture, role switcher, Keychain inspector, log viewer)
+- [x] 01-05-PLAN.md — Wave 2: App composition root — AppDelegate + SceneDelegate + AppContainer + AppCoordinator + DevMenu (DEBUG-only shake gesture, role switcher, Keychain inspector, log viewer) *(Task 3 manual verification deferred to HUMAN-UAT)*
 - [ ] 01-06-PLAN.md — Wave 2: SwiftLint + 4 custom rules (D-19) + SwiftFormat + pre-commit hook + planted-violation validation
 - [ ] 01-07-PLAN.md — Wave 3: CI workflows (simulator + device) + CI-02 placeholder UI tests + D-06 device smoke test + PrivacyInfo + coverage gates
 
@@ -98,7 +98,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundational Conventions & Scaffolding | 4/7 | In progress | - |
+| 1. Foundational Conventions & Scaffolding | 5/7 | In progress | - |
 | 2. Networking Contract & Device Keys | 0/TBD | Not started | - |
 | 3. OTP Auth + Role Shell + Session | 0/TBD | Not started | - |
 | 4. App Attest & Physical-Device CI Hardening | 0/TBD | Not started | - |
