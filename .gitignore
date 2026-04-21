@@ -4,11 +4,14 @@ xcuserdata/
 *.xcuserdatad/
 DerivedData/
 build/
+xcshareddata/WorkspaceSettings.xcsettings
 
 # SwiftPM
 .build/
-Package.resolved
 .swiftpm/
+Packages/
+Package.pins
+Package.resolved
 
 # macOS
 .DS_Store
@@ -18,3 +21,10 @@ Package.resolved
 *.ipa
 *.dSYM.zip
 *.dSYM
+
+# IDEs
+.vscode/
+.idea/
+
+# Logs
+*.log
