@@ -59,9 +59,9 @@ Plans:
 - [x] 02-01-PLAN.md — Wave 0: NetworkError + RequestInterceptor protocols + CR-01/WR-01 Phase 1 fixes
 - [x] 02-02-PLAN.md — Wave 1: NET-01 APIEndpoint protocol + APIClient facade + 7 M1 endpoint structs
 - [x] 02-03-PLAN.md — Wave 1: NET-02 MockURLProtocol fixture registry + 14 JSON fixtures + endpoint decode tests
-- [ ] 02-04-PLAN.md — Wave 2: NET-04 IdempotencyInterceptor + NET-05 RetryInterceptor + tests
-- [ ] 02-05-PLAN.md — Wave 2: SEC-01 dual-pin SPKI cert pinning + SPKIHasher + PinningSessionDelegate + cert-rotation runbook
-- [ ] 02-06-PLAN.md — Wave 2: DEV-01/02/03/05 Secure Enclave two-key keystore + DeviceFingerprint + ADR 0004
+- [x] 02-04-PLAN.md — Wave 2: NET-04 IdempotencyInterceptor + NET-05 RetryInterceptor + tests
+- [x] 02-05-PLAN.md — Wave 2: SEC-01 dual-pin SPKI cert pinning + SPKIHasher + PinningSessionDelegate + cert-rotation runbook
+- [x] 02-06-PLAN.md — Wave 2: DEV-01/02/03/05 Secure Enclave two-key keystore + DeviceFingerprint + ADR 0004 *(device tests pending HUMAN-UAT)*
 - [ ] 02-07-PLAN.md — Wave 3: NET-03 AppContainer integration + SEC-01 integration test + DEV-03 SC-4 forced-stub test + dev-menu toggle
 
 ### Phase 3: OTP Auth + Role Shell + Session (the fixed Phase 1 goal)
