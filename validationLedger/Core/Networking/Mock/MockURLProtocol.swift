@@ -1,11 +1,13 @@
-// validationLedger/Core/Networking/MockURLProtocol.swift
+// validationLedger/Core/Networking/Mock/MockURLProtocol.swift
+// Phase 2 Plan 03: moved to Core/Networking/Mock/ alongside MockFixture.swift + Fixtures/.
+// Phase 2 Plan 01 NSLock-guarded handler registry (WR-01 fix) retained unchanged.
 // Phase 1 scaffolded this with a single hardcoded /ping fixture + an unlocked public static array (WR-01).
 // Phase 2 Plan 01 replaces it with:
 //   (a) NSLock-guarded handler registry (closes WR-01 test parallelism race)
 //   (b) Explicit register(_:) / reset() / currentHandlers public API — tests no longer mutate the array directly
 //   (c) Removal of the Phase 1 defaultPingHandler — every test registers its own fixture, no global defaults survive
 //   (d) Typed Handler closure alias (@Sendable) so Swift 6 concurrency checks pass
-// The registerFixture<E: APIEndpoint>(...) extension ships with Plan 03 once APIEndpoint exists (Plan 02).
+// The registerFixture<E: APIEndpoint>(...) extension ships with Plan 03 (MockFixture.swift in this same directory).
 //
 // Pattern: a session's protocolClasses array is set to [MockURLProtocol.self]; the session is used by APIClient
 // (Plan 02) or direct URLSession tests; MockURLProtocol intercepts requests and consults its handler list.
