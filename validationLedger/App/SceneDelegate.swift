@@ -25,6 +25,21 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let window = UIWindow(windowScene: windowScene)
         self.window = window
 
+        // XCUITest override — CI-02 placeholder tests use this to drive each role shell.
+        // Production / Release builds NEVER see this path (file-level DEBUG gate below);
+        // even Debug only reacts if launchArguments include the sentinel flag.
+        #if DEBUG
+        if let idx = ProcessInfo.processInfo.arguments.firstIndex(of: "-ForceRoleForUITest"),
+           idx + 1 < ProcessInfo.processInfo.arguments.count {
+            let raw = ProcessInfo.processInfo.arguments[idx + 1]
+            if let role = Role(rawValue: raw) {
+                presentRoot(.role(role))
+                window.makeKeyAndVisible()
+                return
+            }
+        }
+        #endif
+
         // Phase 1 default: start at shipper. DevMenu (DEBUG) swaps to other roles;
         // Phase 3 replaces with .launch/.auth routing based on session-token probe.
         presentRoot(.role(.shipper))
