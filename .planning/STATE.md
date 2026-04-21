@@ -9,11 +9,11 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 
 ## Current Position
 
-Phase: 2 of 5 (Networking Contract & Device Keys) — **PLANNED, ready to execute**
+Phase: 2 of 5 (Networking Contract & Device Keys) — **EXECUTING**
 Prior: Phase 1 complete (2026-04-21); 8 HUMAN-UAT items pending
 Plan: 0 of 7 in Phase 2
-Status: Ready to execute — plan-checker APPROVED (7 plans, 4 waves, 10/10 REQ-IDs, CR-01/WR-01 carryover absorbed)
-Last activity: 2026-04-21 — Phase 2 plans written and verified: Wave 0 gate (NetworkError + interceptor protocols + CR-01/WR-01 fixes) → Wave 1 NET-01/02 endpoints + fixtures (serialized) → Wave 2 NET-04/05 interceptors ∥ SEC-01 cert pinning ∥ DEV-01..05 Secure Enclave (parallel-safe, zero files_modified overlap) → Wave 3 NET-03 + SEC-01 integration + DEV-03 refuse-launch (composition + device gates)
+Status: Executing — Wave 0 Plan 02-01 gate (NetworkError + interceptor protocols + CR-01/WR-01 fixes) in progress
+Last activity: 2026-04-21 — Phase 2 execution started
 
 Progress: Phase 1 [██████████] 100% · Phase 2 [░░░░░░░░░░] 0% · Milestone M1 [██░░░░░░░░] 20%
 
