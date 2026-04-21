@@ -54,7 +54,15 @@ Plans:
   3. On a physical device, generating an EC P-256 keypair in the Secure Enclave via `SecureEnclaveKeyStore` with `.biometryCurrentSet` ACL, signing a test payload, and verifying the signature using the public key round-trips; the same test on the simulator uses `SoftwareKeyStore` and succeeds with a `#if DEBUG` capability flag.
   4. A release build refuses to launch on any device where `SecureEnclave.isAvailable` returns false (verified by a forced-stub test in the device CI pipeline).
   5. Cert-pinning dual-pin (leaf + backup SPKI hash) rejects a connection to a staging host configured with a third, un-pinned cert — verified by a networking integration test, and the cert-rotation runbook at `docs/cert-rotation.md` documents the 30-day rotation window.
-**Plans**: TBD
+**Plans:** 7 plans
+Plans:
+- [ ] 02-01-PLAN.md — Wave 0: NetworkError + RequestInterceptor protocols + CR-01/WR-01 Phase 1 fixes
+- [ ] 02-02-PLAN.md — Wave 1: NET-01 APIEndpoint protocol + APIClient facade + 7 M1 endpoint structs
+- [ ] 02-03-PLAN.md — Wave 1: NET-02 MockURLProtocol fixture registry + 14 JSON fixtures + endpoint decode tests
+- [ ] 02-04-PLAN.md — Wave 2: NET-04 IdempotencyInterceptor + NET-05 RetryInterceptor + tests
+- [ ] 02-05-PLAN.md — Wave 2: SEC-01 dual-pin SPKI cert pinning + SPKIHasher + PinningSessionDelegate + cert-rotation runbook
+- [ ] 02-06-PLAN.md — Wave 2: DEV-01/02/03/05 Secure Enclave two-key keystore + DeviceFingerprint + ADR 0004
+- [ ] 02-07-PLAN.md — Wave 3: NET-03 AppContainer integration + SEC-01 integration test + DEV-03 SC-4 forced-stub test + dev-menu toggle
 
 ### Phase 3: OTP Auth + Role Shell + Session (the fixed Phase 1 goal)
 **Goal**: Deliver the user-decision-fixed Phase 1 visible win: any of the 5 roles (Shipper, Broker, Carrier, Dispatch, Factoring) can enter a phone number, verify a mocked OTP, land on a role-distinct tab shell with placeholder tabs, cold-boot back into that session without re-OTP, and cleanly log out — with `SessionLockService` as the single source of truth for biometric re-prompt across cold-boot and 5-minute-background paths.
@@ -99,7 +107,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundational Conventions & Scaffolding | 7/7 | Complete | 2026-04-21 |
-| 2. Networking Contract & Device Keys | 0/TBD | Not started | - |
+| 2. Networking Contract & Device Keys | 0/7 | Planned | - |
 | 3. OTP Auth + Role Shell + Session | 0/TBD | Not started | - |
 | 4. App Attest & Physical-Device CI Hardening | 0/TBD | Not started | - |
 | 5. KYC Capture & Upload Pipeline | 0/TBD | Not started | - |
@@ -109,3 +117,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 *Milestone: M1 Foundation (4 weeks, 1–2 engineers)*
 *Phase 1 planned: 2026-04-20 (7 plans, 4 waves)*
 *Next: `/gsd-execute-phase 1`*
+*Phase 2 planned: 2026-04-21 (7 plans, 4 waves)*
