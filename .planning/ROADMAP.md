@@ -36,7 +36,7 @@ Per `.planning/research/PITFALLS.md` Pitfall 20 + research/SUMMARY.md: **~30% of
   5. `PrivacyInfo.xcprivacy` is in Copy Bundle Resources and declares required-reason APIs already in use (UserDefaults, CoreLocation scaffolding, UIPasteboard if any) — verified by extracting the `.ipa` produced by CI and inspecting its contents.
 **Plans:** 7 plans
 Plans:
-- [ ] 01-01-PLAN.md — Wave 0: Xcode project retarget to iOS 17.0 + test target registration + delete SwiftUI scaffold
+- [x] 01-01-PLAN.md — Wave 0: Xcode project retarget to iOS 17.0 + test target registration + delete SwiftUI scaffold
 - [ ] 01-02-PLAN.md — Wave 1: Package.swift (Nuke + SwiftLintPlugins) + .gitignore + .swiftformat + docs/{ci,cert-rotation}.md + 3 ADRs
 - [ ] 01-03-PLAN.md — Wave 1: Core/ services — Logging + PIIScrubber + KeychainStore + KeyStore + SessionLockService + DeepLinkRouter + NetworkClient skeleton + tests
 - [ ] 01-04-PLAN.md — Wave 1: Roles enum + 5 TabBarControllers + UI/DesignSystem + Features/ placeholders + PrivacyInfo.xcprivacy + ATS-strict Info.plist
@@ -98,7 +98,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundational Conventions & Scaffolding | 0/7 | Planned | - |
+| 1. Foundational Conventions & Scaffolding | 1/7 | In progress | - |
 | 2. Networking Contract & Device Keys | 0/TBD | Not started | - |
 | 3. OTP Auth + Role Shell + Session | 0/TBD | Not started | - |
 | 4. App Attest & Physical-Device CI Hardening | 0/TBD | Not started | - |
