@@ -14,24 +14,54 @@ Native iOS client (iPhone + iPad, iOS 17+) for Validation Ledger — a verified-
 
 <!-- Shipped and confirmed valuable. -->
 
-(None yet — the repo is a raw SwiftUI Xcode template scaffold. Phase 1 begins by rebuilding it as UIKit per spec §3.2.)
+**Validated in Phase 1: Foundational Conventions & Scaffolding (2026-04-21)**
+
+- [x] UIKit-first module layout per TechStack.md §3.2 (`App/`, `Core/`, `Features/`, `UI/`, `Resources/`) replacing the SwiftUI scaffold — *AppDelegate + SceneDelegate + AppContainer + AppCoordinator landed*
+- [x] iOS 17.0 deployment target, Xcode 16.4+ CI floor, Swift 5.9+, SwiftPM-only dependencies — *Package.swift pins Nuke 13.0.2 + SwiftLintPlugins 0.63.2 exactly*
+- [x] MVVM + Coordinators pattern with initializer DI via a single `AppContainer` — *0 matches for `.shared` in App/; initializer DI throughout; ADR 0001 memory conventions*
+- [x] Keychain-backed token storage scaffold — *hand-rolled KeychainStore + KeychainWiper (FOUND-02 first-launch wipe)*
+- [x] Secure Enclave `KeyStoreProtocol` skeleton with SoftwareKeyStore simulator/test fallback — *Pitfall P8 simulator-only gate via `#if DEBUG && targetEnvironment(simulator)`; real keypair generation wiring lands in Phase 2 (SEC-01/DEV-01)*
+- [x] Role-switched tab-bar shell for all 5 roles (Shipper, Broker, Carrier, Dispatch, Factoring) with placeholder tabs per TechStack.md §4 — *5 TabBarControllers + RoleCoordinator + ADR 0002 swap pattern*
+- [x] Structured logging with PII scrubber in `Core/Logging/` using `os_log` / `OSLogStore` — *Logger protocol + OSLogLoggerImpl + PIIScrubber (6-category redaction, both structured + string paths after CR-02a fix); LogViewer in DevMenu (DEBUG-only per D-13)*
+- [x] SessionLockService single source of truth scaffold (FOUND-07) — *`DefaultSessionLockService` with NSLock guarding; cold-boot / background-timeout / explicit-logout triggers all route through it*
+- [x] DeepLinkRouter pre-bootstrap queue (FOUND-08)
+- [x] SwiftLint with 4 custom rules (ban_print, ban_direct_os_log, ban_userdefaults_tokens, no_cross_feature_import) enforced via pre-commit hook + CI
+- [x] Two CI pipelines (simulator on PR, device on merge-to-main) with 77.43% Core/ coverage gate (CI-01/CI-02/CI-04)
+- [x] PrivacyInfo.xcprivacy in Copy Bundle Resources (FOUND-06)
+- [x] ATS-strict Info.plist, zero `NSAllowsArbitraryLoads` (SEC-02)
 
 ### Active
 
 <!-- Milestone 1 ("Foundation") scope. Hypotheses until shipped + validated on real users. -->
 
-**Project foundation (Phase 1 target — first visible win)**
+**Phase 2 target (Networking Contract & Device Keys)**
 
-- [ ] UIKit-first module layout per TechStack.md §3.2 (`App/`, `Core/`, `Features/`, `UI/`, `Resources/`) replacing the current SwiftUI scaffold
-- [ ] iOS 17.0 deployment target, Xcode 15+, Swift 5.9+, SwiftPM-only dependencies
-- [ ] MVVM + Coordinators pattern with initializer DI via a single `AppContainer`
-- [ ] Contract-first networking layer: typed Swift models for TechStack.md §7 endpoints + URLProtocol-based mock that swaps to live URLs without model changes
-- [ ] Phone + SMS OTP auth shim (FR-iOS-AUTH MUSTs) against mock backend
-- [ ] Keychain-backed token storage (`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`)
-- [ ] Secure Enclave EC P-256 keypair generation + registration against mock at first successful login (FR-iOS-DEV)
-- [ ] Role-switched tab-bar shell for all five roles (Shipper, Broker, Carrier, Dispatch, Factoring) — placeholder tabs per TechStack.md §4
-- [ ] Session persistence across cold boot + clean logout + >5min background → biometric re-prompt
-- [ ] Structured logging with PII scrubber in `Core/Logging/` using `os_log` / `OSLogStore`
+- [ ] Contract-first networking layer: typed Swift models for TechStack.md §7 endpoints + URLProtocol-based mock that swaps to live URLs without model changes (NET-01..05)
+- [ ] Certificate pinning active with dual-pin SPKI hashes in production (SEC-01; FOUND-05 skeleton already present)
+- [ ] Secure Enclave EC P-256 keypair generation + `/device/register` integration (DEV-01..DEV-05)
+- [ ] `AppContainer.networking` one-line mock ↔ live toggle (NET-03)
+
+**Phase 3 target (OTP Auth + Role Shell + Session)**
+
+- [ ] Phone + SMS OTP auth shim (FR-iOS-AUTH MUSTs) against mock backend (AUTH-01..06)
+- [ ] Session persistence across cold boot + clean logout + >5min background → biometric re-prompt (SESS-01..04)
+- [ ] Client-side country pre-check via `CLLocationManager` (GEO-01..03)
+
+**Phase 4 target (Attestation + Device CI Hardening)**
+- [ ] App Attest productionization (DEV-04)
+- [ ] Physical-device CI runs SecureEnclave + Keychain biometric + App Attest paths on every merge (CI-03)
+
+**Phase 5 target (KYC Capture + Upload)**
+- [ ] KYC capture flow with GPS EXIF injection (KYC-01..06)
+- [ ] Resumable chunked upload pipeline (UPL-01..05)
+
+**Follow-up items flagged during Phase 1 execution:**
+- [ ] CR-01: `NetworkClient.get/post` force-cast `as! HTTPURLResponse` — address in Phase 2 networking work (guard-cast + typed `NetworkError.unexpectedResponseType`)
+- [ ] CR-02b: PIIScrubber DL regex `\b[A-Z]{1,2}[0-9]{5,8}\b` is over-eager (matches transaction IDs like `TX1234567`) — narrow to validated US state codes at a later pass
+- [ ] CR-03: DevMenu `Row(rawValue: indexPath.row)!` force-unwrap — DEBUG-only; trivial fix
+- [ ] WR-01: `MockURLProtocol.handlers` global mutable static — add synchronization in Phase 2 when fixtures grow
+- [ ] WR-03: `DeepLinkRouter.bootstrapComplete()` post-unlock routing race — narrow window; revisit in Phase 3 deep-link integration
+- [ ] 8 HUMAN-UAT items (see `01-HUMAN-UAT.md`) — run `/gsd-verify-work 1` when ready
 
 **M1 Foundation — subsequent phases (post-Phase 1)**
 
@@ -84,8 +114,8 @@ Validation Ledger exists because the trucking industry loses billions annually t
 **Companion document:**
 TechStack.md (in repo root) is the iOS client's detailed technical spec — 13 sections covering stack, architecture, five roles, eleven FR groups (auth/KYC/device/geo/security/load/BOL/scanner/AI/notifications/offline), non-functional targets, milestones M1–M5, out-of-scope, and open questions. This PROJECT.md is the GSD-managed derivative; when they disagree, TechStack.md wins for product-level questions and PROJECT.md wins for scope currently in play.
 
-**Codebase state (as of init):**
-Brand-new Xcode SwiftUI template scaffold — `validationLedgerApp.swift` + `ContentView.swift`, bundle id `com.maldin.validationLedger`. No tests, no dependencies, no architectural layers. Phase 1 begins by rebuilding this as UIKit and lowering the deployment target from iOS 26.4 to iOS 17.0 per spec §2.
+**Codebase state (as of 2026-04-21, Phase 1 complete):**
+UIKit module layout landed per TechStack.md §3.2. Xcode project retargeted to iOS 17.0 with SwiftPM-only dependencies (Nuke 13.0.2 + SwiftLintPlugins 0.63.2). Composition root is `AppDelegate` + `SceneDelegate` + `AppContainer` (initializer DI, zero singletons). Core services present: `Logger` + `PIIScrubber` (6-category redaction, structured + string paths), `KeychainStore` + `KeychainWiper`, `KeyStoreProtocol` (Software + SecureEnclave), `DefaultSessionLockService`, `DeepLinkRouter`, `NetworkClient` skeleton + `MockURLProtocol`, `PinningSessionDelegate` skeleton. Five role `UITabBarController`s + `RoleCoordinator` with ADR-0002 root-swap. DEBUG-only `DevMenu` (shake-gesture → RoleSwitcher / KeychainInspector / LogViewer) empirically excluded from Release binary. SwiftLint 4 custom rules (ban_print, ban_direct_os_log, ban_userdefaults_tokens, no_cross_feature_import) enforced via pre-commit + CI. Two CI pipelines (simulator on PR, device on merge-to-main). 32 unit tests + 5 UI tests all green. 77.43% Core/ coverage. Phase 2 (Networking Contract & Device Keys) is next.
 
 **Team context:**
 1–2 iOS engineers using AI coding tools, targeting 6-month closed-beta (M1–M5). Backend is built in parallel in a separate codebase; iOS does not wait on it — contract-first JSON stubs keep the client unblocked.
@@ -138,4 +168,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-20 after initialization*
+*Last updated: 2026-04-21 after Phase 1 (Foundational Conventions & Scaffolding) completion*

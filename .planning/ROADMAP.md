@@ -16,7 +16,7 @@ Per `.planning/research/PITFALLS.md` Pitfall 20 + research/SUMMARY.md: **~30% of
 - Integer phases (1, 2, 3): Planned M1 Foundation work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Foundational Conventions & Scaffolding** - UIKit module layout + 8 conventions + tooling + logging + Keychain + sim CI
+- [x] **Phase 1: Foundational Conventions & Scaffolding** - UIKit module layout + 8 conventions + tooling + logging + Keychain + sim CI *(completed 2026-04-21, 8 HUMAN-UAT items pending)*
 - [ ] **Phase 2: Networking Contract & Device Keys** - Contract-first mock networking + cert pinning + Secure Enclave keypair + token storage
 - [ ] **Phase 3: OTP Auth + Role Shell + Session** - The fixed Phase 1 goal: 5 roles OTP-login to distinct tab shells, cold-boot into persisted session, clean logout
 - [ ] **Phase 4: App Attest & Physical-Device CI Hardening** - App Attest productionization + on-device CI pipeline for Secure Enclave / Keychain biometric / App Attest paths
@@ -98,7 +98,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundational Conventions & Scaffolding | 7/7 | Awaiting verification | - |
+| 1. Foundational Conventions & Scaffolding | 7/7 | Complete | 2026-04-21 |
 | 2. Networking Contract & Device Keys | 0/TBD | Not started | - |
 | 3. OTP Auth + Role Shell + Session | 0/TBD | Not started | - |
 | 4. App Attest & Physical-Device CI Hardening | 0/TBD | Not started | - |

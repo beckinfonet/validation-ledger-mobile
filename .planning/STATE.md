@@ -9,12 +9,13 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 
 ## Current Position
 
-Phase: 1 of 5 (Foundational Conventions & Scaffolding)
-Plan: 7 of 7 in current phase
-Status: Awaiting verification
-Last activity: 2026-04-21 — All 7 plans merged. 35 tests pass (30 unit + 5 UI), 77.43% Core/ coverage, swiftlint --strict green on 36 files, Release binary D-13 proof (0 DevMenu symbols). Running phase verifier next.
+Phase: 1 of 5 (Foundational Conventions & Scaffolding) — **COMPLETE 2026-04-21**
+Next: Phase 2 (Networking Contract & Device Keys) — not yet started
+Plan: 7 of 7 in Phase 1
+Status: Phase 1 complete; 8 HUMAN-UAT items pending (simulator/PR/device interactive verification)
+Last activity: 2026-04-21 — Phase 1 verified (5/5 ROADMAP SCs; CR-02a fix commit ad69b72 closed the only programmatic gap); ROADMAP + REQUIREMENTS + PROJECT all updated to reflect completion
 
-Progress: [██████████] 100% (plans) — verification pending
+Progress: Phase 1 [██████████] 100% · Milestone M1 [██░░░░░░░░] 20%
 
 ## Performance Metrics
 
