@@ -10,11 +10,11 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 ## Current Position
 
 Phase: 1 of 5 (Foundational Conventions & Scaffolding)
-Plan: 1 of 7 in current phase
+Plan: 4 of 7 in current phase
 Status: Executing
-Last activity: 2026-04-21 — Wave 0 complete: Plan 01 Xcode retarget merged (iOS 17, UIKit scaffold removed, 3 test targets registered)
+Last activity: 2026-04-21 — Wave 1 complete: Plans 02 (SwiftPM+docs+ADRs) / 03 (Core services) / 04 (Roles+DS+Privacy) merged; 30 tests across 8 suites pass
 
-Progress: [█░░░░░░░░░] 14%
+Progress: [█████░░░░░] 57%
 
 ## Performance Metrics
 
