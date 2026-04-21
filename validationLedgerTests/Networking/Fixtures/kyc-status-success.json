@@ -1,0 +1,8 @@
+{
+  "overall_status": "under_review",
+  "artifacts": [
+    { "artifact_id": "art-face-001", "status": "verified", "rejection_reason": null },
+    { "artifact_id": "art-dl-front-002", "status": "under_review", "rejection_reason": null },
+    { "artifact_id": "art-dl-back-003", "status": "rejected", "rejection_reason": "DL image blurry; please retake." }
+  ]
+}

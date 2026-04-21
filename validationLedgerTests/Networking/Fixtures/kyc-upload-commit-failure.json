@@ -1,0 +1,4 @@
+{
+  "error_code": "kyc.incomplete_upload",
+  "message": "Not all chunks committed; missing chunks: [3, 7]."
+}

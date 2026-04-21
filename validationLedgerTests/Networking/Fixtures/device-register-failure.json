@@ -1,0 +1,4 @@
+{
+  "error_code": "device.already_registered",
+  "message": "This device is already registered to another user."
+}

@@ -1,0 +1,4 @@
+{
+  "error_code": "kyc.artifact_too_large",
+  "message": "Artifact exceeds 25 MB limit."
+}
