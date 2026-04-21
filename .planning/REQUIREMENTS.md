@@ -39,11 +39,11 @@ Infrastructure that must exist before feature work — the "8 conventions" surfa
 
 ### Networking Contract + Mock (NET)
 
-- [ ] **NET-01**: `Core/Networking/APIClient` exposes typed Swift models for all TechStack.md §7 endpoints relevant to M1 (OTP request, OTP verify, device register, KYC upload init/chunk/commit, KYC status). Defined up-front even for endpoints Phase 2 consumes.
-- [ ] **NET-02**: `MockURLProtocol` returns canned JSON responses for every M1 endpoint. Test target ships with success + failure fixtures per endpoint.
-- [ ] **NET-03**: Swapping from mock to live backend is a one-line change (`AppContainer.networking = .mock` vs `.live(baseURL:)`). No call-site changes required.
-- [ ] **NET-04**: An idempotency-key interceptor injects `Idempotency-Key` header on every POST mutation, generated via `UUID().uuidString` and persisted for the request's lifecycle.
-- [ ] **NET-05**: Exponential backoff on idempotent GETs only (max 3 retries); no retry on POST without explicit idempotency key replay through the outbound queue.
+- [x] **NET-01**: `Core/Networking/APIClient` exposes typed Swift models for all TechStack.md §7 endpoints relevant to M1 (OTP request, OTP verify, device register, KYC upload init/chunk/commit, KYC status). Defined up-front even for endpoints Phase 2 consumes. *(Validated Phase 2 — 7 endpoint structs + APIClient facade; APIClientEndpointTests 14/14 pass)*
+- [x] **NET-02**: `MockURLProtocol` returns canned JSON responses for every M1 endpoint. Test target ships with success + failure fixtures per endpoint. *(Validated Phase 2 — 14 JSON fixtures + FixtureLoader; NSLock-guarded handlers (WR-01 closed))*
+- [x] **NET-03**: Swapping from mock to live backend is a one-line change (`AppContainer.networking = .mock` vs `.live(baseURL:)`). No call-site changes required. *(Validated Phase 2 — AppContainer.makeSession(networkConfig:) + NetworkConfigToggleViewController DevMenu entry)*
+- [x] **NET-04**: An idempotency-key interceptor injects `Idempotency-Key` header on every POST mutation, generated via `UUID().uuidString` and persisted for the request's lifecycle. *(Validated Phase 2 — IdempotencyInterceptor; 5 tests; respects caller-supplied keys for Phase 5 replay)*
+- [x] **NET-05**: Exponential backoff on idempotent GETs only (max 3 retries); no retry on POST without explicit idempotency key replay through the outbound queue. *(Validated Phase 2 — RetryInterceptor GET-only with jittered backoff; 9 tests)*
 
 ### Authentication (AUTH)
 
@@ -56,11 +56,11 @@ Infrastructure that must exist before feature work — the "8 conventions" surfa
 
 ### Device Binding & Integrity (DEV)
 
-- [ ] **DEV-01**: `Core/KeyStore/SecureEnclaveKeyStore` generates an EC P-256 keypair in the Secure Enclave at first successful OTP verify. Public key registered with backend via `/device/register`.
-- [ ] **DEV-02**: `Core/KeyStore` uses the two-key pattern: `deviceKey` (passcode-only ACL) for device identity, `authorizationKey` (`.biometryCurrentSet` ACL) for sensitive-request signing.
-- [ ] **DEV-03**: `Core/KeyStore/SoftwareKeyStore` is the simulator/test fallback, selected via `#if DEBUG && targetEnvironment(simulator)` in `AppContainer`. Production builds refuse launch if Secure Enclave is unavailable on a real device.
+- [x] **DEV-01**: `Core/KeyStore/SecureEnclaveKeyStore` generates an EC P-256 keypair in the Secure Enclave at first successful OTP verify. Public key registered with backend via `/device/register`. *(Validated Phase 2 — SecKeyCreateRandomKey path, NOT CryptoKit wrapper; device tests compile-for-testing green; physical-device execution pending HUMAN-UAT)*
+- [x] **DEV-02**: `Core/KeyStore` uses the two-key pattern: `deviceKey` (passcode-only ACL) for device identity, `authorizationKey` (`.biometryCurrentSet` ACL) for sensitive-request signing. *(Validated Phase 2 — two-slot keyprotocol + ADR 0004 documents rationale)*
+- [x] **DEV-03**: `Core/KeyStore/SoftwareKeyStore` is the simulator/test fallback, selected via `#if DEBUG && targetEnvironment(simulator)` in `AppContainer`. Production builds refuse launch if Secure Enclave is unavailable on a real device. *(Validated Phase 2 — AppContainer.preflightSecureEnclave() + RefuseLaunchWithoutSecureEnclaveTests; physical-device SC-4 verification pending HUMAN-UAT)*
 - [ ] **DEV-04**: `Core/Attestation` calls App Attest on first successful login; attestation payload included in `/device/register`. Gracefully skipped if App Attest is unavailable (older device, entitlement missing) with a logged warning — backend decides policy.
-- [ ] **DEV-05**: Device fingerprint (device model, iOS version, install UUID) sent with `/device/register`. Install UUID persisted in Keychain.
+- [x] **DEV-05**: Device fingerprint (device model, iOS version, install UUID) sent with `/device/register`. Install UUID persisted in Keychain. *(Validated Phase 2 — DeviceFingerprint + DeviceFingerprintTests; Keychain-persisted install UUID)*
 - [ ] **DEV-06**: If backend returns "another active session" at any authenticated endpoint, iOS shows the "switch device" flow: clear state, logout, prompt user to proceed with re-KYC (which is M2+, so M1 shows a placeholder screen with support contact).
 
 ### Role Shell (SHELL)
@@ -85,7 +85,7 @@ Infrastructure that must exist before feature work — the "8 conventions" surfa
 
 ### Transport Security (SEC)
 
-- [ ] **SEC-01**: Certificate pinning active on all API traffic via `Core/Networking/CertificatePinning`. Dual-pin (leaf + backup) SPKI hashes baked into the release build; staging build pins the staging leaf + backup.
+- [x] **SEC-01**: Certificate pinning active on all API traffic via `Core/Networking/CertificatePinning`. Dual-pin (leaf + backup) SPKI hashes baked into the release build; staging build pins the staging leaf + backup. *(Validated Phase 2 — PinnedSPKIs compile-time constants + SPKIHasher + PinningSessionDelegate; 13 tests including 3-cert integration; docs/cert-rotation.md expanded to full 30-day runbook. Real staging/production SPKI values are PHASE2-TODO markers — backend team fills in before Release)*
 - [x] **SEC-02**: App Transport Security strict in `Info.plist`. No `NSAllowsArbitraryLoads` exceptions. *(Validated Phase 1 — ATS-strict Info.plist; plutil -lint clean)*
 - [x] **SEC-03**: Keychain storage for all tokens. Secure Enclave for all keys. Zero sensitive data in `UserDefaults` or plain files — enforced by a SwiftLint custom rule flagging `UserDefaults` writes of keys named `*token*`, `*key*`, `*session*`. *(Validated Phase 1 — ban_userdefaults_tokens custom rule active)*
 

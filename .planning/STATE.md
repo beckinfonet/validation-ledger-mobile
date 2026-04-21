@@ -9,13 +9,13 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 
 ## Current Position
 
-Phase: 2 of 5 (Networking Contract & Device Keys) — **Awaiting verification**
-Prior: Phase 1 complete (2026-04-21); 8 HUMAN-UAT items pending
+Phase: 2 of 5 (Networking Contract & Device Keys) — **COMPLETE 2026-04-21**
+Next: Phase 3 (OTP Auth + Role Shell + Session) — the fixed Phase 1 user-visible win
 Plan: 7 of 7 in Phase 2
-Status: All 7 plans merged; 90 tests across 17 suites pass; 76.82% Core/ coverage (> 70% gate). Next: code review + verifier.
-Last activity: 2026-04-21 — Wave 3 merged: 02-07 (AppContainer NET-03 swap + PinningSessionDelegate on .live only + Environment.release enforcement + DevMenu NetworkConfig toggle + CertificatePinningIntegrationTests 3-cert set + RefuseLaunchWithoutSecureEnclaveTests + ci-simulator.yml -parallel-testing-enabled NO)
+Status: Phase 2 complete; 3 Phase 2 HUMAN-UAT items + 8 Phase 1 HUMAN-UAT items pending (all device/simulator/GitHub dependent); 2 pre-Phase-3 fix items deferred to PROJECT.md Active (CR-02 SE dup-key guard + IN-01/05 acronym CodingKeys)
+Last activity: 2026-04-21 — Phase 2 verified (5/5 ROADMAP SCs; status: human_needed). ROADMAP + REQUIREMENTS + PROJECT all updated. Phase 1 carryovers CR-01 + WR-01 closed during Phase 2.
 
-Progress: Phase 1 [██████████] 100% · Phase 2 [██████████] 100% (plans) — verification pending · Milestone M1 [████░░░░░░] 40%
+Progress: Phase 1 [██████████] 100% · Phase 2 [██████████] 100% · Milestone M1 [████░░░░░░] 40%
 
 ## Performance Metrics
 
