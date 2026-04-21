@@ -16,6 +16,17 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
     private var appCoordinator: AppCoordinator?
 
+    #if DEBUG
+    /// Holds the strong-typed observer token so we can remove it on deinit / scene disconnect.
+    /// Phase 2 Plan 07: DevMenu NetworkConfig toggle (NET-03 SC-2) posts
+    /// `.devMenuNetworkConfigRequested`; we root-swap with a fresh AppContainer bound to the
+    /// requested NetworkConfig. ADR-0002 pattern — previous coordinator drops on next runloop.
+    private var networkConfigObserver: NSObjectProtocol?
+    /// Currently-active NetworkConfig override (nil → AppContainer.defaultNetworkConfig).
+    /// Persists across role-swap so toggling DevMenu → Live → Role-switcher stays on Live.
+    private var currentNetworkConfigOverride: NetworkConfig?
+    #endif
+
     func scene(
         _ scene: UIScene,
         willConnectTo session: UISceneSession,
@@ -24,6 +35,25 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = scene as? UIWindowScene else { return }
         let window = UIWindow(windowScene: windowScene)
         self.window = window
+
+        #if DEBUG
+        // Observe the DevMenu NetworkConfig toggle (NET-03 SC-2 demonstrator).
+        // Observer is removed in `sceneDidDisconnect` and deinit to avoid leaks.
+        networkConfigObserver = NotificationCenter.default.addObserver(
+            forName: .devMenuNetworkConfigRequested,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self,
+                  let config = note.userInfo?[DevMenuNetworkConfigKey.config] as? NetworkConfig else {
+                return
+            }
+            self.currentNetworkConfigOverride = config
+            // Re-present the current phase (shipper by default) with a fresh AppContainer bound
+            // to the new config — matches the RoleSwitcher root-swap pattern.
+            self.presentRoot(.role(.shipper))
+        }
+        #endif
 
         // XCUITest override — CI-02 placeholder tests use this to drive each role shell.
         // Production / Release builds NEVER see this path (file-level DEBUG gate below);
@@ -53,6 +83,23 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
     }
 
+    func sceneDidDisconnect(_ scene: UIScene) {
+        #if DEBUG
+        if let token = networkConfigObserver {
+            NotificationCenter.default.removeObserver(token)
+            networkConfigObserver = nil
+        }
+        #endif
+    }
+
+    deinit {
+        #if DEBUG
+        if let token = networkConfigObserver {
+            NotificationCenter.default.removeObserver(token)
+        }
+        #endif
+    }
+
     // MARK: - Deep-link forwarding
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
@@ -65,7 +112,13 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func presentRoot(_ phase: AppPhase) {
         // Fresh container + fresh coordinator per D-10.
+        // In DEBUG, respect the DevMenu NetworkConfig override (NET-03 SC-2 demonstrator)
+        // so toggling mock/live persists across subsequent role swaps.
+        #if DEBUG
+        let container = AppContainer(env: .current, networkConfig: currentNetworkConfigOverride)
+        #else
         let container = AppContainer(env: .current)
+        #endif
         let coordinator = AppCoordinator(container: container, phase: phase)
 
         // Wire callbacks that can trigger re-routing in Phase 3+.
