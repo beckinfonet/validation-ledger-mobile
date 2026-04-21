@@ -1,0 +1,24 @@
+# .swiftformat — Validation Ledger iOS Client
+# SwiftFormat 0.61.0 (nicklockwood). See docs: https://github.com/nicklockwood/SwiftFormat
+#
+# Philosophy: defaults + conservative additions. Pre-commit hook (installed by Plan 06)
+# runs `swiftformat --lint` on staged files; `swiftformat` (auto-fix) is developer choice.
+
+# Swift version target (matches STACK.md Swift 5.9 floor)
+--swiftversion 5.9
+
+# Exclude generated + vendor + test fixtures
+--exclude .build,DerivedData,build,xcuserdata
+
+# Sensible defaults (most are SwiftFormat defaults; listing for docs)
+--indent 4
+--indentcase false
+--trimwhitespace always
+--insertlines true
+--removelines true
+--wraparguments before-first
+--wrapparameters before-first
+--wrapcollections before-first
+--closingparen balanced
+--self init-only
+--importgrouping alpha
