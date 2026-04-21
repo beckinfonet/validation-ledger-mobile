@@ -34,7 +34,15 @@ Per `.planning/research/PITFALLS.md` Pitfall 20 + research/SUMMARY.md: **~30% of
   3. Deleting and reinstalling the app on device wipes the Keychain (verified by a debug-only button that enumerates Keychain items before and after first launch) — the `didCompleteFirstLaunch` UserDefaults flag gates this.
   4. CI runs two pipelines: simulator tests on every PR (excluding security code), physical-device tests on every merge to `main` (placeholder tests for now — real assertions land in Phase 2/3/4). Both pipelines are documented in `docs/ci.md`.
   5. `PrivacyInfo.xcprivacy` is in Copy Bundle Resources and declares required-reason APIs already in use (UserDefaults, CoreLocation scaffolding, UIPasteboard if any) — verified by extracting the `.ipa` produced by CI and inspecting its contents.
-**Plans**: TBD
+**Plans:** 7 plans
+Plans:
+- [ ] 01-01-PLAN.md — Wave 0: Xcode project retarget to iOS 17.0 + test target registration + delete SwiftUI scaffold
+- [ ] 01-02-PLAN.md — Wave 1: Package.swift (Nuke + SwiftLintPlugins) + .gitignore + .swiftformat + docs/{ci,cert-rotation}.md + 3 ADRs
+- [ ] 01-03-PLAN.md — Wave 1: Core/ services — Logging + PIIScrubber + KeychainStore + KeyStore + SessionLockService + DeepLinkRouter + NetworkClient skeleton + tests
+- [ ] 01-04-PLAN.md — Wave 1: Roles enum + 5 TabBarControllers + UI/DesignSystem + Features/ placeholders + PrivacyInfo.xcprivacy + ATS-strict Info.plist
+- [ ] 01-05-PLAN.md — Wave 2: App composition root — AppDelegate + SceneDelegate + AppContainer + AppCoordinator + DevMenu (DEBUG-only shake gesture, role switcher, Keychain inspector, log viewer)
+- [ ] 01-06-PLAN.md — Wave 2: SwiftLint + 4 custom rules (D-19) + SwiftFormat + pre-commit hook + planted-violation validation
+- [ ] 01-07-PLAN.md — Wave 3: CI workflows (simulator + device) + CI-02 placeholder UI tests + D-06 device smoke test + PrivacyInfo + coverage gates
 
 ### Phase 2: Networking Contract & Device Keys
 **Goal**: Stand up the contract-first networking stack — typed models for every M1 endpoint, MockURLProtocol returning canned JSON, dual-pin certificate pinning, idempotency-key interceptor — and the Secure Enclave keystore so Phase 3's OTP verify can register a device-bound EC P-256 keypair. After this phase, the networking and key primitives exist; what's missing is an end-user flow to exercise them.
@@ -90,7 +98,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundational Conventions & Scaffolding | 0/TBD | Not started | - |
+| 1. Foundational Conventions & Scaffolding | 0/7 | Planned | - |
 | 2. Networking Contract & Device Keys | 0/TBD | Not started | - |
 | 3. OTP Auth + Role Shell + Session | 0/TBD | Not started | - |
 | 4. App Attest & Physical-Device CI Hardening | 0/TBD | Not started | - |
@@ -99,4 +107,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 ---
 *Roadmap created: 2026-04-20*
 *Milestone: M1 Foundation (4 weeks, 1–2 engineers)*
-*Next: `/gsd-plan-phase 1`*
+*Phase 1 planned: 2026-04-20 (7 plans, 4 waves)*
+*Next: `/gsd-execute-phase 1`*
