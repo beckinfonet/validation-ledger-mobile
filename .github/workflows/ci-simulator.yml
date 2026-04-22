@@ -68,6 +68,11 @@ jobs:
       - name: Coverage gate (Core/ >= 70% — CI-01)
         run: bash scripts/check-coverage.sh $PWD/build/TestResults.xcresult 70
 
+      - name: Verify Release binary has no sim-bypass symbols (D-10 guard)
+        # Phase 4: ensure SimulatorBypassAttestationService does NOT leak into Release.
+        # Script archives Release config, greps binary for "sim-bypass-" strings, fails if any.
+        run: bash scripts/verify-release-no-sim-bypass.sh $PWD/build/release-check
+
       - name: Upload test result bundle (artifact)
         if: always()
         uses: actions/upload-artifact@v4
