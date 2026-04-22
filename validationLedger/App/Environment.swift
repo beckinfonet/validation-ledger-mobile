@@ -46,3 +46,10 @@ public struct Environment: Sendable {
         #endif
     }()
 }
+
+public extension Environment {
+    /// Phase 3 D-19: contact for AnotherActiveSessionViewController support flow.
+    /// M2+ may upgrade to in-app composer; M1 uses mailto:. Placeholder value —
+    /// backend team finalizes pre-Release.
+    static let supportEmail: String = "support@validationledger.example"
+}
