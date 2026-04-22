@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: ready_to_execute
-stopped_at: "Phase 4 planned — 10 plans across 5 waves verified by plan-checker (iteration 2). DEV-04 + CI-03 covered; all 16 CONTEXT.md decisions mapped to implementing tasks. Waves: W1 foundations (01 types+protocol+entitlement+ADR, 02 test scaffolding) → W2 impls (03 AttestationService impls+AttestedKeyStore, 04 endpoints+three-key payload) → W3 tests+DI (05 12 sim tests+release guard, 06 AppContainer+AppSession+biometricServiceOverride) → W4 integration (07 SceneDelegate heartbeat+DevMenu+AttestationErrorResponseInterceptor, 08 LimitedTrustBanner+role-shell+iPad checkpoint, 09 device CI tests) → W5 CI (10 ci-device.yml+Slack flaky notifier+branch-protection HUMAN checkpoint). Known execution-time concern: Plan 05 Task 4 AttestationErrorResponseInterceptorTest references type created in Plan 07 Task 3 — executor should stub+replace or use @Suite(.disabled) until Wave 4 lands."
-last_updated: "2026-04-22T10:30:00.000Z"
-last_activity: 2026-04-22 -- Phase 4 planned (10 plans, 5 waves, verification passed iteration 2)
+status: executing
+stopped_at: "Phase 4 Wave 1 complete (plans 04-01, 04-02). Post-merge reconciliation: FakeAttestationService: AttestationService conformance added. Post-merge test gate (xcodebuild build-for-testing, iPhone 16 sim) PASSED. Wave 2 (plans 04-03 AttestationService impls + 04-04 endpoints) dispatching next."
+last_updated: "2026-04-22T11:00:00.000Z"
+last_activity: 2026-04-22 -- Phase 4 Wave 1 complete (2/10 plans) — test gate passed
 progress:
   total_phases: 5
   completed_phases: 3
@@ -25,13 +25,13 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 
 ## Current Position
 
-Phase: 3 of 5 (OTP Auth + Role Shell + Session) — **COMPLETE 2026-04-22**
-Next: Phase 4 (App Attest & Physical-Device CI Hardening)
-Plan: 13 of 13 in Phase 3
-Status: Ready to discuss/plan next phase
-Last activity: 2026-04-22 -- Phase 3 complete (user-approved after gap closure)
+Phase: 4 of 5 (App Attest & Physical-Device CI Hardening) — **IN PROGRESS**
+Wave: 1 of 5 complete · Next: Wave 2 (plans 04-03 AttestationService impls + 04-04 endpoints)
+Plan: 2 of 10 in Phase 4
+Status: Executing
+Last activity: 2026-04-22 -- Wave 1 complete + post-merge test gate PASSED
 
-Progress: Phase 1 [██████████] 100% · Phase 2 [██████████] 100% · Phase 3 [██████████] 100% · Milestone M1 [██████░░░░] 60%
+Progress: Phase 1 [██████████] 100% · Phase 2 [██████████] 100% · Phase 3 [██████████] 100% · Phase 4 [██░░░░░░░░] 20% · Milestone M1 [███████░░░] 68%
 
 ## Performance Metrics
 

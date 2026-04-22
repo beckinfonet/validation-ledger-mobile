@@ -100,8 +100,8 @@ Plans:
   3. CI physical-device pipeline runs Secure Enclave keypair-generation + Keychain biometric-bound storage + App Attest assertion tests on every merge to `main`, and blocks merges that break any of them — verified by intentionally breaking one test and confirming the pipeline fails.
 **Plans:** 10 plans
 Plans:
-- [ ] 04-01-PLAN.md — Wave 1: Foundational types + protocol + KeychainKey extensions + entitlement + ADR 0005 + attestation-rotation runbook
-- [ ] 04-02-PLAN.md — Wave 1: Wave 0 test scaffolding — 4 JSON fixtures + KeychainScopeTests (D-03 pin) + FakeAttestationService + SeededLAContext
+- [x] 04-01-PLAN.md — Wave 1: Foundational types + protocol + KeychainKey extensions + entitlement + ADR 0005 + attestation-rotation runbook
+- [x] 04-02-PLAN.md — Wave 1: Wave 0 test scaffolding — 4 JSON fixtures + KeychainScopeTests (D-03 pin) + FakeAttestationService + SeededLAContext
 - [ ] 04-03-PLAN.md — Wave 2: AttestationService implementations — DCAppAttestAttestationService (production) + SimulatorBypassAttestationService (DEBUG+sim) + AttestedKeyStore
 - [ ] 04-04-PLAN.md — Wave 2: Endpoints — DeviceChallenge (GET) + DeviceHeartbeat (POST) + DeviceRegister three-key payload extension + trustTier response
 - [ ] 04-05-PLAN.md — Wave 3: 12 simulator-side tests — D-01/D-04/D-05/D-06/D-07c/D-07d/D-08/D-09/D-09f/D-10/D-02-wire/D-04-interceptor + Release-strings grep guard script
