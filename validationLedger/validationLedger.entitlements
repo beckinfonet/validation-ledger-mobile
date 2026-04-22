@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Phase 4 DEV-04: App Attest environment entitlement.
+         Value is 'development' for Xcode-direct dev + internal TestFlight.
+         Apple IGNORES this value in TestFlight + App Store distributions and
+         always routes to production — do NOT flip to 'production' for release.
+         See docs/adr/0005-three-key-device-register-payload.md + 04-RESEARCH.md Pitfall 3. -->
+    <key>com.apple.developer.devicecheck.appattest-environment</key>
+    <string>development</string>
+</dict>
+</plist>
