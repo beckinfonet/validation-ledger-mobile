@@ -11,9 +11,9 @@
 // tender/accept/scan endpoints (M2+) extend the enum.
 //
 // SwiftLint rule `ban_raw_coordinate_literal` (Phase 3 D-24, .swiftlint.yml) enforces
-// that raw `CLLocationCoordinate2D(latitude:)` literals may only appear inside
-// Core/Networking/Endpoints/** or Core/Identity/Geo*/** — this enum is the sanctioned
-// carrier type from those allow-listed sites out to the rest of the app.
+// that raw coordinate literals (the canonical init-with-latitude form) may only appear
+// inside Core/Networking/Endpoints/** or Core/Identity/Geo*/** — this enum is the
+// sanctioned carrier type from those allow-listed sites out to the rest of the app.
 
 import CoreLocation
 import Foundation

@@ -1,15 +1,11 @@
 # .swiftlint.yml — Validation Ledger iOS Client
-# Phase 1 base config + 4 custom rules per D-19.
-#
-# DEFERRED to Phase 3 (per D-19 + Discrepancy Flag #1 in 01-RESEARCH.md):
-#   - The raw-coordinate-literal custom rule (GEO-03 phantom-typed AnalyticsEvent)
-#     lands alongside GEO-03 in Phase 3. It is NOT added here — it would fire on
-#     zero Phase 1 violations anyway. See 01-RESEARCH.md Flag #1 for context.
+# Phase 1 base config + 5 custom rules (4 from D-19; 5th added in Phase 3 per D-24).
+# Phase 3 closes Phase 1 D-19 deferred `ban_raw_coordinate_literal` rule (see Rule 5 below).
 #
 # When adding custom rules later, update docs/adr/ with the rationale (following
 # ADR 0001 / 0002 / 0003 as templates).
 #
-# D-19 CONTRACT: the 4 `custom_rules` below are the Phase-1 lint charter.
+# D-19 + D-24 CONTRACT: the 5 `custom_rules` below are the Phase-1 + Phase-3 lint charter.
 # Default SwiftLint style rules (trailing_comma, comma, colon, identifier_name,
 # type_name, force_cast, cyclomatic_complexity, etc.) are explicitly disabled
 # in this file so that Plan 06 does not expand Phase 1 scope into cross-plan
@@ -95,4 +91,21 @@ custom_rules:
     regex: '^\s*import\s+Features_[A-Z]'
     message: "Cross-feature communication goes through Core/ protocols. Do not import other Features."
     included: '.*/Features/[^/]+/.*'
+    severity: error
+
+  # Rule 5 — GEO-03 / Phase 1 D-19 (deferred) → Phase 3 D-24 (landed).
+  # Ban raw CLLocationCoordinate2D construction outside the geo subsystem.
+  # Coordinates must be carried by `Core/Identity/PlatformPayloadField.coordinate(_:)`
+  # from the geo layer to networking endpoints; no other call site may construct one.
+  # Allow-list: `Core/Networking/Endpoints/**` (payload builders that wrap the field
+  # into wire format) and `Core/Identity/Geo*/**` (the geo subsystem itself —
+  # CountryGate, LocationProvider — which legitimately constructs coordinates from
+  # CLLocation). The regex targets the canonical literal form
+  # `CLLocationCoordinate2D(latitude: ...)` — type references / comments / doc
+  # strings that merely name the type are not matched (Pitfall 4 over-match guard).
+  ban_raw_coordinate_literal:
+    name: "Do not construct CLLocationCoordinate2D outside the geo subsystem"
+    regex: 'CLLocationCoordinate2D\s*\(\s*latitude\s*:'
+    message: "Raw CLLocationCoordinate2D literals must live in Core/Networking/Endpoints/ (payload builders) or Core/Identity/Geo*/ (the geo subsystem itself). Wrap coordinates in PlatformPayloadField for transport. (GEO-03 + Phase 1 D-19 deferred → Phase 3 D-24)"
+    excluded: '.*/(Core/Networking/Endpoints|Core/Identity/Geo[^/]*)/.*'
     severity: error
