@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 4 Wave 2 complete (plans 04-03, 04-04). 04-04 Rule-3 fix migrated 3 DeviceRegisterEndpoint callers (OTPViewModel + 2 tests) to the 6-arg init; also added trust_tier to device-register-success.json fixture. Post-merge test gate (xcodebuild build-for-testing, iPhone 16 sim) PASSED. Wave 3 (plans 04-05 12 sim tests + 04-06 AppContainer/AppSession/biometricOverride) dispatching next. Known concern: Plan 05 Task 4 AttestationErrorResponseInterceptorTest references type created in Plan 07 Task 3 — executor will stub or @Suite(.disabled) until Wave 4."
-last_updated: "2026-04-22T11:15:00.000Z"
-last_activity: 2026-04-22 -- Phase 4 Wave 2 complete (4/10 plans) — test gate passed
+stopped_at: "Phase 4 Wave 3 complete (plans 04-05, 04-06). 04-05 added 12 test suites (57 tests pass, 5 disabled pending Plan 07 Task 3) + scripts/verify-release-no-sim-bypass.sh (executable). 04-06 wired AppContainer.attestationService via #if DEBUG && targetEnvironment(simulator) gate + AppSession trustTier holder + biometricServiceOverride seam (D-14). Post-merge test gate (iPhone 16 sim) PASSED. Wave 4 (plans 04-07 SceneDelegate+DevMenu+interceptor, 04-08 banner CHECKPOINT iPad, 04-09 device CI tests) next. Plan 07 Task 3 MUST re-enable 5 disabled tests in AttestationErrorResponseInterceptorTest.swift. Plan 08 is autonomous:false — orchestrator will handle iPad checkpoint inline."
+last_updated: "2026-04-22T11:45:00.000Z"
+last_activity: 2026-04-22 -- Phase 4 Wave 3 complete (6/10 plans) — test gate passed
 progress:
   total_phases: 5
   completed_phases: 3
@@ -26,12 +26,12 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 ## Current Position
 
 Phase: 4 of 5 (App Attest & Physical-Device CI Hardening) — **IN PROGRESS**
-Wave: 2 of 5 complete · Next: Wave 3 (plans 04-05 12 sim tests + 04-06 AppContainer/AppSession)
-Plan: 4 of 10 in Phase 4
+Wave: 3 of 5 complete · Next: Wave 4 (plans 04-07 scene/DevMenu/interceptor + 04-08 banner/iPad CHECKPOINT + 04-09 device CI tests)
+Plan: 6 of 10 in Phase 4
 Status: Executing
-Last activity: 2026-04-22 -- Wave 2 complete + post-merge test gate PASSED
+Last activity: 2026-04-22 -- Wave 3 complete + post-merge test gate PASSED
 
-Progress: Phase 1 [██████████] 100% · Phase 2 [██████████] 100% · Phase 3 [██████████] 100% · Phase 4 [████░░░░░░] 40% · Milestone M1 [███████░░░] 76%
+Progress: Phase 1 [██████████] 100% · Phase 2 [██████████] 100% · Phase 3 [██████████] 100% · Phase 4 [██████░░░░] 60% · Milestone M1 [████████░░] 84%
 
 ## Performance Metrics
 
