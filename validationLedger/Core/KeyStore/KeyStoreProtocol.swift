@@ -15,6 +15,26 @@ public enum KeyStoreError: Error, Sendable {
     case signingFailed
     case keyUnavailable
     case keyGenerationFailed(CFError?)  // Phase 2 Plan 06 addition (DEV-01/DEV-02)
+    case keyDeletionFailed(OSStatus)    // Phase 3 Plan 04 addition (SESS-04/D-16)
+}
+
+/// Identifies which of the two device-bound keypairs a protocol call targets.
+///
+/// Phase 3 Plan 04 promotes this from a `SecureEnclaveKeyStore`-nested enum to
+/// a top-level public type so protocol methods (`deleteKey(slot:)`) can refer
+/// to it, and so `SoftwareKeyStore` can share the same slot vocabulary as the
+/// SE-backed implementation. The two cases match the two-key pattern from
+/// Phase 2 (DEV-02 + ADR 0004):
+///
+///   - `.device` — device-identity signing key (`.devicePasscode` ACL on device,
+///     CryptoKit P-256 in simulator). Survives logout — deviceKey is device
+///     identity, not session-bound.
+///   - `.authorization` — sensitive-action signing key (`.biometryCurrentSet`
+///     ACL on device). Invalidates on biometric re-enrollment. Deleted on
+///     logout by LogoutService (Plan 07 → D-16).
+public enum Keyslot: Sendable {
+    case device
+    case authorization
 }
 
 public protocol KeyStoreProtocol: AnyObject, Sendable {
@@ -32,4 +52,13 @@ public protocol KeyStoreProtocol: AnyObject, Sendable {
     /// DEV-02: sign with the `authorizationKey`. On real device, prompts biometric.
     /// Used for sensitive operations (tender/accept/BOL — M2+). Phase 2 ships the method; Phase 3+ wires call sites.
     func signWithAuthorization(_ data: Data) throws -> Data
+
+    /// Phase 3 SESS-04 / D-16: delete the key in the given slot from persistent storage.
+    /// Used by LogoutService (Plan 07) to clear the SE authorizationKey on logout.
+    /// The deviceKey is preserved across logout — it's device identity, not
+    /// session-bound — so callers pass `.authorization` exclusively in M1.
+    /// Idempotent: calling on a missing key succeeds (matches the
+    /// `KeychainStore.delete(_:)` contract that treats errSecItemNotFound
+    /// as success).
+    func deleteKey(slot: Keyslot) throws
 }
