@@ -31,6 +31,21 @@ import Foundation
 import CryptoKit
 
 final class AppContainer {
+
+    // MARK: - DEBUG-only UI-test dependency overrides (Phase 3 Plan 12 / D-32)
+    //
+    // Warning 4 mitigation: the 5 role smoke UI tests (Plan 12) drive the full OTP
+    // flow end-to-end via -MockOTPRoleForUITest. The default LocationProvider +
+    // CountryGate call real CLLocationManager + CLGeocoder (permission prompt +
+    // network geocode) which are flaky/blocking on CI sims. SceneDelegate's
+    // -MockOTPRoleForUITest path sets these two static overrides BEFORE constructing
+    // the AppContainer for presentRoot; AppContainer.init prefers them over the
+    // Default* implementations. Release builds compile zero bytes for this path.
+    #if DEBUG
+    static var uiTestLocationProvider: (any LocationProvider)?
+    static var uiTestCountryGate: (any CountryGate)?
+    #endif
+
     let env: Environment
     let logger: any Logger
     let keychainStore: KeychainStore
@@ -134,8 +149,20 @@ final class AppContainer {
         // Phase 3 Plan 09: CLLocationManager + CLGeocoder wrappers for D-20 geo gate
         // (consumed by PhoneEntryViewModel). Plan 11 leaves construction default-ctor;
         // a future refactor may inject test doubles via the AppContainer init.
+        //
+        // Phase 3 Plan 12 / D-32 Warning 4: UI smoke tests need a deterministic,
+        // network-free, prompt-free geo path. SceneDelegate's -MockOTPRoleForUITest
+        // launchArg path sets `AppContainer.uiTestLocationProvider` +
+        // `AppContainer.uiTestCountryGate` BEFORE constructing this container;
+        // init prefers those stubs over the Default* implementations. Entire path
+        // is `#if DEBUG`-gated — Release compiles to Default* only.
+        #if DEBUG
+        self.locationProvider = AppContainer.uiTestLocationProvider ?? DefaultLocationProvider()
+        self.countryGate = AppContainer.uiTestCountryGate ?? DefaultCountryGate()
+        #else
         self.locationProvider = DefaultLocationProvider()
         self.countryGate = DefaultCountryGate()
+        #endif
 
         // Phase 3 Plan 11 — D-11 / AUTH-06: sensitive-action funnel (WWDC22 single-prompt
         // pattern). M1 ships with ZERO call sites; the constructibility + the SE signWith

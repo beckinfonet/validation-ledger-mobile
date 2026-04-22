@@ -100,6 +100,49 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
         #endif
 
+        // Phase 3 D-32 / SC-1: drive the OTP flow end-to-end via fixtures for UI smoke tests.
+        // This path runs the FULL flow (phone entry → OTP entry → role shell + logout)
+        // — distinct from -ForceRoleForUITest (above) which BYPASSES auth.
+        //
+        // Per RESEARCH Open Q1: both launchArg paths coexist. -ForceRoleForUITest is
+        // retained for the DevMenu RoleSwitcher fast-path + Phase 1 placeholder tests;
+        // -MockOTPRoleForUITest is the Phase 3 smoke-test path that exercises the full
+        // OTP → role-shell → logout cycle Plan 12 ships.
+        //
+        // Sequence on launchArg detection:
+        //   1. Register MockURLProtocol fixtures with role-specific verify response.
+        //   2. Inject stub LocationProvider + CountryGate (Warning 4) so the geo gate
+        //      is network-free + prompt-free.
+        //   3. Force AppContainer to construct with .mock NetworkConfig so fixtures bite.
+        //   4. Wipe session-scope Keychain so SessionRestoreProbe returns .needsAuth
+        //      (guarantees the test starts on phone-entry regardless of prior state).
+        //   5. presentRoot(.auth) — land on PhoneEntryVC; tests drive from there.
+        // Entire block is `#if DEBUG` so Release compiles to zero bytes (T-03-12-01).
+        #if DEBUG
+        if let idx = ProcessInfo.processInfo.arguments.firstIndex(of: "-MockOTPRoleForUITest"),
+           idx + 1 < ProcessInfo.processInfo.arguments.count {
+            let raw = ProcessInfo.processInfo.arguments[idx + 1]
+            if let role = Role(rawValue: raw) {
+                // 1. Register fixtures — OTPRequest + OTPVerify(role) + DeviceRegister
+                MockOTPRoleFixtureRegistry.registerForRole(role)
+                // 2. Inject stubbed location + country gate (Warning 4)
+                AppContainer.uiTestLocationProvider = StubLocationProviderForUITest()
+                AppContainer.uiTestCountryGate = StubCountryGateForUITest()
+                // 3. Force .mock network config so MockURLProtocol intercepts (reuses
+                //    the existing DevMenu override seam).
+                self.currentNetworkConfigOverride = .mock
+                // 4. Wipe session-scope Keychain so SessionRestoreProbe returns
+                //    .needsAuth (guaranteed clean start — T-03-12-04 mitigation).
+                let scrubContainer = AppContainer(env: .current, networkConfig: .mock)
+                try? scrubContainer.keychainStore.deleteAll(under: .session)
+                // 5. Land on phone-entry; UI test drives the flow from there.
+                presentRoot(.auth)
+                window.makeKeyAndVisible()
+                return
+            }
+        }
+        #endif
+
         // Phase 3 D-04/D-05 (Blocker 6): probe the session via the lightweight
         // SessionRestoreProbe helper BEFORE first paint. The probe constructs ONLY
         // KeychainStore + DefaultSessionRestoreService (no SessionLockService, no
