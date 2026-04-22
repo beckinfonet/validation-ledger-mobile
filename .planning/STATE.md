@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 4 Wave 1 complete (plans 04-01, 04-02). Post-merge reconciliation: FakeAttestationService: AttestationService conformance added. Post-merge test gate (xcodebuild build-for-testing, iPhone 16 sim) PASSED. Wave 2 (plans 04-03 AttestationService impls + 04-04 endpoints) dispatching next."
-last_updated: "2026-04-22T11:00:00.000Z"
-last_activity: 2026-04-22 -- Phase 4 Wave 1 complete (2/10 plans) — test gate passed
+stopped_at: "Phase 4 Wave 2 complete (plans 04-03, 04-04). 04-04 Rule-3 fix migrated 3 DeviceRegisterEndpoint callers (OTPViewModel + 2 tests) to the 6-arg init; also added trust_tier to device-register-success.json fixture. Post-merge test gate (xcodebuild build-for-testing, iPhone 16 sim) PASSED. Wave 3 (plans 04-05 12 sim tests + 04-06 AppContainer/AppSession/biometricOverride) dispatching next. Known concern: Plan 05 Task 4 AttestationErrorResponseInterceptorTest references type created in Plan 07 Task 3 — executor will stub or @Suite(.disabled) until Wave 4."
+last_updated: "2026-04-22T11:15:00.000Z"
+last_activity: 2026-04-22 -- Phase 4 Wave 2 complete (4/10 plans) — test gate passed
 progress:
   total_phases: 5
   completed_phases: 3
@@ -26,12 +26,12 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 ## Current Position
 
 Phase: 4 of 5 (App Attest & Physical-Device CI Hardening) — **IN PROGRESS**
-Wave: 1 of 5 complete · Next: Wave 2 (plans 04-03 AttestationService impls + 04-04 endpoints)
-Plan: 2 of 10 in Phase 4
+Wave: 2 of 5 complete · Next: Wave 3 (plans 04-05 12 sim tests + 04-06 AppContainer/AppSession)
+Plan: 4 of 10 in Phase 4
 Status: Executing
-Last activity: 2026-04-22 -- Wave 1 complete + post-merge test gate PASSED
+Last activity: 2026-04-22 -- Wave 2 complete + post-merge test gate PASSED
 
-Progress: Phase 1 [██████████] 100% · Phase 2 [██████████] 100% · Phase 3 [██████████] 100% · Phase 4 [██░░░░░░░░] 20% · Milestone M1 [███████░░░] 68%
+Progress: Phase 1 [██████████] 100% · Phase 2 [██████████] 100% · Phase 3 [██████████] 100% · Phase 4 [████░░░░░░] 40% · Milestone M1 [███████░░░] 76%
 
 ## Performance Metrics
 
