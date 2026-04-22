@@ -74,18 +74,20 @@ Plans:
   3. Backgrounding the app for >5 minutes then returning triggers the same biometric prompt via the same `SessionLockService` code path; backgrounding for <5 minutes does not.
   4. Logging out from the Profile tab wipes Keychain tokens, clears the Secure Enclave authorization key's ACL, tears down the role coordinator stack, and returns to the phone-entry screen — verified by inspecting Keychain items post-logout.
   5. Attempting to auth while `CLLocationManager` reports a non-US country is refused client-side with a clear error, and raw coordinates never appear in any log message or analytics event (phantom-typed `AnalyticsEvent` makes the latter a compile error).
-**Plans:** 10 plans
+**Plans:** 12 plans (updated post-checker revision: Plans 06 and 08-original split per Blockers 5 and Warning 3)
 Plans:
 - [ ] 03-01-PLAN.md — Wave 0: test scaffolding stubs + otp-verify-rate-limited.json fixture
-- [ ] 03-02-PLAN.md — Wave 1: Pre-Phase-3 carryover fixes (CR-02 SE idempotent + IN-01/05 acronym CodingKeys + IN-02 DER unification)
+- [ ] 03-02-PLAN.md — Wave 1: Pre-Phase-3 carryover fixes (CR-02 SE idempotent + IN-01/05 acronym CodingKeys + IN-02 DER unification) — frontmatter requirements: [AUTH-03, SESS-04] (prerequisite lineage)
 - [ ] 03-03-PLAN.md — Wave 1: GEO-03 compile-time discipline (PlatformPayloadField + LogField cleanup + SwiftLint ban_raw_coordinate_literal)
-- [ ] 03-04-PLAN.md — Wave 1: Keychain + KeyStore extensions (KeychainScope, deleteAll(under:), deleteKey(slot:))
+- [ ] 03-04-PLAN.md — Wave 1 (depends_on: [02]): Keychain + KeyStore extensions (KeychainScope, deleteAll(under:), deleteKey(slot:))
 - [ ] 03-05-PLAN.md — Wave 1: APIClient 429 + Retry-After parsing → NetworkError.rateLimited
-- [ ] 03-06-PLAN.md — Wave 2: Core/Auth services (BiometricService + SessionLockService extension + SessionRestoreService + LogoutService + SensitiveActionService + Auth401ResponseInterceptor)
-- [ ] 03-07-PLAN.md — Wave 2: Geo subsystem (LocationProvider + CountryGate + Info.plist NSLocationWhenInUseUsageDescription)
-- [ ] 03-08-PLAN.md — Wave 3: Auth UI (AuthCoordinator + PhoneEntry + OTP + BiometricLock + NotAvailableInRegion + AnotherActiveSession + Profile VCs/VMs)
-- [ ] 03-09-PLAN.md — Wave 4: Composition root (AppContainer + SceneDelegate cold-boot probe + AppCoordinator + 5 role TabBar avatar wiring)
-- [ ] 03-10-PLAN.md — Wave 5: 5 role UI smoke tests (D-32 SC-1 — driven by -MockOTPRoleForUITest launchArg)
+- [ ] 03-06-PLAN.md — Wave 2: Core/Auth lock+restore+biometric (BiometricService + SessionLockService extension incl SESS-03 + SessionRestoreService)
+- [ ] 03-07-PLAN.md — Wave 2 (depends_on: [06]): Core/Auth logout+sensitive+401 (LogoutService + SensitiveActionService WWDC22 single-prompt + Auth401ResponseInterceptor + KeyStoreProtocol context-aware overload)
+- [ ] 03-08-PLAN.md — Wave 2: Geo subsystem (LocationProvider + CountryGate + Info.plist NSLocationWhenInUseUsageDescription)
+- [ ] 03-09-PLAN.md — Wave 3: Auth flow UI (AuthCoordinator + PhoneEntry VC+VM + OTP VC+VM)
+- [ ] 03-10-PLAN.md — Wave 3 (depends_on: [09]): Lock/Region/Profile UI (BiometricLock + NotAvailableInRegion + AnotherActiveSession + Profile VCs + Environment.supportEmail)
+- [ ] 03-11-PLAN.md — Wave 4: Composition root (AppContainer + SessionRestoreProbe lightweight cold-boot helper + SceneDelegate observer + AppCoordinator + 5 role TabBar avatar wiring)
+- [ ] 03-12-PLAN.md — Wave 5: 5 role UI smoke tests (D-32 SC-1 — driven by -MockOTPRoleForUITest launchArg + mandatory StubLocationProvider/StubCountryGate injection per Warning 4)
 
 ### Phase 4: App Attest & Physical-Device CI Hardening
 **Goal**: Add App Attest to the device registration flow with server-side counter/challenge handling, and harden the physical-device CI pipeline to actually exercise Secure Enclave keypair generation, Keychain biometric-bound item storage, and App Attest assertion generation on every merge to `main`. After this phase, the attestation surface exists and the test surface that exercises it is real.
@@ -119,7 +121,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Foundational Conventions & Scaffolding | 7/7 | Complete | 2026-04-21 |
 | 2. Networking Contract & Device Keys | 7/7 | Complete | 2026-04-21 |
-| 3. OTP Auth + Role Shell + Session | 0/10 | Not started | - |
+| 3. OTP Auth + Role Shell + Session | 0/12 | Not started | - |
 | 4. App Attest & Physical-Device CI Hardening | 0/TBD | Not started | - |
 | 5. KYC Capture & Upload Pipeline | 0/TBD | Not started | - |
 
@@ -129,4 +131,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 *Phase 1 planned: 2026-04-20 (7 plans, 4 waves)*
 *Next: `/gsd-execute-phase 1`*
 *Phase 2 planned: 2026-04-21 (7 plans, 4 waves)*
-*Phase 3 planned: 2026-04-21 (10 plans, 6 waves)*
+*Phase 3 planned: 2026-04-21 (10 plans, 6 waves) — revised 2026-04-21 to 12 plans, 6 waves per checker feedback (Blockers 1-6 + Warnings 1-5)*
