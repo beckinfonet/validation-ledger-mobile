@@ -25,7 +25,15 @@ enum MockOTPRoleFixtureRegistry {
     /// role-distinct shell. Called from SceneDelegate when -MockOTPRoleForUITest
     /// is detected. JSON shape matches the Phase 2 endpoint decoders which use
     /// `.convertFromSnakeCase` — keys here are snake_case to match the wire.
-    static func registerForRole(_ role: Role) {
+    ///
+    /// Phase 4 Plan 08 (D-11 / D-12): the `trustTier` parameter controls the
+    /// `trust_tier` field of the /device/register response. Default
+    /// `.hardwareAttested` preserves existing Phase 3 RoleShellSmokeTests
+    /// behavior (banner absent). The Phase 4 LimitedTrustBannerTests pass
+    /// `trustTier: .softwareOnly` to drive the banner-visible path. The
+    /// response body mirrors the canonical fixtures at
+    /// `validationLedgerTests/Networking/Fixtures/device-register-{success,software-only}.json`.
+    static func registerForRole(_ role: Role, trustTier: TrustTier = .hardwareAttested) {
         MockURLProtocol.reset()
 
         // OTP request → returns otpSessionID
@@ -60,11 +68,17 @@ enum MockOTPRoleFixtureRegistry {
             return (resp, body)
         }
 
-        // Device register → returns success
+        // Device register → returns success with role-independent identifiers +
+        // Phase 4 D-12 `trust_tier` field. Default .hardwareAttested preserves
+        // Phase 3 RoleShellSmokeTests (banner absent). Phase 4 Plan 08
+        // LimitedTrustBannerTests passes .softwareOnly to drive the banner-
+        // visible path. The response body mirrors the canonical fixtures at
+        // `validationLedgerTests/Networking/Fixtures/device-register-{success,software-only}.json`.
+        let trustTierRawValue = trustTier.rawValue
         MockURLProtocol.register { req in
             guard req.url?.path == "/device/register" else { return nil }
             let body = """
-            {"device_id": "ui-test-device-id", "registered_at": "2026-04-21T00:00:00Z"}
+            {"device_id": "ui-test-device-id", "registered_at": "2026-04-21T00:00:00Z", "trust_tier": "\(trustTierRawValue)"}
             """.data(using: .utf8)!
             let resp = HTTPURLResponse(
                 url: req.url!, statusCode: 200,
