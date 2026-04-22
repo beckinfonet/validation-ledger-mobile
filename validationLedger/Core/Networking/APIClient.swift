@@ -51,6 +51,18 @@ public final class APIClient: Sendable {
         }
 
         let (data, response) = try await wrapped(req)
+
+        // Phase 3 Plan 05 (AUTH-02 / D-02): 429 → typed rateLimited error.
+        // Parsed BEFORE the generic httpError throw so callers (OTPViewModel in Plan 09)
+        // can pattern-match `catch NetworkError.rateLimited(let retryAfter)` to drive the
+        // Verify-button countdown. Transport-boundary placement per RESEARCH §iOS API #4
+        // — rate-limit is a typed error fold (not a side effect), so it lives here and NOT
+        // as a separate ResponseInterceptor (unlike Auth401ResponseInterceptor in Plan 07).
+        if response.statusCode == 429 {
+            let retryAfter = Self.parseRetryAfter(from: response) ?? 60
+            throw NetworkError.rateLimited(retryAfter: retryAfter)
+        }
+
         guard (200...299).contains(response.statusCode) else {
             throw NetworkError.httpError(statusCode: response.statusCode, data: data)
         }
@@ -93,6 +105,41 @@ public final class APIClient: Sendable {
         d.keyDecodingStrategy = .convertFromSnakeCase
         d.dateDecodingStrategy = .iso8601
         return d
+    }
+}
+
+// MARK: - Phase 3 Plan 05 / AUTH-02 / D-02 — Retry-After parser
+
+extension APIClient {
+    /// Parses an HTTP `Retry-After` header per RFC 7231. Returns nil if the header is
+    /// missing or malformed so the 429 call site can substitute a 60-second default.
+    ///
+    /// Both header formats supported:
+    /// - Delta-seconds: `Retry-After: 60` (non-negative integer; most common)
+    /// - HTTP-date:     `Retry-After: Wed, 21 Oct 2026 07:28:00 GMT`
+    ///
+    /// The `now: Date = .now` parameter exists for testability — passing a fixed `now`
+    /// keeps HTTP-date assertions deterministic. Production callers always use the default.
+    ///
+    /// Negative delta-seconds values (non-conforming but possible) are clamped to 0 via
+    /// `max(0, ...)` — T-03-05-03 tampering mitigation.
+    public static func parseRetryAfter(from response: HTTPURLResponse, now: Date = .now) -> TimeInterval? {
+        guard let raw = response.value(forHTTPHeaderField: "Retry-After") else {
+            return nil
+        }
+        // Delta-seconds — most common form for rate-limit responses.
+        if let seconds = TimeInterval(raw) {
+            return max(0, seconds)
+        }
+        // HTTP-date fallback (RFC-1123 GMT).
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "GMT")
+        formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss zzz"
+        if let date = formatter.date(from: raw) {
+            return max(0, date.timeIntervalSince(now))
+        }
+        return nil
     }
 }
 

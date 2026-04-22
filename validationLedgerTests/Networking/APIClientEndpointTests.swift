@@ -64,8 +64,13 @@ struct APIClientEndpointTests {
         #expect(response.expiresInSeconds == 120)
     }
 
-    @Test("OTPRequestEndpoint: failure fixture (429) throws NetworkError.httpError")
+    @Test("OTPRequestEndpoint: failure fixture (429) throws NetworkError.rateLimited (Phase 3 Plan 05 contract)")
     func otpRequestFailure() async {
+        // Phase 3 Plan 05 / AUTH-02 / D-02: 429 now throws NetworkError.rateLimited
+        // (not .httpError). This test was previously asserting .httpError(429) — that
+        // was the Phase 2 baseline before the transport-boundary rate-limit fold landed.
+        // Updated to match the new typed-error contract. The registerFixture call does
+        // not set a Retry-After header, so the parseRetryAfter fallback (60s) applies.
         MockURLProtocol.reset()
         defer { MockURLProtocol.reset() }
         do {
@@ -78,7 +83,15 @@ struct APIClientEndpointTests {
                 body: fixture
             )
             let client = makeClient()
-            await assertHTTPError({ try await client.request(OTPRequestEndpoint(phone: "+14155550129")) }, expectedStatus: 429)
+            do {
+                _ = try await client.request(OTPRequestEndpoint(phone: "+14155550129"))
+                Issue.record("Expected NetworkError.rateLimited; got success")
+            } catch let NetworkError.rateLimited(retryAfter) {
+                // Default-fallback 60s because registerFixture did not inject Retry-After.
+                #expect(retryAfter == 60)
+            } catch {
+                Issue.record("Expected NetworkError.rateLimited; got \(error)")
+            }
         } catch {
             Issue.record("Setup failed: \(error)")
         }
