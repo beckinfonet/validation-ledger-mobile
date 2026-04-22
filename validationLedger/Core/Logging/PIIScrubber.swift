@@ -10,7 +10,11 @@ public struct PIIScrubber: Sendable {
     public init() {}
 
     /// Structured path — redacts per-field per the rule table.
-    /// Note: `.coordinates` is REMOVED from the dict entirely (not masked) per Success Criterion 2.
+    /// Note: Phase 3 D-23 / GEO-03 removed the `.coordinates` LogField case entirely;
+    /// coordinates can no longer reach this switch by construction (they flow through
+    /// `Core/Identity/PlatformPayloadField` to networking endpoint payloads only).
+    /// The string-path fallback below still regex-sweeps for coordinate-shaped
+    /// substrings (lat,lon pairs) in free-form log strings as a secondary defense.
     public func scrub(_ fields: [LogField: Any]) -> [LogField: Any] {
         var out: [LogField: Any] = [:]
         for (field, value) in fields {
@@ -27,8 +31,6 @@ public struct PIIScrubber: Sendable {
                 out[field] = "[REDACTED:DOT]"
             case .email:
                 if let s = value as? String { out[field] = Self.maskEmail(s) }
-            case .coordinates:
-                continue  // REMOVE entirely — do not add to out
             case .count, .duration, .event:
                 out[field] = value  // safe — pass through
             }

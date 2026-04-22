@@ -39,11 +39,11 @@ struct PIIScrubberTests {
         #expect(out[.email] as? String == "j•••e@acme.com")
     }
 
-    @Test("Coordinates REMOVED entirely")
-    func coordinatesRemoved() {
-        let out = scrubber.scrub([.coordinates: "37.7749,-122.4194"])
-        #expect(out[.coordinates] == nil, "coordinates must be removed, not masked")
-    }
+    // Phase 3 D-23 / GEO-03: `LogField.coordinates` case removed; coordinates now flow
+    // through `Core/Identity/PlatformPayloadField` to networking endpoint payloads only.
+    // The former `coordinatesRemoved` test was deleted because the case it asserted on
+    // no longer exists in the type system. Secondary string-path coordinate redaction
+    // is still exercised indirectly via the `\d+\.\d+,-?\d+\.\d+` regex in scrubString.
 
     @Test("String-path fallback catches inline PII")
     func stringPathCatchesPhone() {

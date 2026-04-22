@@ -10,7 +10,9 @@ public enum LogField: Hashable, Sendable {
     case mcNumber        // → [REDACTED:MC]
     case dotNumber       // → [REDACTED:DOT]
     case email           // local part masked
-    case coordinates     // REMOVED entirely
+    // (Phase 3 D-23 / GEO-03: `.coordinates` case removed — coordinates can only
+    // flow through `Core/Identity/PlatformPayloadField` to networking endpoint
+    // payloads. Logger cannot accept them by construction. Do not re-add.)
     case count           // safe — integer
     case duration        // safe — TimeInterval
     case event           // safe — string event name
