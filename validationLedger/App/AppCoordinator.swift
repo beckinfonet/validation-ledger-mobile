@@ -42,7 +42,20 @@ final class AppCoordinator {
             self.authCoordinator = coord
             self.rootViewController = coord.rootViewController
         case .role(let role):
-            self.rootViewController = Self.roleCoordinator(for: role, container: container)
+            // Phase 4 D-11 + D-12: wrap the role tab bar with the non-dismissible
+            // limited-trust banner when container.session.trustTier != .hardwareAttested.
+            // Default AppSession.trustTier is .softwareOnly (Plan 06 safe default), so the
+            // banner shows on first cold-launch before any /device/register or
+            // /device/heartbeat response has confirmed .hardwareAttested (D-12). The
+            // wrapper is idempotent on the hardware-attested branch (returns `self`).
+            //
+            // Placement rationale: this is the single construction site for the .role
+            // root VC; wrapping here keeps the banner attached to every path that lands
+            // on a role shell (cold-boot restore, post-OTP verify, DevMenu role-swap,
+            // NetworkConfig toggle — all funnel through SceneDelegate.presentRoot which
+            // constructs a fresh AppCoordinator with a fresh AppContainer per ADR 0002).
+            let tabBar = Self.roleCoordinator(for: role, container: container)
+            self.rootViewController = tabBar.wrapWithLimitedTrustBanner(trustTier: container.session.trustTier)
         case .anotherActiveSession:
             self.rootViewController = AnotherActiveSessionViewController(supportEmail: Environment.supportEmail)
         }
