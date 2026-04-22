@@ -150,15 +150,21 @@ struct AppCoordinatorPhase3RoutingTests {
         // Structural assertion: if the helper instantiated DefaultSessionLockService it
         // would subscribe to UIApplication.didEnterBackgroundNotification per D-08 and
         // leak its observer token when the probe helper is discarded.
+        //
+        // We scan for CONSTRUCTOR patterns (e.g. `DefaultSessionLockService(`) rather than
+        // bare type names so the probe's explanatory comments — which intentionally call
+        // out the services it MUST NOT construct — don't trip the negative assertions.
         let source = try readSource("validationLedger/Core/Auth/SessionRestoreProbe.swift")
-        #expect(source.contains("DefaultSessionRestoreService"),
+        #expect(source.contains("DefaultSessionRestoreService("),
                 "SessionRestoreProbe must construct DefaultSessionRestoreService")
-        #expect(!source.contains("DefaultSessionLockService"),
+        #expect(!source.contains("DefaultSessionLockService("),
                 "Blocker 6: SessionRestoreProbe must NOT construct DefaultSessionLockService (leaks notification observers per D-08)")
-        #expect(!source.contains("DefaultBiometricService"),
+        #expect(!source.contains("DefaultBiometricService("),
                 "Blocker 6: SessionRestoreProbe must NOT construct DefaultBiometricService (unneeded for probe)")
-        #expect(!source.contains("DefaultLocationProvider"),
+        #expect(!source.contains("DefaultLocationProvider("),
                 "Blocker 6: SessionRestoreProbe must NOT construct DefaultLocationProvider (unneeded for probe)")
+        #expect(!source.contains("DefaultCountryGate("),
+                "Blocker 6: SessionRestoreProbe must NOT construct DefaultCountryGate (unneeded for probe)")
     }
 
     @Test("SessionRestoreProbe.probe returns a SessionRestoreResult without crashing")

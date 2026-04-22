@@ -7,6 +7,18 @@ final class BrokerTabBarController: UITabBarController, RoleCoordinator {
     let role: Role = .broker
     var rootViewController: UIViewController { self }
 
+    /// Phase 3 Plan 11 (D-03 / AUTH-04): LogoutService is injected so the avatar
+    /// affordance (installed in Task 2 via the shared RoleCoordinator helper) can
+    /// present `ProfileViewController(logoutService:)` modally on tap.
+    let logoutService: any LogoutService
+
+    init(logoutService: any LogoutService) {
+        self.logoutService = logoutService
+        super.init(nibName: nil, bundle: nil)
+    }
+
+    required init?(coder: NSCoder) { fatalError("not used") }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         viewControllers = [

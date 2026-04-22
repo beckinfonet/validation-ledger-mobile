@@ -46,6 +46,19 @@ final class AppContainer {
     let locationProvider: any LocationProvider
     let countryGate: any CountryGate
 
+    // Phase 3 Plan 11 additions (composition-root wiring for D-04/D-11/D-16/D-28):
+    //   - sessionRestore:  Keychain probe for cold-boot routing (D-04/D-05)
+    //   - sensitiveAction: WWDC22 single-prompt SE-signing funnel (D-11 / AUTH-06)
+    //   - logoutService:   single source of truth for session teardown (D-16/D-17)
+    // Dependency order in init:
+    //   biometricService → sessionLock → sessionRestore → (locationProvider, countryGate)
+    //                                   → sensitiveAction → logoutService → apiClient
+    // logoutService is constructed BEFORE apiClient so Auth401ResponseInterceptor can
+    // inject the service into its responseInterceptor (D-28).
+    let sessionRestore: any SessionRestoreService
+    let sensitiveAction: any SensitiveActionService
+    let logoutService: any LogoutService
+
     /// Primary initializer.
     ///
     /// - Parameters:
@@ -91,7 +104,7 @@ final class AppContainer {
         // wiring; this is the minimal-change to keep AppContainer compiling once
         // DefaultSessionLockService's init signature changed.
         let featureLogger = OSLogLoggerImpl(
-            subsystem: LoggingSubsystem.app,
+            subsystem: LoggingSubsystem.auth,
             category: "auth.biometric"
         )
         let biometricService = DefaultBiometricService(
@@ -99,10 +112,61 @@ final class AppContainer {
             logger: featureLogger
         )
         self.biometricService = biometricService
-        self.sessionLock = DefaultSessionLockService(
+        let sessionLock = DefaultSessionLockService(
             biometric: biometricService,
             keychain: self.keychainStore
         )
+        self.sessionLock = sessionLock
+
+        // Phase 3 Plan 11 — D-04/D-05: cold-boot session restore (synchronous Keychain
+        // probe). The probe is separately callable as a lightweight SessionRestoreProbe
+        // helper from SceneDelegate before first presentRoot (Blocker 6); the container
+        // exposes the same service for any post-bootstrap re-probe callers.
+        let restoreLogger = OSLogLoggerImpl(
+            subsystem: LoggingSubsystem.auth,
+            category: "auth.restore"
+        )
+        self.sessionRestore = DefaultSessionRestoreService(
+            keychain: self.keychainStore,
+            logger: restoreLogger
+        )
+
+        // Phase 3 Plan 09: CLLocationManager + CLGeocoder wrappers for D-20 geo gate
+        // (consumed by PhoneEntryViewModel). Plan 11 leaves construction default-ctor;
+        // a future refactor may inject test doubles via the AppContainer init.
+        self.locationProvider = DefaultLocationProvider()
+        self.countryGate = DefaultCountryGate()
+
+        // Phase 3 Plan 11 — D-11 / AUTH-06: sensitive-action funnel (WWDC22 single-prompt
+        // pattern). M1 ships with ZERO call sites; the constructibility + the SE signWith
+        // path are the entire AUTH-06 surface for M1. M2+ tender/accept/BOL signing
+        // plumbs call sites through this service.
+        let sensitiveLogger = OSLogLoggerImpl(
+            subsystem: LoggingSubsystem.auth,
+            category: "auth.sensitive"
+        )
+        self.sensitiveAction = DefaultSensitiveActionService(
+            keyStore: self.keyStore,
+            logger: sensitiveLogger
+        )
+
+        // Phase 3 Plan 11 — D-16 / D-17: single source of truth for session teardown.
+        // Three call sites funnel here: ProfileViewController "Log out" (Plan 10);
+        // Auth401ResponseInterceptor (wired below); DEV-06 another-active-session path
+        // (placeholder in M1). MUST be constructed BEFORE apiClient so Auth401Interceptor
+        // can inject it into the response-interceptor chain.
+        let logoutLogger = OSLogLoggerImpl(
+            subsystem: LoggingSubsystem.auth,
+            category: "auth.logout"
+        )
+        let logoutService = DefaultLogoutService(
+            keychain: self.keychainStore,
+            keyStore: self.keyStore,
+            sessionLock: sessionLock,
+            logger: logoutLogger,
+            notificationCenter: .default
+        )
+        self.logoutService = logoutService
 
         // NET-03: URLSession + NetworkClient construction via the single `makeSession` factory.
         // AppContainer is the ONLY place URLSession is constructed — a grep over `validationLedger/`
@@ -115,25 +179,26 @@ final class AppContainer {
         )
         self.networkClient = networkClient
 
-        // API client composition (Plan 02 typed facade + Plan 04 interceptors).
+        // API client composition (Plan 02 typed facade + Plan 04 interceptors + Plan 11 Auth401).
         // Callers (Phase 3 AuthRepository, Phase 5 KYCUploader) inject `appContainer.apiClient`;
         // they do NOT construct their own APIClient or URLSession.
+        //
+        // Phase 3 D-28: Auth401ResponseInterceptor is appended to the response chain so any
+        // HTTP 401 from a non-OTP path triggers LogoutService.logout(.auth401). Order matters:
+        // RetryInterceptor runs first (may retry the request before we see a final 401), then
+        // Auth401ResponseInterceptor observes the final response.
         let apiBaseURL = Self.apiBaseURL(for: resolvedConfig)
         self.apiClient = APIClient(
             baseURL: apiBaseURL,
             networkClient: networkClient,
             requestInterceptors: [IdempotencyInterceptor()],
-            responseInterceptors: [RetryInterceptor()]
+            responseInterceptors: [
+                RetryInterceptor(),
+                Auth401ResponseInterceptor(logoutService: logoutService),
+            ]
         )
 
         self.deepLinkRouter = DeepLinkRouter()
-
-        // Phase 3 Plan 09: CLLocationManager + CLGeocoder wrappers for D-20 geo gate
-        // (consumed by PhoneEntryViewModel). Plan 11 refines the composition root —
-        // these are currently default-constructed; a future refactor may inject
-        // test doubles via the AppContainer init.
-        self.locationProvider = DefaultLocationProvider()
-        self.countryGate = DefaultCountryGate()
 
         logger.info(event: .init("app_container_init"), fields: [.event: env.name])
     }
