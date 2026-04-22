@@ -36,8 +36,23 @@ jobs:
         run: xcodebuild -project validationLedger.xcodeproj -resolvePackageDependencies
 
       - name: SwiftLint (strict — fail-fast before tests)
-        run: swift run swiftlint lint --strict --config .swiftlint.yml
+        # SwiftLintPlugins ships a SwiftPM PLUGIN + binary artifact (not an executable product),
+        # so `swift run swiftlint` errors with "no executable product named 'swiftlint'". The
+        # `resolvePackageDependencies` step above vendors the binary at a stable artifact path —
+        # invoke it directly. Fall back to Homebrew swiftlint if the artifact is missing.
         # Honors D-02 ordering: lint gate first.
+        run: |
+          set -e
+          SWIFTLINT_ARTIFACT="$GITHUB_WORKSPACE/.build/artifacts/swiftlintplugins/SwiftLintBinary/SwiftLintBinary.artifactbundle/macos/swiftlint"
+          if [ -x "$SWIFTLINT_ARTIFACT" ]; then
+            "$SWIFTLINT_ARTIFACT" lint --strict --config .swiftlint.yml
+          elif command -v swiftlint >/dev/null; then
+            swiftlint lint --strict --config .swiftlint.yml
+          else
+            echo "SwiftLint not found — artifact bundle was not vendored and brew swiftlint is absent."
+            echo "Expected path: $SWIFTLINT_ARTIFACT"
+            exit 1
+          fi
 
       - name: Build + Test (simulator only — D-03 excludes Secure Enclave)
         # `-parallel-testing-enabled NO` is required — Swift Testing @Suite's run in parallel by

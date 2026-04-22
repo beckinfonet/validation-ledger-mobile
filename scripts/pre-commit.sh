@@ -14,17 +14,25 @@ if [ -z "$STAGED" ]; then
 fi
 
 # Resolve swiftlint — prefer SwiftPM plugin artifact bundle (vendored via Package.swift),
-# fall back to SwiftPM CLI resolution, fall back to Homebrew.
+# fall back to Homebrew. NOTE: `swift run swiftlint` does NOT work because SwiftLintPlugins
+# ships a SwiftPM PLUGIN + binary artifact, not an executable product — so `swift run` errors
+# with "no executable product named 'swiftlint'". Use the artifact path directly instead.
 REPO_ROOT=$(git rev-parse --show-toplevel)
 SWIFTLINT_ARTIFACT="$REPO_ROOT/.build/artifacts/swiftlintplugins/SwiftLintBinary/SwiftLintBinary.artifactbundle/macos/swiftlint"
+if [ ! -x "$SWIFTLINT_ARTIFACT" ] && command -v swift &>/dev/null; then
+    # Try to resolve the SwiftPM plugin artifact bundle on first run.
+    echo "→ SwiftLint artifact missing; running \`swift package resolve\` to vendor it..."
+    swift package resolve --package-path "$REPO_ROOT" &>/dev/null || true
+fi
 if [ -x "$SWIFTLINT_ARTIFACT" ]; then
     SWIFTLINT_CMD="$SWIFTLINT_ARTIFACT"
-elif command -v swift &>/dev/null && swift run swiftlint --version &>/dev/null; then
-    SWIFTLINT_CMD="swift run swiftlint"
 elif command -v swiftlint &>/dev/null; then
     SWIFTLINT_CMD="swiftlint"
 else
-    echo "pre-commit: SwiftLint not found — run \`swift package resolve\` to vendor it, or install via Homebrew (brew install swiftlint)"
+    echo "pre-commit: SwiftLint not found."
+    echo "  Expected vendored artifact at: $SWIFTLINT_ARTIFACT"
+    echo "  Fix: \`swift package resolve\` (vendors the SwiftLintPlugins binary artifact),"
+    echo "  or install via Homebrew (\`brew install swiftlint\`)."
     exit 1
 fi
 
