@@ -71,6 +71,7 @@ struct LocationProviderTests {
             .deletingLastPathComponent()  // Geo/
             .deletingLastPathComponent()  // Identity/
             .deletingLastPathComponent()  // validationLedgerTests/
+            .deletingLastPathComponent()  // <repo root>
         let target = repoRoot
             .appendingPathComponent("validationLedger")
             .appendingPathComponent("Core")
