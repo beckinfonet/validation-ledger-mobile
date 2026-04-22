@@ -159,7 +159,14 @@ struct APIClientEndpointTests {
             installUUID: "00000000-0000-0000-0000-000000000001"
         )
         let response = try await client.request(
-            DeviceRegisterEndpoint(devicePublicKey: "BASE64-DEVICE-KEY", fingerprint: fingerprint)
+            DeviceRegisterEndpoint(
+                devicePublicKey: "BASE64-DEVICE-KEY",
+                authorizationPublicKey: "BASE64-AUTH-KEY",
+                attestedKeyId: nil,
+                attestationObject: nil,
+                attestationStatus: .unsupported,
+                fingerprint: fingerprint
+            )
         )
         #expect(response.deviceID == "dev-abc-123")
         // ISO-8601: 2026-04-21T12:00:00Z
@@ -188,7 +195,14 @@ struct APIClientEndpointTests {
             )
             await assertHTTPError(
                 { try await client.request(
-                    DeviceRegisterEndpoint(devicePublicKey: "BASE64-DEVICE-KEY", fingerprint: fingerprint)
+                    DeviceRegisterEndpoint(
+                        devicePublicKey: "BASE64-DEVICE-KEY",
+                        authorizationPublicKey: "BASE64-AUTH-KEY",
+                        attestedKeyId: nil,
+                        attestationObject: nil,
+                        attestationStatus: .unsupported,
+                        fingerprint: fingerprint
+                    )
                 ) },
                 expectedStatus: 409
             )

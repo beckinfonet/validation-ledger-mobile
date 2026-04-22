@@ -146,9 +146,11 @@ public final class OTPViewModel {
         // === STEPS 3+4: Generate device + authorization keys (DEV-01/DEV-02) ===
         state = .settingUp(progress: 2, total: 6)
         let devicePub: Data
+        let authPub: Data
         do {
             let keys = try keyStore.generateDeviceIdentityKeys()
             devicePub = keys.devicePublicKey
+            authPub = keys.authorizationPublicKey
         } catch {
             logger.error(event: .init("otp_verify_keygen_failed"),
                          fields: [.event: String(describing: error)])
@@ -156,7 +158,13 @@ public final class OTPViewModel {
             return
         }
 
-        // === STEP 5: POST /device/register (DEV-05) ===
+        // === STEP 5: POST /device/register (DEV-05 + D-02 three-key payload) ===
+        // Phase 4 (04-04): Endpoint now carries the full three-key contract (D-02)
+        // plus attestationStatus (D-09). Until Plan 03 wires DCAppAttestAttestationService,
+        // OTPViewModel passes attestationStatus: .unsupported with nil attestation fields
+        // — the omission rule (D-09) keeps those fields out of the wire payload.
+        // Plan 06 AppContainer wiring will replace this with an AttestationService call
+        // that returns the real status + optional attestedKeyId/attestationObject.
         state = .settingUp(progress: 4, total: 6)
         do {
             let fingerprint = try DeviceFingerprint.current(keychain: keychain)
@@ -168,6 +176,10 @@ public final class OTPViewModel {
             _ = try await apiClient.request(
                 DeviceRegisterEndpoint(
                     devicePublicKey: devicePub.base64EncodedString(),
+                    authorizationPublicKey: authPub.base64EncodedString(),
+                    attestedKeyId: nil,
+                    attestationObject: nil,
+                    attestationStatus: .unsupported,
                     fingerprint: payload
                 )
             )
