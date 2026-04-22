@@ -85,7 +85,7 @@ Plans:
 - [x] 03-07-PLAN.md — Wave 2 (depends_on: [06]): Core/Auth logout+sensitive+401 (LogoutService + SensitiveActionService WWDC22 single-prompt + Auth401ResponseInterceptor + KeyStoreProtocol context-aware overload)
 - [x] 03-08-PLAN.md — Wave 2: Geo subsystem (LocationProvider + CountryGate + Info.plist NSLocationWhenInUseUsageDescription)
 - [x] 03-09-PLAN.md — Wave 3: Auth flow UI (AuthCoordinator + PhoneEntry VC+VM + OTP VC+VM)
-- [ ] 03-10-PLAN.md — Wave 3 (depends_on: [09]): Lock/Region/Profile UI (BiometricLock + NotAvailableInRegion + AnotherActiveSession + Profile VCs + Environment.supportEmail)
+- [x] 03-10-PLAN.md — Wave 3 (depends_on: [09]): Lock/Region/Profile UI (BiometricLock + NotAvailableInRegion + AnotherActiveSession + Profile VCs + Environment.supportEmail)
 - [ ] 03-11-PLAN.md — Wave 4: Composition root (AppContainer + SessionRestoreProbe lightweight cold-boot helper + SceneDelegate observer + AppCoordinator + 5 role TabBar avatar wiring)
 - [ ] 03-12-PLAN.md — Wave 5: 5 role UI smoke tests (D-32 SC-1 — driven by -MockOTPRoleForUITest launchArg + mandatory StubLocationProvider/StubCountryGate injection per Warning 4)
 
