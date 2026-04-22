@@ -15,10 +15,69 @@
 
 import Testing
 import Foundation
+import LocalAuthentication
 @testable import validationLedger
 
 @Suite("KeyStoreProtocol — deleteKey(slot:) (SESS-04, D-16)")
 struct KeyStoreProtocolDeleteTests {
+
+    // MARK: - Repo-root helper (same #filePath pattern as existing tests in this file)
+
+    /// Resolve a source file under the repo's primary `validationLedger/` module
+    /// directory via `#filePath`-relative URL resolution. This avoids depending on
+    /// xcodebuild's working directory (which varies by invocation).
+    private func sourceURL(forPathUnderModule relative: String) -> URL {
+        // thisFile = <repoRoot>/validationLedgerTests/KeyStore/KeyStoreProtocolDeleteTests.swift
+        let thisFile = URL(fileURLWithPath: #filePath)
+        let repoRoot = thisFile
+            .deletingLastPathComponent()   // drop file
+            .deletingLastPathComponent()   // drop KeyStore/
+            .deletingLastPathComponent()   // drop validationLedgerTests/
+        var url = repoRoot.appendingPathComponent("validationLedger")
+        for component in relative.split(separator: "/") {
+            url = url.appendingPathComponent(String(component))
+        }
+        return url
+    }
+
+    // MARK: - Plan 07 D-11 — context-aware signWithAuthorization overload
+
+    @Test("Plan 07 D-11 — KeyStoreProtocol declares context-aware signWithAuthorization overload")
+    func signWithAuthorizationContextOverload() throws {
+        let source = try String(contentsOf: sourceURL(forPathUnderModule: "Core/KeyStore/KeyStoreProtocol.swift"),
+                                encoding: .utf8)
+        #expect(source.contains("signWithAuthorization(_ data: Data, context: LAContext?)"),
+                "KeyStoreProtocol must declare context-aware signWithAuthorization overload (D-11)")
+        #expect(source.contains("import LocalAuthentication"),
+                "KeyStoreProtocol.swift must import LocalAuthentication for LAContext parameter")
+    }
+
+    @Test("Plan 07 D-11 — SecureEnclaveKeyStore source uses kSecUseAuthenticationContext")
+    func sePassesContextToQuery() throws {
+        let source = try String(contentsOf: sourceURL(forPathUnderModule: "Core/KeyStore/SecureEnclaveKeyStore.swift"),
+                                encoding: .utf8)
+        #expect(source.contains("kSecUseAuthenticationContext"),
+                "SecureEnclaveKeyStore.signWithAuthorization must pass kSecUseAuthenticationContext when context is non-nil")
+    }
+
+    @Test("Plan 07 D-11 — SoftwareKeyStore signWithAuthorization(context:) returns DER and ignores context")
+    func softwareSignWithContextWorks() throws {
+        let store = SoftwareKeyStore()
+        _ = try store.generateDeviceIdentityKeys()
+        let payload = Data("payload".utf8)
+        // Pass nil context — sim ignores anyway:
+        let sig = try store.signWithAuthorization(payload, context: nil)
+        #expect(sig.first == 0x30)  // DER X9.62 SEQUENCE tag
+    }
+
+    @Test("Plan 07 D-11 — Backward-compat: legacy signWithAuthorization(_:) still works (delegates to context: nil)")
+    func legacySignWithAuthorizationStillWorks() throws {
+        let store = SoftwareKeyStore()
+        _ = try store.generateDeviceIdentityKeys()
+        // Using the OLD method name — protocol extension forwards to new signature:
+        let sig = try store.signWithAuthorization(Data("payload".utf8))
+        #expect(sig.first == 0x30)
+    }
 
     @Test("SoftwareKeyStore.deleteKey(slot: .authorization) clears in-memory auth key; device key preserved")
     func softwareDeleteAuthorizationClears() throws {
