@@ -1,10 +1,11 @@
 name: CI (Device)
 
 on:
-  # D-05(a): every merge to main
+  # D-16 (Pitfall 4 first-run): push to main ensures the check is registered with the
+  # branch-protection UI before the rule is flipped ON.
   push:
     branches: [main]
-  # D-05(b): security-path PR gate
+  # D-16: PR gate — blocks merge when the job fails if branch protection is configured.
   pull_request:
     branches: [main]
     paths:
@@ -12,11 +13,16 @@ on:
       - 'validationLedger/Core/KeyStore/**'
       - 'validationLedger/Core/Identity/**'
       - 'validationLedger/Core/Networking/CertificatePinning/**'
+      - 'validationLedger/Core/Attestation/**'       # Phase 4 addition
+      - 'validationLedger/Core/Storage/Keychain/**'  # Phase 4 addition — KeychainKey + KeychainScope touch attestation invariants
+      - 'validationLedgerDeviceTests/**'             # Phase 4 addition — device tests themselves
+      - '.github/workflows/ci-device.yml'
 
 jobs:
-  smoke:
+  # Job name MUST be stable (Pitfall 4 — this name is referenced in branch protection).
+  device-security-surface:
     runs-on: [self-hosted, macOS, device]
-    timeout-minutes: 15
+    timeout-minutes: 25    # Bumped from 15 — App Attest round-trip adds latency
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,11 +30,34 @@ jobs:
       - name: Show Xcode version
         run: xcodebuild -version
 
-      - name: Build + Test on connected iPhone (D-06 smoke)
+      - name: Run full device security surface (D-13) with single-retry (D-15)
+        # -retry-tests-on-failure + -test-iterations 2 = retry the FAILED test once.
+        # If it passes on retry → workflow green; flaky-pass annotation in xcresult → Slack.
+        # If it fails twice → workflow red → merge blocked per D-16.
+        # Native xcodebuild flag runs only the failed test on retry (not the whole step).
         run: |
           set -o pipefail
           xcodebuild test \
             -project validationLedger.xcodeproj \
             -scheme validationLedger \
             -destination "platform=iOS,id=${{ secrets.DEVICE_UDID }}" \
-            -only-testing:validationLedgerDeviceTests/SecureEnclaveSmokeTests
+            -only-testing:validationLedgerDeviceTests \
+            -retry-tests-on-failure \
+            -test-iterations 2 \
+            -resultBundlePath $PWD/build/DeviceTestResults.xcresult
+
+      - name: Upload device test result bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: device-test-results
+          path: build/DeviceTestResults.xcresult
+          retention-days: 14
+
+      - name: Notify Slack on flaky-pass (D-15 visibility)
+        if: success()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        # Parse xcresult for "retry"-labeled tests; POST to Slack only if any retries happened.
+        # Quiet when zero retries. Best-effort — missing webhook doesn't fail the workflow.
+        run: bash scripts/report-flaky-passes.sh $PWD/build/DeviceTestResults.xcresult || true
