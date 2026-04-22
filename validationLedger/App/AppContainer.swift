@@ -284,7 +284,6 @@ final class AppContainer {
         #if DEBUG && targetEnvironment(simulator)
         self.attestationService = SimulatorBypassAttestationService(keychain: self.keychainStore)
         _ = attestedKeyStore      // retain the constructed store — sim path uses its own
-        _ = attestationLogger     // internally; keeping logger constructed for symmetry
         #else
         self.attestationService = DCAppAttestAttestationService(
             keyStore: attestedKeyStore,
@@ -315,6 +314,12 @@ final class AppContainer {
         // HTTP 401 from a non-OTP path triggers LogoutService.logout(.auth401). Order matters:
         // RetryInterceptor runs first (may retry the request before we see a final 401), then
         // Auth401ResponseInterceptor observes the final response.
+        //
+        // Phase 4 D-04: AttestationErrorResponseInterceptor is appended AFTER Auth401 so a
+        // 401 on /device/heartbeat routes through Auth401 (session-expiry logout path) and is
+        // NOT absorbed by a body-decode of a spurious attestationInvalid error. The attestation
+        // interceptor's path filter + status-code filter + error-code filter keep the two
+        // interceptors orthogonal — they never act on the same response.
         let apiBaseURL = Self.apiBaseURL(for: resolvedConfig)
         self.apiClient = APIClient(
             baseURL: apiBaseURL,
@@ -323,6 +328,10 @@ final class AppContainer {
             responseInterceptors: [
                 RetryInterceptor(),
                 Auth401ResponseInterceptor(logoutService: logoutService),
+                AttestationErrorResponseInterceptor(
+                    attestationService: self.attestationService,
+                    logger: attestationLogger
+                ),
             ]
         )
 
