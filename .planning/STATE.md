@@ -72,7 +72,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-04-20
-Stopped at: Phase 1 plans written and verified — 7 plans across 4 waves (01: Wave 0 retarget + test targets; 02/03/04: Wave 1 parallel — docs/ADRs, Core services, Role scaffold + PrivacyInfo; 05/06: Wave 2 parallel — composition root + DevMenu, SwiftLint 4 rules; 07: Wave 3 — CI workflows + coverage gates). Plan-checker APPROVE_FOR_EXECUTION: true, zero blockers. Research + VALIDATION + PATTERNS artifacts all committed.
-Resume file: .planning/phases/01-foundational-conventions-scaffolding/01-01-PLAN.md (Wave 0, starts here)
-Next command: `/gsd-execute-phase 1`
+Last session: 2026-04-21
+Stopped at: Phase 3 context gathered — 16 decisions across 4 areas (Auth flow + Profile placement + cold-boot restore; SessionLockService extension + AUTH-06 infra; Biometric host UX + Logout/DEV-06 teardown; Geo pre-check + GEO-03 phantom-typed AnalyticsEvent). Two long-running Phase 1 deferrals resolved: Profile tab (top-bar avatar, no §4 drift) + GEO-03 SwiftLint rule (`ban_raw_coordinate_literal` + two disjoint type families). Pre-Phase-3 carryover fixes (CR-02, IN-01/05, IN-02) folded into Phase 3 scope.
+Resume file: .planning/phases/03-otp-auth-role-shell-session-the-fixed-phase-1-goal/03-CONTEXT.md
+Next command: `/gsd-plan-phase 3`
