@@ -326,6 +326,29 @@ final class AppContainer {
         )
         self.networkClient = networkClient
 
+        // Phase 4 Plan 04-11: DEBUG-only physical-device mock fixtures.
+        //
+        // Without this, a DEBUG build on a physical device (networkConfig == .mock
+        // by default) would hang at Send code because MockURLProtocol has no
+        // registered handlers for the organic tap-through flow. Registering
+        // defaults here lets a developer walk through phone-entry → OTP verify →
+        // role shell with any 6-digit code and zero backend.
+        //
+        // Gated on three conditions (all must hold):
+        //   (a) #if DEBUG — Release compiles this block to zero bytes.
+        //   (b) resolvedConfig == .mock — if DevMenu flipped to .live, skip.
+        //   (c) -MockOTPRoleForUITest launch arg NOT present — that path has
+        //       its own fixtures via MockOTPRoleFixtureRegistry (SceneDelegate).
+        //
+        // Registration must happen AFTER the URLSession is wired (MockURLProtocol
+        // in protocolClasses) and BEFORE apiClient fires any request.
+        #if DEBUG
+        let isUITestRolePath = ProcessInfo.processInfo.arguments.contains("-MockOTPRoleForUITest")
+        if case .mock = resolvedConfig, !isUITestRolePath {
+            MockDefaultFixtures.registerAppDefaults()
+        }
+        #endif
+
         // API client composition (Plan 02 typed facade + Plan 04 interceptors + Plan 11 Auth401).
         // Callers (Phase 3 AuthRepository, Phase 5 KYCUploader) inject `appContainer.apiClient`;
         // they do NOT construct their own APIClient or URLSession.
