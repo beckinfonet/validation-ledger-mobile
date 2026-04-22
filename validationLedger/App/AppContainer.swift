@@ -35,6 +35,7 @@ final class AppContainer {
     let logger: any Logger
     let keychainStore: KeychainStore
     let keyStore: any KeyStoreProtocol
+    let biometricService: any BiometricService
     let sessionLock: any SessionLockService
     let networkClient: any NetworkClient
     let apiClient: APIClient
@@ -80,7 +81,23 @@ final class AppContainer {
         self.keyStore = SecureEnclaveKeyStore()
         #endif
 
-        self.sessionLock = DefaultSessionLockService()
+        // Phase 3 Plan 06: SessionLockService gains biometric + keychain deps
+        // (D-07/D-08/D-09 lockState machine). Plan 11 refines composition-root
+        // wiring; this is the minimal-change to keep AppContainer compiling once
+        // DefaultSessionLockService's init signature changed.
+        let featureLogger = OSLogLoggerImpl(
+            subsystem: LoggingSubsystem.app,
+            category: "auth.biometric"
+        )
+        let biometricService = DefaultBiometricService(
+            keychain: self.keychainStore,
+            logger: featureLogger
+        )
+        self.biometricService = biometricService
+        self.sessionLock = DefaultSessionLockService(
+            biometric: biometricService,
+            keychain: self.keychainStore
+        )
 
         // NET-03: URLSession + NetworkClient construction via the single `makeSession` factory.
         // AppContainer is the ONLY place URLSession is constructed — a grep over `validationLedger/`

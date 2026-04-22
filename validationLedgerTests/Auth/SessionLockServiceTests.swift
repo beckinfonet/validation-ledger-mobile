@@ -30,11 +30,15 @@ private final class NoOpLogger: Logger, @unchecked Sendable {
 struct SessionLockServiceTests {
 
     // Helper: fresh ephemeral keychain + new service.
-    private func makeService(
-        stubBiometric: StubBiometricService = StubBiometricService()
-    ) -> DefaultSessionLockService {
+    // Default value removed — default args evaluate outside the function's isolation
+    // context, and StubBiometricService is @MainActor. Callers pass explicitly.
+    private func makeService(stubBiometric: StubBiometricService) -> DefaultSessionLockService {
         let keychain = KeychainStore(service: "vl.test.lock.\(UUID().uuidString)")
         return DefaultSessionLockService(biometric: stubBiometric, keychain: keychain)
+    }
+
+    private func makeService() -> DefaultSessionLockService {
+        makeService(stubBiometric: StubBiometricService())
     }
 
     // MARK: - Phase 1 invariants (preserved across the init-signature change)
