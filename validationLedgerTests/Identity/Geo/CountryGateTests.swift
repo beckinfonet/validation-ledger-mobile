@@ -14,33 +14,26 @@ struct CountryGateTests {
 
     // MARK: - Fakes
 
+    /// Plain-struct implementation of the `PlacemarkLike` seam — avoids the
+    /// CLPlacemark subclass pattern (its `init()` is unavailable on iOS).
+    struct StubPlacemark: PlacemarkLike {
+        let isoCountryCode: String?
+    }
+
     /// Stubbed ReverseGeocoder — configurable per-test via either a placemarks array or an error.
     struct StubGeocoder: ReverseGeocoder {
-        let stubbedPlacemarks: [CLPlacemark]?
+        let stubbedPlacemarks: [any PlacemarkLike]?
         let stubbedError: Error?
 
-        init(placemarks: [CLPlacemark]? = nil, error: Error? = nil) {
+        init(placemarks: [any PlacemarkLike]? = nil, error: Error? = nil) {
             self.stubbedPlacemarks = placemarks
             self.stubbedError = error
         }
 
-        func reverseGeocode(_ location: CLLocation) async throws -> [CLPlacemark] {
+        func reverseGeocode(_ location: CLLocation) async throws -> [any PlacemarkLike] {
             if let stubbedError { throw stubbedError }
             return stubbedPlacemarks ?? []
         }
-    }
-
-    /// Subclass that overrides `isoCountryCode` — CLPlacemark has no public init
-    /// for arbitrary fields, but the property is overridable in Swift.
-    private final class TestPlacemark: CLPlacemark {
-        private let _iso: String?
-
-        init(isoCountryCode: String?) {
-            self._iso = isoCountryCode
-            super.init()
-        }
-        required init?(coder: NSCoder) { fatalError("unused") }
-        override var isoCountryCode: String? { _iso }
     }
 
     // SF coordinates — allowed in Core/Identity/Geo*/ per the SwiftLint allow-list.
@@ -50,7 +43,7 @@ struct CountryGateTests {
 
     @Test("US placemark → returns 'US'")
     func resolvesUS() async throws {
-        let geocoder = StubGeocoder(placemarks: [TestPlacemark(isoCountryCode: "US")])
+        let geocoder = StubGeocoder(placemarks: [StubPlacemark(isoCountryCode: "US")])
         let gate = DefaultCountryGate(geocoder: geocoder)
         let iso = try await gate.resolveCountry(for: testLocation)
         #expect(iso == "US")
@@ -58,7 +51,7 @@ struct CountryGateTests {
 
     @Test("Non-US placemark → returns the actual ISO (caller decides refusal)")
     func resolvesNonUS() async throws {
-        let geocoder = StubGeocoder(placemarks: [TestPlacemark(isoCountryCode: "CA")])
+        let geocoder = StubGeocoder(placemarks: [StubPlacemark(isoCountryCode: "CA")])
         let gate = DefaultCountryGate(geocoder: geocoder)
         let iso = try await gate.resolveCountry(for: testLocation)
         #expect(iso == "CA")
@@ -80,7 +73,7 @@ struct CountryGateTests {
 
     @Test("Nil isoCountryCode in placemark → throws GeoError.cannotResolveCountry (D-21)")
     func nilIsoRefuses() async {
-        let geocoder = StubGeocoder(placemarks: [TestPlacemark(isoCountryCode: nil)])
+        let geocoder = StubGeocoder(placemarks: [StubPlacemark(isoCountryCode: nil)])
         let gate = DefaultCountryGate(geocoder: geocoder)
         do {
             _ = try await gate.resolveCountry(for: testLocation)
