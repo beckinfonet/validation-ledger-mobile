@@ -21,6 +21,7 @@ final class DevMenuViewController: UITableViewController {
         case keychainInspector
         case logViewer
         case networkConfig  // Phase 2 Plan 07 addition — NET-03 SC-2 demonstrator
+        case reattestNow    // Phase 4 Plan 07 addition — D-04 manual re-attestation trigger
 
         var title: String {
             switch self {
@@ -28,6 +29,7 @@ final class DevMenuViewController: UITableViewController {
             case .keychainInspector: return "Keychain Inspector"
             case .logViewer:         return "Log Viewer (OSLogStore)"
             case .networkConfig:     return "Network Config"
+            case .reattestNow:       return "Re-attest now"
             }
         }
 
@@ -37,6 +39,7 @@ final class DevMenuViewController: UITableViewController {
             case .keychainInspector: return "Enumerate Keychain items under app service (D-11)"
             case .logViewer:         return "Last 15 min of OSLog entries (LOG-03)"
             case .networkConfig:     return "Toggle mock ↔ live (NET-03)"
+            case .reattestNow:       return "Force-rotate App Attest key (D-04 re-attestation test path)"
             }
         }
     }
@@ -105,6 +108,38 @@ final class DevMenuViewController: UITableViewController {
             // performs a root-swap with a fresh AppContainer constructed with the new config.
             let vc = NetworkConfigToggleViewController()
             navigationController?.pushViewController(vc, animated: true)
+
+        case .reattestNow:
+            // Phase 4 Plan 07 / D-04 manual re-attestation trigger (DEBUG-only — inherits
+            // file-top #if DEBUG gate). Wipes the persisted attestedKeyId (D-04) and
+            // re-runs generateKeyIfNeeded which forces the next /device/register to use
+            // a freshly-attested key. Presents a UIAlert with the first 16 chars of the
+            // new keyId + the AttestationStatus rawValue so the operator can visually
+            // confirm rotation. No full keyId is displayed and nothing is logged — DEBUG
+            // build is the only place this row exists, but PII discipline still applies.
+            Task { @MainActor in
+                do {
+                    try container.attestationService.clearPersistedKeyId()
+                    let (keyId, status) = try await container.attestationService.generateKeyIfNeeded()
+                    let prefix = String(keyId.prefix(16))
+                    let summary = "D-04 re-attest complete.\nnew keyId prefix: \(prefix)…\nstatus: \(status.rawValue)"
+                    let alert = UIAlertController(
+                        title: "Re-attested",
+                        message: summary,
+                        preferredStyle: .alert
+                    )
+                    alert.addAction(UIAlertAction(title: "OK", style: .default))
+                    self.present(alert, animated: true)
+                } catch {
+                    let alert = UIAlertController(
+                        title: "Re-attest failed",
+                        message: String(describing: error),
+                        preferredStyle: .alert
+                    )
+                    alert.addAction(UIAlertAction(title: "OK", style: .default))
+                    self.present(alert, animated: true)
+                }
+            }
         }
     }
 }
