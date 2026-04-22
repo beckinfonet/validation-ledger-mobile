@@ -10,11 +10,19 @@ public enum AppPhase {
     case launch
     case auth
     case role(Role)
+    /// Phase 3 D-18 / DEV-06: routed to after `LogoutService.logout(.anotherActiveSession)`.
+    /// Produces an `AnotherActiveSessionViewController` (terminal support-contact screen).
+    case anotherActiveSession
 }
 
 final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
     private var appCoordinator: AppCoordinator?
+
+    /// Phase 3 Plan 11 / D-18: observer token for `.sessionDidInvalidate`. LogoutService posts
+    /// this as the LAST step of its teardown orchestration (Pitfall 3). SceneDelegate maps the
+    /// `LogoutReason` carried in `userInfo` to an AppPhase and root-swaps via `presentRoot`.
+    private var sessionInvalidateObserver: NSObjectProtocol?
 
     #if DEBUG
     /// Holds the strong-typed observer token so we can remove it on deinit / scene disconnect.
@@ -55,6 +63,28 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
         #endif
 
+        // Phase 3 Plan 11 — D-18: observe `.sessionDidInvalidate` and root-swap based on reason.
+        //   .userInitiated / .auth401        → .auth  (phone-entry)
+        //   .anotherActiveSession            → .anotherActiveSession  (terminal support screen)
+        // LogoutService posts this notification as the LAST step of its teardown orchestration
+        // (Pitfall 3), so when this observer fires the Keychain + SE auth key + SessionLock
+        // state are already cleared — presentRoot builds a fresh AppContainer for the new phase.
+        sessionInvalidateObserver = NotificationCenter.default.addObserver(
+            forName: .sessionDidInvalidate,
+            object: nil,
+            queue: .main
+        ) { [weak self] note in
+            guard let self else { return }
+            let rawReason = note.userInfo?[Notification.Name.LogoutReasonKey] as? String
+            let reason = rawReason.flatMap { LogoutReason(rawValue: $0) } ?? .userInitiated
+            switch reason {
+            case .userInitiated, .auth401:
+                self.presentRoot(.auth)
+            case .anotherActiveSession:
+                self.presentRoot(.anotherActiveSession)
+            }
+        }
+
         // XCUITest override — CI-02 placeholder tests use this to drive each role shell.
         // Production / Release builds NEVER see this path (file-level DEBUG gate below);
         // even Debug only reacts if launchArguments include the sentinel flag.
@@ -70,9 +100,18 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
         #endif
 
-        // Phase 1 default: start at shipper. DevMenu (DEBUG) swaps to other roles;
-        // Phase 3 replaces with .launch/.auth routing based on session-token probe.
-        presentRoot(.role(.shipper))
+        // Phase 3 D-04/D-05 (Blocker 6): probe the session via the lightweight
+        // SessionRestoreProbe helper BEFORE first paint. The probe constructs ONLY
+        // KeychainStore + DefaultSessionRestoreService (no SessionLockService, no
+        // BiometricService, no LocationProvider) so discarding the helper does NOT
+        // leak UIApplication notification observers per D-08. presentRoot then
+        // constructs a fresh, full AppContainer for the selected phase per ADR 0002.
+        switch SessionRestoreProbe.probe(env: .current) {
+        case .restored(let role):
+            presentRoot(.role(role))
+        case .needsAuth:
+            presentRoot(.auth)
+        }
 
         window.makeKeyAndVisible()
 
@@ -84,6 +123,10 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneDidDisconnect(_ scene: UIScene) {
+        if let token = sessionInvalidateObserver {
+            NotificationCenter.default.removeObserver(token)
+            sessionInvalidateObserver = nil
+        }
         #if DEBUG
         if let token = networkConfigObserver {
             NotificationCenter.default.removeObserver(token)
@@ -93,6 +136,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     deinit {
+        if let token = sessionInvalidateObserver {
+            NotificationCenter.default.removeObserver(token)
+        }
         #if DEBUG
         if let token = networkConfigObserver {
             NotificationCenter.default.removeObserver(token)
