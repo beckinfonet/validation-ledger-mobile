@@ -188,6 +188,18 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             // Post-OTP verify, DevMenu role-swap, and NetworkConfig toggle all use
             // the no-flag overload which passes checkLockState: false.
             presentRoot(.role(role), checkLockState: true)
+            // Phase 4 D-07 cold-boot heartbeat. Fire-and-forget — does not block role-shell
+            // render. Biometric lock (Plan 13) presents above via checkLockState: true; the
+            // heartbeat runs concurrently in the background. If biometric denies, the user
+            // re-auths, the heartbeat may land on a dead session, and the existing
+            // Auth401ResponseInterceptor (Phase 3) handles the 401 via LogoutService.
+            // performHeartbeatIfNeeded reads the AppContainer constructed by presentRoot —
+            // `self.appCoordinator?.container` is non-nil here because presentRoot wires it.
+            if let container = self.appCoordinator?.container {
+                Task { @MainActor in
+                    await self.performHeartbeatIfNeeded(container: container)
+                }
+            }
         case .needsAuth:
             presentRoot(.auth)
         }
@@ -368,11 +380,125 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     /// check only when the current phase is .role(_). On .auth or .anotherActiveSession,
     /// a lock overlay is meaningless (the user has not authenticated or is on a terminal
     /// support screen respectively).
+    ///
+    /// Phase 4 D-07: after the biometric-lock check, fires the 24h heartbeat probe.
+    /// performHeartbeatIfNeeded gates internally on the 86400s threshold so it is safe
+    /// to call on every didBecomeActive — the helper returns early when lastHeartbeatAt
+    /// is fresh. Fire-and-forget: heartbeat errors do NOT block role-shell interaction.
     private func handleDidBecomeActive() {
         guard case .role = currentPhase else { return }
         guard let container = appCoordinator?.container else { return }
         guard let rootVC = window?.rootViewController else { return }
         presentBiometricLockIfNeeded(container: container, over: rootVC)
+        // Phase 4 D-07: 24h heartbeat check runs AFTER biometric-lock check.
+        // The helper is @MainActor and performs its own threshold gating.
+        Task { @MainActor in
+            await self.performHeartbeatIfNeeded(container: container)
+        }
+    }
+
+    // MARK: - Phase 4 D-07 heartbeat helper (cold-boot + 24h warm-foreground)
+
+    /// Phase 4 D-07 heartbeat helper. Fire-and-forget: a failed heartbeat does NOT block
+    /// role-shell render. Errors log at .error level with safe fields only (event name +
+    /// .count rawValue); attestationObject / attestedKeyId bytes NEVER enter Logger fields
+    /// (FOUND-01 PII discipline — 04-PATTERNS.md Pattern A).
+    ///
+    /// Invocation sites (D-07):
+    ///   1. scene(_:willConnectTo:) .restored branch — cold-boot heartbeat
+    ///   2. handleDidBecomeActive — warm-foreground 24h check
+    ///
+    /// 24h threshold: reads AttestedKeyStore.readLastHeartbeatAt(); if nil or older
+    /// than 86400s (24h), fires heartbeat. On success, updates container.session.trustTier
+    /// (D-12) and persists lastHeartbeatAt via AttestedKeyStore.writeLastHeartbeatAt.
+    ///
+    /// Stale-session edge case (RESEARCH Pitfall 6): if the session token is server-stale,
+    /// the heartbeat POST returns 401 → existing Auth401ResponseInterceptor triggers
+    /// LogoutService.logout(.auth401). This is NORMAL; heartbeat serves dual duty as
+    /// session validity probe.
+    @MainActor
+    private func performHeartbeatIfNeeded(container: AppContainer) async {
+        let attestedKeyStore = AttestedKeyStore(keychain: container.keychainStore)
+
+        // 24h threshold check — 86400s = 24 hours.
+        do {
+            if let last = try attestedKeyStore.readLastHeartbeatAt(),
+               Date().timeIntervalSince(last) < 86400 {
+                return  // Heartbeat is fresh; nothing to do.
+            }
+        } catch {
+            container.logger.error(
+                event: .init("attestation_heartbeat_read_last_failed"),
+                fields: [:]
+            )
+            // Fall through — err on the side of heartbeating if we cannot read state.
+        }
+
+        do {
+            // Ensure we have an attested key (D-01: idempotent; returns existing on hit).
+            let (keyId, status) = try await container.attestationService.generateKeyIfNeeded()
+            guard status == .attested || status == .simulatorBypass else {
+                // No usable key — backend already routed to .softwareOnly; skip heartbeat.
+                container.logger.warn(
+                    event: .init("attestation_heartbeat_skipped_no_key"),
+                    fields: [.event: status.rawValue]
+                )
+                return
+            }
+
+            // Fetch challenge (D-05). base64-decode to raw bytes for D-06 SHA-256.
+            let challengeResponse = try await container.apiClient.request(DeviceChallengeEndpoint())
+            guard let challengeData = Data(base64Encoded: challengeResponse.challenge) else {
+                container.logger.error(
+                    event: .init("attestation_heartbeat_bad_challenge"),
+                    fields: [:]
+                )
+                return
+            }
+
+            // Generate assertion (D-07 — SHA-256(challenge) inside the service).
+            let assertion = try await container.attestationService.generateAssertion(
+                keyId: keyId,
+                challenge: challengeData
+            )
+
+            // Read session token from Keychain (existing Phase 3 pattern).
+            let sessionTokenData = try container.keychainStore.get(.sessionToken)
+            guard let sessionToken = String(data: sessionTokenData, encoding: .utf8) else {
+                container.logger.error(
+                    event: .init("attestation_heartbeat_no_session_token"),
+                    fields: [:]
+                )
+                return
+            }
+
+            // POST /device/heartbeat.
+            let heartbeatResponse = try await container.apiClient.request(DeviceHeartbeatEndpoint(
+                sessionToken: sessionToken,
+                attestedKeyId: keyId,
+                assertion: assertion
+            ))
+
+            // D-12: update trustTier from response + persist lastHeartbeatAt (D-07).
+            container.session.trustTier = heartbeatResponse.trustTier
+            try attestedKeyStore.writeLastHeartbeatAt(heartbeatResponse.heartbeatAcceptedAt)
+
+            container.logger.info(
+                event: .init("attestation_heartbeat_ok"),
+                fields: [.event: heartbeatResponse.trustTier.rawValue]
+            )
+        } catch {
+            // Silent-fail: do not block role-shell render. Backend will drive re-attest
+            // on next /device/register if trustTier demands it. 401 errors on /device/heartbeat
+            // are handled by the existing Auth401ResponseInterceptor (Phase 3 D-28).
+            //
+            // PII discipline: do NOT include error.userInfo or .localizedDescription — those
+            // may contain diagnostic bytes. Only the event name carries context.
+            container.logger.error(
+                event: .init("attestation_heartbeat_failed"),
+                fields: [:]
+            )
+        }
     }
 
     // MARK: - DEBUG shake gesture (D-12 / D-13)
