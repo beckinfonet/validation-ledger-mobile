@@ -182,7 +182,12 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // constructs a fresh, full AppContainer for the selected phase per ADR 0002.
         switch SessionRestoreProbe.probe(env: .current) {
         case .restored(let role):
-            presentRoot(.role(role))
+            // Phase 3 gap-closure (Plan 13): pass checkLockState: true ONLY on the
+            // genuine cold-boot restore path. This is the exact moment SESS-01
+            // requires a biometric gate before tab content is interactive.
+            // Post-OTP verify, DevMenu role-swap, and NetworkConfig toggle all use
+            // the no-flag overload which passes checkLockState: false.
+            presentRoot(.role(role), checkLockState: true)
         case .needsAuth:
             presentRoot(.auth)
         }
@@ -237,7 +242,26 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     // MARK: - Root-swap mechanism (D-10 / ADR 0002)
 
+    /// Default entry point — used by post-auth coordinator callbacks, DevMenu RoleSwitcher,
+    /// and NetworkConfig toggle. These callers JUST authenticated (OTP verify step 6 recorded
+    /// a biometric success) OR are DEBUG-only developer paths; they do NOT want the biometric
+    /// lock overlay on top of the fresh role shell.
+    ///
+    /// The cold-boot path in `scene(_:willConnectTo:)` uses `presentRoot(_:checkLockState:)`
+    /// with `checkLockState: true` to drive the SESS-01 biometric gate on process-launch
+    /// session restore only.
     func presentRoot(_ phase: AppPhase) {
+        presentRoot(phase, checkLockState: false)
+    }
+
+    /// Cold-boot-aware entry. `checkLockState: true` is passed ONLY from the SessionRestoreProbe
+    /// .restored branch in `scene(_:willConnectTo:)` — that is the exact moment the app is
+    /// resuming a persisted session on process launch and SESS-01 requires biometric unlock
+    /// before tab content is interactive. All other callers pass `false` (or use the no-flag
+    /// overload above), because their SessionLockService is a fresh-in-this-process instance
+    /// whose `lastSuccess == nil` would otherwise always trip `.locked(.coldBoot)` and stack
+    /// a lock VC that blocks the role shell immediately after OTP verify or DevMenu role-swap.
+    func presentRoot(_ phase: AppPhase, checkLockState: Bool) {
         // Fresh container + fresh coordinator per D-10.
         // In DEBUG, respect the DevMenu NetworkConfig override (NET-03 SC-2 demonstrator)
         // so toggling mock/live persists across subsequent role swaps.
@@ -249,6 +273,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let coordinator = AppCoordinator(container: container, phase: phase)
 
         // Wire callbacks that can trigger re-routing in Phase 3+.
+        // onRoleResolved fires post-OTP verify — the user just authenticated, so we do NOT
+        // want the lock overlay on top of the fresh role shell (uses no-flag overload which
+        // passes checkLockState: false).
         coordinator.onRoleResolved = { [weak self] role in
             self?.presentRoot(.role(role))
         }
@@ -273,7 +300,10 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // check lockState and present BiometricLockViewController if locked. This closes
         // 03-VERIFICATION.md gap 1 — prior to this plan, BiometricLockViewController had
         // zero construction sites anywhere in the app, making SC-2/SC-3 unachievable.
-        if case .role = phase {
+        //
+        // Guarded by `checkLockState` so post-OTP / DevMenu / NetworkConfig re-presents do NOT
+        // trip the lock overlay with a fresh-process SessionLockService whose lastSuccess == nil.
+        if checkLockState, case .role = phase {
             presentBiometricLockIfNeeded(container: container, over: coordinator.rootViewController)
         }
     }
