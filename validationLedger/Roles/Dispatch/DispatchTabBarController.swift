@@ -27,5 +27,10 @@ final class DispatchTabBarController: UITabBarController, RoleCoordinator {
             ShipperTabBarController.makeTab(title: "Drivers",   systemImage: "person.badge.key"),
             ShipperTabBarController.makeTab(title: "Assistant", systemImage: "sparkles"),
         ]
+        // Phase 3 D-03: shared avatar affordance — see ShipperTabBarController for rationale.
+        wrapTabsWithNavAndInstallAvatar { [weak self] in
+            guard let self else { return UIViewController() }
+            return ProfileViewController(logoutService: self.logoutService)
+        }
     }
 }

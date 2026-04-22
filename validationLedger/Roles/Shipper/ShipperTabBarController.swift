@@ -27,6 +27,13 @@ final class ShipperTabBarController: UITabBarController, RoleCoordinator {
             Self.makeTab(title: "BOL",       systemImage: "doc.text"),
             Self.makeTab(title: "Assistant", systemImage: "sparkles"),
         ]
+        // Phase 3 D-03: wrap each tab in a UINavigationController and install the
+        // shared avatar affordance via the RoleCoordinator helper. Tap → present
+        // ProfileViewController modally with the injected LogoutService.
+        wrapTabsWithNavAndInstallAvatar { [weak self] in
+            guard let self else { return UIViewController() }
+            return ProfileViewController(logoutService: self.logoutService)
+        }
     }
 
     /// Shared helper for all 5 role tab bars (reused across subclasses).
