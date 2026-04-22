@@ -35,6 +35,22 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private var currentNetworkConfigOverride: NetworkConfig?
     #endif
 
+    /// Phase 3 gap-closure (Plan 13) — observes UIApplication.didBecomeActiveNotification
+    /// so SESS-02 (>5min background → biometric re-prompt) works on device. Stored as
+    /// instance property so we can remove the observer on sceneDidDisconnect + deinit
+    /// (mirrors the sessionInvalidateObserver / networkConfigObserver cleanup pattern).
+    private var appDidBecomeActiveObserver: NSObjectProtocol?
+
+    /// Tracks the current AppPhase so didBecomeActive handler knows whether to re-check
+    /// lockState (only meaningful when we're in .role(_) — .auth and .anotherActiveSession
+    /// don't need a lock overlay). Updated in presentRoot(_:).
+    private var currentPhase: AppPhase?
+
+    /// Weak reference to the currently-presented BiometricLockViewController. Prevents
+    /// stacking duplicate lock VCs if didBecomeActive fires while one is already on-screen
+    /// (e.g. user backgrounds during biometric prompt, foregrounds again).
+    private weak var presentedLockVC: BiometricLockViewController?
+
     func scene(
         _ scene: UIScene,
         willConnectTo session: UISceneSession,
@@ -83,6 +99,21 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             case .anotherActiveSession:
                 self.presentRoot(.anotherActiveSession)
             }
+        }
+
+        // Phase 3 gap-closure (Plan 13) — SESS-02: >5min background → biometric re-prompt.
+        // SessionLockService.lockState(now:) already tracks enteredBackgroundAt via its own
+        // UIApplication.didEnterBackgroundNotification self-subscription (SessionLockService.swift
+        // lines 62-83). This observer re-runs the SceneDelegate-level lockState check on
+        // foreground — if now - enteredBackgroundAt > 5min, lockState returns .locked(.backgroundTimeout)
+        // and we present BiometricLockViewController. The per-Scene observer stays alive for the
+        // window's lifetime; removed in sceneDidDisconnect + deinit.
+        appDidBecomeActiveObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didBecomeActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.handleDidBecomeActive()
         }
 
         // XCUITest override — CI-02 placeholder tests use this to drive each role shell.
@@ -170,6 +201,10 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             NotificationCenter.default.removeObserver(token)
             sessionInvalidateObserver = nil
         }
+        if let token = appDidBecomeActiveObserver {
+            NotificationCenter.default.removeObserver(token)
+            appDidBecomeActiveObserver = nil
+        }
         #if DEBUG
         if let token = networkConfigObserver {
             NotificationCenter.default.removeObserver(token)
@@ -180,6 +215,9 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     deinit {
         if let token = sessionInvalidateObserver {
+            NotificationCenter.default.removeObserver(token)
+        }
+        if let token = appDidBecomeActiveObserver {
             NotificationCenter.default.removeObserver(token)
         }
         #if DEBUG
@@ -225,6 +263,86 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         // Signal the DeepLinkRouter that bootstrap is complete — pending links drain now.
         container.deepLinkRouter.bootstrapComplete()
+
+        // Phase 3 gap-closure (Plan 13): track the phase so didBecomeActive knows whether
+        // to re-check lockState. Lock overlay is only meaningful on .role — .auth and
+        // .anotherActiveSession do not present a lock VC (the user must auth fresh anyway).
+        self.currentPhase = phase
+
+        // Phase 3 gap-closure (Plan 13) — SESS-01/SESS-03: on cold-boot restore to .role,
+        // check lockState and present BiometricLockViewController if locked. This closes
+        // 03-VERIFICATION.md gap 1 — prior to this plan, BiometricLockViewController had
+        // zero construction sites anywhere in the app, making SC-2/SC-3 unachievable.
+        if case .role = phase {
+            presentBiometricLockIfNeeded(container: container, over: coordinator.rootViewController)
+        }
+    }
+
+    // MARK: - Biometric lock overlay (Phase 3 gap-closure Plan 13 — D-13/D-14/D-15)
+
+    /// Checks container.sessionLock.lockState(now:) and — when locked — constructs
+    /// BiometricLockViewController(reason:biometric:sessionLock:onUnlockSuccess:onReBindRequested:)
+    /// and presents it modally (.fullScreen) over the role VC. No-op when lockState is
+    /// .unlocked. No-op when a lock VC is already presented (prevents stacking duplicates
+    /// if didBecomeActive fires during an active biometric prompt).
+    ///
+    /// Called from:
+    ///   - presentRoot(_:) on cold-boot .role path — covers SESS-01 (.coldBoot reason)
+    ///   - handleDidBecomeActive() on foreground — covers SESS-02 (.backgroundTimeout)
+    ///
+    /// onReBindRequested (SESS-03 M1 placeholder): routes through LogoutService.logout(.userInitiated)
+    /// which already funnels through the existing .sessionDidInvalidate observer
+    /// (lines 72-86) and root-swaps to .auth. Future phases replace this with a proper
+    /// device re-bind UI; for M1 the "re-bind" is a forced re-auth.
+    private func presentBiometricLockIfNeeded(container: AppContainer, over presenter: UIViewController) {
+        // Idempotency: if a lock VC is already up, don't stack another one.
+        if presentedLockVC != nil { return }
+
+        let state = container.sessionLock.lockState(now: .now)
+        guard case .locked(let reason) = state else { return }
+
+        let lockVC = BiometricLockViewController(
+            reason: reason,
+            biometric: container.biometricService,
+            sessionLock: container.sessionLock,
+            onUnlockSuccess: { [weak self] in
+                // Dismiss with animated: false per RESEARCH §iOS API #6 line 910 —
+                // no reveal animation, tighter security posture.
+                self?.presentedLockVC?.dismiss(animated: false)
+                self?.presentedLockVC = nil
+            },
+            onReBindRequested: { [weak self, weak container] in
+                // SESS-03 M1 placeholder per 03-CONTEXT.md / 03-VERIFICATION.md gap 1 "missing" item 3.
+                // Forced re-auth: logoutService.logout(.userInitiated) wipes Keychain + SE auth key +
+                // sessionLock.invalidate() + posts .sessionDidInvalidate. SceneDelegate's existing
+                // .sessionDidInvalidate observer (lines 72-86) root-swaps to .auth. From the user's
+                // perspective they see the lock VC dismiss → phone-entry appears.
+                guard let container else { return }
+                Task { @MainActor in
+                    await container.logoutService.logout(reason: .userInitiated)
+                    // Note: no explicit dismiss here — the .sessionDidInvalidate observer
+                    // triggers presentRoot(.auth), which ARC-drops the current coordinator
+                    // tree (including the presented lock VC) per ADR 0002.
+                    self?.presentedLockVC = nil
+                }
+            }
+        )
+
+        // The VC already sets modalPresentationStyle = .fullScreen + accessibilityViewIsModal = true
+        // in its init (BiometricLockViewController.swift lines 44-47) — do not override here.
+        self.presentedLockVC = lockVC
+        presenter.present(lockVC, animated: false)
+    }
+
+    /// Handler for UIApplication.didBecomeActiveNotification — re-runs the lockState
+    /// check only when the current phase is .role(_). On .auth or .anotherActiveSession,
+    /// a lock overlay is meaningless (the user has not authenticated or is on a terminal
+    /// support screen respectively).
+    private func handleDidBecomeActive() {
+        guard case .role = currentPhase else { return }
+        guard let container = appCoordinator?.container else { return }
+        guard let rootVC = window?.rootViewController else { return }
+        presentBiometricLockIfNeeded(container: container, over: rootVC)
     }
 
     // MARK: - DEBUG shake gesture (D-12 / D-13)
