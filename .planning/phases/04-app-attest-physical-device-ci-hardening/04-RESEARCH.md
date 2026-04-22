@@ -783,32 +783,32 @@ GitHub Repository Settings → Branches → Add branch ruleset (or: Classic bran
 
 **If user disagrees with any assumption here:** surface during Phase 4 plan-discuss to convert the item into an explicit decision in 04-CONTEXT.md before planning proceeds.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Exact backend error code strings for re-attestation triggers (D-04).**
    - What we know: D-04 says "backend error codes `attestationInvalid` / `nonceExpired` / `keyCompromised`" but this is notional.
    - What's unclear: The wire-format field name (top-level `error_code`? nested `detail.code`?) and exact string values.
-   - Recommendation: Client ships with a generic `AttestationError.underlying(code: String)` case + a named case for the three canonical triggers. Coordinate with backend team during Phase 4 plan execution (first plan task); update mapping once confirmed.
+   - RESOLVED: Client ships with a generic `AttestationError.underlying(code: String)` case + a named case for the three canonical triggers. Coordinate with backend team during Phase 4 plan execution (first plan task); update mapping once confirmed.
 
 2. **Telemetry format for attestationStatus distribution.**
    - What we know: `attestationStatus` is an enum value on the wire; the client will emit a structured log event for each `/device/register` call.
    - What's unclear: Whether the Logger's current `LogField` vocabulary has a "status code" concept, or whether Phase 4 needs to add one.
-   - Recommendation: Phase 4 plan surveys `LogField` existing cases; if no suitable case exists, extend with `case status(String)` minimally. Preserve GEO-03 discipline: NEVER emit raw `attestationObject` bytes.
+   - RESOLVED: Phase 4 plan surveys `LogField` existing cases; if no suitable case exists, extend with `case status(String)` minimally. Preserve GEO-03 discipline: NEVER emit raw `attestationObject` bytes.
 
 3. **Banner copy approval.**
    - What we know: D-11 text is "Limited trust mode — this device can't fully verify. Some features may be restricted."
    - What's unclear: Product-team final-copy approval (the CONTEXT version is "planner-finalize" territory per D-14 phase-3 pattern).
-   - Recommendation: Proceed with the copy as written; leave a task for copy-review with PM before M5.
+   - RESOLVED: Proceed with the copy as written; leave a task for copy-review with PM before M5.
 
 4. **Is there a "re-bind device" path beyond Face-ID re-enrollment?**
    - What we know: Phase 3's `.biometricReEnrolled` → logout placeholder covers the biometric case.
    - What's unclear: If backend says `keyCompromised` (D-04 trigger), is that the same "re-bind" UI as Face ID re-enrollment? Or a different path?
-   - Recommendation: Phase 4 plan should treat `keyCompromised` as a silent `attestedKeyId` regeneration on the next `/device/register` — user-invisible. No new UI. Document this explicitly in ADR 0005.
+   - RESOLVED: Phase 4 plan should treat `keyCompromised` as a silent `attestedKeyId` regeneration on the next `/device/register` — user-invisible. No new UI. Document this explicitly in ADR 0005.
 
 5. **Does the heartbeat need to run during BiometricLockViewController display?**
    - What we know: On cold-boot, SessionLockService presents `BiometricLockViewController` over the role shell (Phase 3 Plan 13).
    - What's unclear: Should the 24h heartbeat fire BEFORE or AFTER biometric unlock? Firing before: user sees zero network activity. Firing after: loses ~5 seconds of user-friction-blocked validation.
-   - Recommendation: Fire heartbeat AFTER biometric unlock — semantically the "session is alive" signal should follow "the user is present." Documented in Code Example §Common Operation 1 via the `await` placement.
+   - RESOLVED: Fire heartbeat AFTER biometric unlock — semantically the "session is alive" signal should follow "the user is present." Documented in Code Example §Common Operation 1 via the `await` placement.
 
 ## Environment Availability
 

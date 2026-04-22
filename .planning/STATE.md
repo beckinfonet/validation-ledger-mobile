@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: discussing
-stopped_at: "Phase 4 context gathered — 16 decisions across 4 areas: App Attest key lifecycle (install-scoped generateKey + three-key /device/register payload + preserve-across-logout + backend-driven re-attest), challenge/assertion protocol (dedicated /device/challenge + registration attestation + cold-boot-plus-24h heartbeat on /device/heartbeat), graceful-skip contract (5-value attestationStatus enum + non-dismissible Limited-trust banner + server-driven trustTier), and device CI (full security surface with seeded LAContext + retry-once-then-fail + required GitHub status check). ADR 0004 extends to a new ADR 0005 for the three-key registration payload. Device CI D-13 retires 3 of 4 Phase 3 HUMAN-UAT items into CI coverage."
-last_updated: "2026-04-22T10:15:00.000Z"
-last_activity: 2026-04-22 -- Phase 4 context gathered
+status: ready_to_execute
+stopped_at: "Phase 4 planned — 10 plans across 5 waves verified by plan-checker (iteration 2). DEV-04 + CI-03 covered; all 16 CONTEXT.md decisions mapped to implementing tasks. Waves: W1 foundations (01 types+protocol+entitlement+ADR, 02 test scaffolding) → W2 impls (03 AttestationService impls+AttestedKeyStore, 04 endpoints+three-key payload) → W3 tests+DI (05 12 sim tests+release guard, 06 AppContainer+AppSession+biometricServiceOverride) → W4 integration (07 SceneDelegate heartbeat+DevMenu+AttestationErrorResponseInterceptor, 08 LimitedTrustBanner+role-shell+iPad checkpoint, 09 device CI tests) → W5 CI (10 ci-device.yml+Slack flaky notifier+branch-protection HUMAN checkpoint). Known execution-time concern: Plan 05 Task 4 AttestationErrorResponseInterceptorTest references type created in Plan 07 Task 3 — executor should stub+replace or use @Suite(.disabled) until Wave 4 lands."
+last_updated: "2026-04-22T10:30:00.000Z"
+last_activity: 2026-04-22 -- Phase 4 planned (10 plans, 5 waves, verification passed iteration 2)
 progress:
   total_phases: 5
   completed_phases: 3

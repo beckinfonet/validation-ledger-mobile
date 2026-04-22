@@ -104,9 +104,9 @@ Plans:
 - [ ] 04-02-PLAN.md — Wave 1: Wave 0 test scaffolding — 4 JSON fixtures + KeychainScopeTests (D-03 pin) + FakeAttestationService + SeededLAContext
 - [ ] 04-03-PLAN.md — Wave 2: AttestationService implementations — DCAppAttestAttestationService (production) + SimulatorBypassAttestationService (DEBUG+sim) + AttestedKeyStore
 - [ ] 04-04-PLAN.md — Wave 2: Endpoints — DeviceChallenge (GET) + DeviceHeartbeat (POST) + DeviceRegister three-key payload extension + trustTier response
-- [ ] 04-05-PLAN.md — Wave 2: 9 simulator-side tests — D-01/D-04/D-05/D-06/D-07d/D-08/D-09/D-09f/D-10 + Release-strings grep guard script
+- [ ] 04-05-PLAN.md — Wave 3: 12 simulator-side tests — D-01/D-04/D-05/D-06/D-07c/D-07d/D-08/D-09/D-09f/D-10/D-02-wire/D-04-interceptor + Release-strings grep guard script
 - [ ] 04-06-PLAN.md — Wave 3: AppContainer wiring — attestationService + preflightAttestationEntitlement + AppSession trustTier holder + biometricServiceOverride test seam (D-14)
-- [ ] 04-07-PLAN.md — Wave 3: SceneDelegate cold-boot + 24h warm-foreground heartbeat + DevMenu 'Re-attest now' row (D-07 + D-04 manual path)
+- [ ] 04-07-PLAN.md — Wave 4: SceneDelegate cold-boot + 24h warm-foreground heartbeat + DevMenu 'Re-attest now' row + AttestationErrorResponseInterceptor (D-07 + D-04 automatic + manual paths)
 - [ ] 04-08-PLAN.md — Wave 4: LimitedTrustBannerView (UIKit non-dismissible) + RoleCoordinator wrap extension + 2 XCUITests + iPad landscape checkpoint (D-11 + D-12)
 - [ ] 04-09-PLAN.md — Wave 4: Device-CI tests — AppAttestRoundTripTests + KeychainBiometricACLTests + LogoutClearsAuthorizationKeyTests (D-13 + D-14 + D-03 on device)
 - [ ] 04-10-PLAN.md — Wave 5: CI pipeline — ci-device.yml upgrade + ci-simulator.yml Release guard + report-flaky-passes.sh + docs/ci.md + branch-protection HUMAN checkpoint (CI-03 + D-15 + D-16)
