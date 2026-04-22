@@ -69,6 +69,14 @@ final class SecureEnclaveKeyStore: KeyStoreProtocol {
     // MARK: - Private
 
     private func generateKey(slot: Keyslot) throws -> Data {
+        // CR-02 (Phase 2 carryover, closed Phase 3 Plan 02): idempotent guard.
+        // If a key already exists for this slot, return its public representation
+        // instead of inserting a second key. Without this, a second generateKey(slot:)
+        // call silently inserts a new SecKey alongside the old one and loadPrivateKey
+        // may return either — breaking pub/priv pairing on the next sign call.
+        if let existingPub = try? loadPublicKey(slot: slot) {
+            return existingPub
+        }
         var acError: Unmanaged<CFError>?
         guard let accessControl = SecAccessControlCreateWithFlags(
             kCFAllocatorDefault,

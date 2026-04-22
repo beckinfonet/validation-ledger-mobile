@@ -17,7 +17,11 @@ final class SoftwareKeyStore: KeyStoreProtocol {
 
     func sign(_ data: Data) throws -> Data {
         let signature = try devicePrivateKey.signature(for: data)
-        return signature.rawRepresentation
+        // IN-02 (Phase 2 carryover, closed Phase 3 Plan 02):
+        // Return DER X9.62 to match SecureEnclaveKeyStore's wire format
+        // (ecdsaSignatureMessageX962SHA256 — see SecureEnclaveKeyStore.sign(data:slot:)).
+        // Backend sees identical signature bytes from sim and device.
+        return signature.derRepresentation
     }
 
     func publicKeyRepresentation() throws -> Data {
@@ -36,6 +40,8 @@ final class SoftwareKeyStore: KeyStoreProtocol {
     func signWithAuthorization(_ data: Data) throws -> Data {
         // Simulator has no biometric — sign directly with the auth key.
         let signature = try authPrivateKey.signature(for: data)
-        return signature.rawRepresentation
+        // IN-02 (Phase 2 carryover, closed Phase 3 Plan 02):
+        // Return DER X9.62 to match SecureEnclaveKeyStore's wire format.
+        return signature.derRepresentation
     }
 }
