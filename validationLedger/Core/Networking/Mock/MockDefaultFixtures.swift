@@ -55,16 +55,13 @@ public enum MockDefaultFixtures {
             return make200(body: otpRequestResponseJSON(), url: request.url)
 
         case ("POST", "/auth/otp/verify"):
-            if isAnySixDigitCode(request.httpBody) {
-                return make200(body: otpVerifyResponseJSON(), url: request.url)
-            } else {
-                return makeError(
-                    status: 400,
-                    code: "invalid_code",
-                    message: "Enter any 6 digits for the dev mock.",
-                    url: request.url
-                )
-            }
+            // Dev-mock is forgiving: any body accepted. An earlier revision tried to
+            // inspect `request.httpBody` for a 6-digit code, but async URLSession often
+            // moves the body into `httpBodyStream` so `httpBody` is nil — which made
+            // the mock return 400 for legitimate requests and get stuck in the OTP
+            // screen's generic error state. Unconditional 200 is the right default
+            // for the DEBUG tap-through walkthrough.
+            return make200(body: otpVerifyResponseJSON(), url: request.url)
 
         case ("GET", "/device/challenge"):
             return make200(body: deviceChallengeResponseJSON(), url: request.url)
@@ -123,37 +120,5 @@ public enum MockDefaultFixtures {
         return (response, body)
     }
 
-    private static func makeError(status: Int, code: String, message: String, url: URL?) -> (HTTPURLResponse, Data) {
-        let response = HTTPURLResponse(
-            url: url ?? URL(string: "https://mock.local/")!,
-            statusCode: status,
-            httpVersion: "HTTP/1.1",
-            headerFields: ["Content-Type": "application/json"]
-        )!
-        let body = Data(#"{"error_code":"\#(code)","message":"\#(message)"}"#.utf8)
-        return (response, body)
-    }
-
-    // MARK: - Request body inspection
-
-    /// Accepts any OTPVerifyEndpoint.Request JSON whose `code` field is exactly
-    /// 6 numeric characters. The APIClient encodes Request bodies with
-    /// `.convertToSnakeCase`, so `otpSessionID` arrives as `otp_session_id`
-    /// and `code` as `code`. We look for ANY string value matching ^[0-9]{6}$
-    /// to avoid coupling to exact key names — keeps the dev mock forgiving.
-    private static func isAnySixDigitCode(_ body: Data?) -> Bool {
-        guard let body,
-              let obj = try? JSONSerialization.jsonObject(with: body) as? [String: Any] else {
-            return false
-        }
-        for value in obj.values {
-            if let s = value as? String,
-               s.count == 6,
-               s.allSatisfy({ $0.isASCII && $0.isNumber }) {
-                return true
-            }
-        }
-        return false
-    }
 }
 #endif
