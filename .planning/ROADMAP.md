@@ -76,7 +76,7 @@ Plans:
   5. Attempting to auth while `CLLocationManager` reports a non-US country is refused client-side with a clear error, and raw coordinates never appear in any log message or analytics event (phantom-typed `AnalyticsEvent` makes the latter a compile error).
 **Plans:** 12 plans (updated post-checker revision: Plans 06 and 08-original split per Blockers 5 and Warning 3)
 Plans:
-- [ ] 03-01-PLAN.md — Wave 0: test scaffolding stubs + otp-verify-rate-limited.json fixture
+- [x] 03-01-PLAN.md — Wave 0: test scaffolding stubs + otp-verify-rate-limited.json fixture
 - [ ] 03-02-PLAN.md — Wave 1: Pre-Phase-3 carryover fixes (CR-02 SE idempotent + IN-01/05 acronym CodingKeys + IN-02 DER unification) — frontmatter requirements: [AUTH-03, SESS-04] (prerequisite lineage)
 - [ ] 03-03-PLAN.md — Wave 1: GEO-03 compile-time discipline (PlatformPayloadField + LogField cleanup + SwiftLint ban_raw_coordinate_literal)
 - [ ] 03-04-PLAN.md — Wave 1 (depends_on: [02]): Keychain + KeyStore extensions (KeychainScope, deleteAll(under:), deleteKey(slot:))
