@@ -16,6 +16,12 @@ import Foundation
 public enum KeychainScope: Sendable {
     /// All keys tied to an authenticated session (wiped on logout).
     /// Members: sessionToken, sessionRole, sessionUserID, biometricDomainState.
+    /// Excluded from .session (intentional device-identity persistence):
+    ///   - installUUID           (DEV-05 device identity — Phase 2)
+    ///   - attestedKeyId         (DEV-04 D-03 — Phase 4, preserved across logout so the
+    ///                            same install presents the same attestation after re-login)
+    ///   - lastHeartbeatAt       (DEV-04 D-07 — Phase 4, survives logout so the next
+    ///                            heartbeat is contiguous with the prior session's cadence)
     case session
 
     /// Returns true if `key` belongs to this scope and should be deleted by

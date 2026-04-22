@@ -19,4 +19,11 @@ public struct KeychainKey: Hashable, Sendable {
     public static let sessionRole          = KeychainKey(rawValue: "session.role")
     public static let sessionUserID        = KeychainKey(rawValue: "session.userID")
     public static let biometricDomainState = KeychainKey(rawValue: "biometric.domainState")
+
+    // Phase 4 DEV-04 (D-01, D-03): App Attest identifier + last-heartbeat-timestamp Keychain entries.
+    // Both MUST NOT be members of KeychainScope.session — D-03 preserves attestedKeyId across logout
+    // so the same install presents the same attestation after re-login. Raw values are referenced
+    // by name in downstream plans (03, 06, 07, 09); do NOT rename.
+    public static let attestedKeyId    = KeychainKey(rawValue: "device.attestedKeyId")
+    public static let lastHeartbeatAt  = KeychainKey(rawValue: "device.lastHeartbeatAt")
 }
