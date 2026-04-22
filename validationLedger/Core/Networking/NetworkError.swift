@@ -20,4 +20,10 @@ public enum NetworkError: Error, Sendable {
     case pinningFailed
     /// NetworkConfig.live was selected but Environment.apiBaseURL is nil (WR-06 carryover — Plan 07 closes).
     case baseURLMissing
+    /// Phase 3 Plan 05 (AUTH-02 / D-02): backend returned HTTP 429. The associated
+    /// value carries the parsed `Retry-After` seconds (defaults to 60 if the header
+    /// is missing or malformed). iOS surfaces the backend-authoritative countdown —
+    /// OTPViewModel (Plan 09) drives a 1-Hz Verify-button-disable countdown off this
+    /// value. iOS does NOT count attempts locally (D-02 explicitly rejects local count).
+    case rateLimited(retryAfter: TimeInterval)
 }
