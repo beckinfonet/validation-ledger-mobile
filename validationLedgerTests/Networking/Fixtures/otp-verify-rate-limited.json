@@ -1,0 +1,5 @@
+{
+  "error_code": "auth.rate_limited",
+  "message": "Too many attempts. Try again in 60 seconds.",
+  "retry_after_seconds": 60
+}
