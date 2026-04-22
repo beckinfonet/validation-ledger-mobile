@@ -78,7 +78,7 @@ Plans:
 Plans:
 - [x] 03-01-PLAN.md — Wave 0: test scaffolding stubs + otp-verify-rate-limited.json fixture
 - [x] 03-02-PLAN.md — Wave 1: Pre-Phase-3 carryover fixes (CR-02 SE idempotent + IN-01/05 acronym CodingKeys + IN-02 DER unification) — frontmatter requirements: [AUTH-03, SESS-04] (prerequisite lineage)
-- [ ] 03-03-PLAN.md — Wave 1: GEO-03 compile-time discipline (PlatformPayloadField + LogField cleanup + SwiftLint ban_raw_coordinate_literal)
+- [x] 03-03-PLAN.md — Wave 1: GEO-03 compile-time discipline (PlatformPayloadField + LogField cleanup + SwiftLint ban_raw_coordinate_literal)
 - [ ] 03-04-PLAN.md — Wave 1 (depends_on: [02]): Keychain + KeyStore extensions (KeychainScope, deleteAll(under:), deleteKey(slot:))
 - [ ] 03-05-PLAN.md — Wave 1: APIClient 429 + Retry-After parsing → NetworkError.rateLimited
 - [ ] 03-06-PLAN.md — Wave 2: Core/Auth lock+restore+biometric (BiometricService + SessionLockService extension incl SESS-03 + SessionRestoreService)
