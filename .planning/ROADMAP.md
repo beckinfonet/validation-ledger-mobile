@@ -83,7 +83,7 @@ Plans:
 - [x] 03-05-PLAN.md — Wave 1: APIClient 429 + Retry-After parsing → NetworkError.rateLimited
 - [x] 03-06-PLAN.md — Wave 2: Core/Auth lock+restore+biometric (BiometricService + SessionLockService extension incl SESS-03 + SessionRestoreService)
 - [x] 03-07-PLAN.md — Wave 2 (depends_on: [06]): Core/Auth logout+sensitive+401 (LogoutService + SensitiveActionService WWDC22 single-prompt + Auth401ResponseInterceptor + KeyStoreProtocol context-aware overload)
-- [ ] 03-08-PLAN.md — Wave 2: Geo subsystem (LocationProvider + CountryGate + Info.plist NSLocationWhenInUseUsageDescription)
+- [x] 03-08-PLAN.md — Wave 2: Geo subsystem (LocationProvider + CountryGate + Info.plist NSLocationWhenInUseUsageDescription)
 - [ ] 03-09-PLAN.md — Wave 3: Auth flow UI (AuthCoordinator + PhoneEntry VC+VM + OTP VC+VM)
 - [ ] 03-10-PLAN.md — Wave 3 (depends_on: [09]): Lock/Region/Profile UI (BiometricLock + NotAvailableInRegion + AnotherActiveSession + Profile VCs + Environment.supportEmail)
 - [ ] 03-11-PLAN.md — Wave 4: Composition root (AppContainer + SessionRestoreProbe lightweight cold-boot helper + SceneDelegate observer + AppCoordinator + 5 role TabBar avatar wiring)
