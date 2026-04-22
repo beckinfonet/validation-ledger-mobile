@@ -177,4 +177,48 @@ struct AppCoordinatorPhase3RoutingTests {
             break
         }
     }
+
+    @Test("SceneDelegate source wires BiometricLockViewController (Phase 3 gap-closure Plan 13 — SESS-01/02/03)")
+    func biometricLockWiringIsPresent() throws {
+        // 03-VERIFICATION.md gap 1: "grep for 'BiometricLockViewController' across the
+        // app source returns only the file itself + comments in SensitiveActionService
+        // /BiometricService. Zero construction sites." This test makes that regression
+        // impossible — if SceneDelegate ever drops the wiring, this test fails.
+        let source = try readSource("validationLedger/App/SceneDelegate.swift")
+
+        // Core construction site — the VC is now actually built by SceneDelegate.
+        #expect(source.contains("BiometricLockViewController("),
+                "SceneDelegate must construct BiometricLockViewController — closes 03-VERIFICATION.md gap 1")
+
+        // SESS-02: foreground re-check observer for >5min background case.
+        #expect(source.contains("UIApplication.didBecomeActiveNotification"),
+                "SceneDelegate must observe UIApplication.didBecomeActiveNotification for SESS-02 foreground re-check")
+
+        // Explicit lockState call site — proves the presentation is driven by the
+        // SessionLockService state machine (not a hardcoded present).
+        #expect(source.contains("sessionLock.lockState(now:"),
+                "SceneDelegate must call container.sessionLock.lockState(now:) to decide whether to present the lock VC")
+
+        // Helper + handler names — structural landmarks that make the wiring grep-able.
+        #expect(source.contains("presentBiometricLockIfNeeded(container:"),
+                "SceneDelegate must expose the presentBiometricLockIfNeeded helper signature")
+        #expect(source.contains("handleDidBecomeActive"),
+                "SceneDelegate must have handleDidBecomeActive handler for the didBecomeActive observer")
+
+        // SESS-03 M1 placeholder — .biometricReEnrolled funnels through LogoutService.
+        #expect(source.contains("logoutService.logout(reason: .userInitiated)"),
+                "SceneDelegate's onReBindRequested callback must route through LogoutService.logout(.userInitiated) per 03-VERIFICATION.md gap 1 'missing' item 3 (SESS-03 M1 placeholder)")
+
+        // Idempotency guard — no stacked lock VCs.
+        #expect(source.contains("presentedLockVC"),
+                "SceneDelegate must hold a weak reference to the presented lock VC to prevent duplicate presentation on didBecomeActive fire-during-prompt")
+
+        // Phase tracking — lock overlay only on .role phase.
+        #expect(source.contains("currentPhase"),
+                "SceneDelegate must track the current AppPhase so handleDidBecomeActive knows when to re-check lockState (only meaningful on .role)")
+
+        // Security posture — dismiss/present without animation per RESEARCH §iOS API #6.
+        #expect(source.contains("animated: false"),
+                "SceneDelegate must present and dismiss the lock VC with animated: false (security — no reveal animation)")
+    }
 }
