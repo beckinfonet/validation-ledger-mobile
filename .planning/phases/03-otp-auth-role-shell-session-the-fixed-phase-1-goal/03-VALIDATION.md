@@ -17,7 +17,7 @@ created: 2026-04-21
 
 | Property | Value |
 |----------|-------|
-| **Framework** | XCTest + XCUITest (built-in, no SPM dep) |
+| **Framework** | Swift Testing (`import Testing`) for unit tests · XCTest for XCUITests · device tests TBD per CI-03 (Phase 4) |
 | **Config file** | `validationLedger.xcodeproj` (existing schemes: validationLedger, validationLedgerTests, validationLedgerUITests, validationLedgerDeviceTests) |
 | **Quick run command** | `xcodebuild test -project validationLedger.xcodeproj -scheme validationLedgerTests -destination 'platform=iOS Simulator,name=iPhone 15' -only-testing:validationLedgerTests/<TargetClass>` |
 | **Full suite command** | `xcodebuild test -project validationLedger.xcodeproj -scheme validationLedgerTests -destination 'platform=iOS Simulator,name=iPhone 15'` (unit) + `-scheme validationLedgerUITests` (UI smoke) |
