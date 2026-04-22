@@ -18,6 +18,7 @@
 import Foundation
 import Security
 import CryptoKit
+import LocalAuthentication  // Phase 3 Plan 07 (D-11) — LAContext injection via kSecUseAuthenticationContext
 
 // MARK: - Keyslot SE-specific attributes
 // Keyslot itself is declared in KeyStoreProtocol.swift (shared between
@@ -61,12 +62,19 @@ final class SecureEnclaveKeyStore: KeyStoreProtocol {
         return (devicePub, authPub)
     }
 
-    func signWithAuthorization(_ data: Data) throws -> Data {
-        // On device, this triggers Face ID / Touch ID prompt because of .biometryCurrentSet.
-        // On biometric re-enrollment (user adds a finger, replaces a face scan), this call
-        // throws with errSecAuthFailed or -25293 errSecInvalidKey — Phase 3 SESS-03 catches
-        // that error pattern and surfaces the "re-bind device" flow.
-        try sign(data: data, slot: .authorization)
+    func signWithAuthorization(_ data: Data, context: LAContext?) throws -> Data {
+        // Phase 3 D-11 / Blocker 3 — WWDC22 single-prompt pattern:
+        // When `context` is non-nil, pass it via kSecUseAuthenticationContext so
+        // SecKeyCreateSignature reuses the already-authorized LAContext and does
+        // NOT trigger a second OS biometric prompt. When nil, the SE ACL
+        // .biometryCurrentSet triggers its own prompt (legacy Phase 2 path —
+        // preserved for back-compat callers routed through the protocol extension).
+        //
+        // On biometric re-enrollment (user adds a finger, replaces a face scan),
+        // the ACL-guarded SecKey load throws with errSecAuthFailed or -25293
+        // errSecInvalidKey — Phase 3 SESS-03 catches that error pattern and
+        // surfaces the "re-bind device" flow.
+        try sign(data: data, slot: .authorization, context: context)
     }
 
     // Phase 3 Plan 04 (SESS-04 / D-16):
@@ -132,13 +140,19 @@ final class SecureEnclaveKeyStore: KeyStoreProtocol {
         return data
     }
 
-    private func loadPrivateKey(slot: Keyslot) throws -> SecKey {
-        let query: [CFString: Any] = [
+    private func loadPrivateKey(slot: Keyslot, context: LAContext? = nil) throws -> SecKey {
+        // Phase 3 Plan 07 (D-11 / Blocker 3): when `context` is non-nil, pass it via
+        // kSecUseAuthenticationContext so the subsequent SecKeyCreateSignature reuses
+        // the already-authorized LAContext — no second OS prompt.
+        var query: [CFString: Any] = [
             kSecClass: kSecClassKey,
             kSecAttrKeyType: kSecAttrKeyTypeECSECPrimeRandom,
             kSecAttrApplicationTag: slot.applicationTag,
             kSecReturnRef: true,
         ]
+        if let context {
+            query[kSecUseAuthenticationContext] = context
+        }
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
         guard status == errSecSuccess else {
@@ -160,8 +174,8 @@ final class SecureEnclaveKeyStore: KeyStoreProtocol {
         return data
     }
 
-    private func sign(data: Data, slot: Keyslot) throws -> Data {
-        let privateKey = try loadPrivateKey(slot: slot)
+    private func sign(data: Data, slot: Keyslot, context: LAContext? = nil) throws -> Data {
+        let privateKey = try loadPrivateKey(slot: slot, context: context)
         var error: Unmanaged<CFError>?
         guard let signature = SecKeyCreateSignature(
             privateKey,

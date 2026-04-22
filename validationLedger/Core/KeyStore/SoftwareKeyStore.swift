@@ -10,6 +10,7 @@
 
 import Foundation
 import CryptoKit
+import LocalAuthentication  // Phase 3 Plan 07 (D-11) — LAContext parameter uniformity with SE impl
 
 final class SoftwareKeyStore: KeyStoreProtocol {
     // Phase 3 Plan 04 (SESS-04 / D-16): optional storage so deleteKey(slot:)
@@ -55,7 +56,14 @@ final class SoftwareKeyStore: KeyStoreProtocol {
         )
     }
 
-    func signWithAuthorization(_ data: Data) throws -> Data {
+    func signWithAuthorization(_ data: Data, context: LAContext?) throws -> Data {
+        // Phase 3 Plan 07 (D-11): software (simulator) keystore — `context` is
+        // intentionally ignored. CryptoKit P256.Signing has no LAContext attachment
+        // surface, and the simulator has no Secure Enclave to prompt against. The
+        // argument exists only so the protocol signature matches across both
+        // implementations (SE on device injects it via kSecUseAuthenticationContext
+        // — see SecureEnclaveKeyStore.swift).
+        _ = context
         // Simulator has no biometric — sign directly with the auth key.
         guard let key = authPrivateKey else { throw KeyStoreError.keyUnavailable }
         let signature = try key.signature(for: data)

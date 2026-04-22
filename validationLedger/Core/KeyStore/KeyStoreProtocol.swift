@@ -9,6 +9,7 @@
 //   - signWithAuthorization(_:)     — DEV-02 biometric-gated signing
 
 import Foundation
+import LocalAuthentication  // Phase 3 Plan 07 (D-11) — LAContext parameter on signWithAuthorization
 
 public enum KeyStoreError: Error, Sendable {
     case notImplemented
@@ -50,8 +51,19 @@ public protocol KeyStoreProtocol: AnyObject, Sendable {
     func generateDeviceIdentityKeys() throws -> (devicePublicKey: Data, authorizationPublicKey: Data)
 
     /// DEV-02: sign with the `authorizationKey`. On real device, prompts biometric.
-    /// Used for sensitive operations (tender/accept/BOL — M2+). Phase 2 ships the method; Phase 3+ wires call sites.
-    func signWithAuthorization(_ data: Data) throws -> Data
+    /// Used for sensitive operations (tender/accept/BOL — M2+). Phase 2 shipped the
+    /// single-arg variant; Phase 3 Plan 07 (Blocker 3 fix) adds the context-aware
+    /// variant below as the NEW protocol requirement. The single-arg name is still
+    /// available via a backward-compat extension that forwards with `context: nil`.
+    ///
+    /// Phase 3 D-11 (Plan 07 / Blocker 3): WWDC22 single-prompt overload.
+    /// Caller provides an LAContext that has already been authorized via
+    /// `evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason:)`.
+    /// The SE-side query uses `kSecUseAuthenticationContext: context` so
+    /// `SecKeyCreateSignature` reuses the existing authorization without re-prompting
+    /// the user. When `context` is nil, falls back to the legacy path (the SE ACL
+    /// `.biometryCurrentSet` triggers its own prompt).
+    func signWithAuthorization(_ data: Data, context: LAContext?) throws -> Data
 
     /// Phase 3 SESS-04 / D-16: delete the key in the given slot from persistent storage.
     /// Used by LogoutService (Plan 07) to clear the SE authorizationKey on logout.
@@ -61,4 +73,21 @@ public protocol KeyStoreProtocol: AnyObject, Sendable {
     /// `KeychainStore.delete(_:)` contract that treats errSecItemNotFound
     /// as success).
     func deleteKey(slot: Keyslot) throws
+}
+
+// MARK: - Backward compatibility (Phase 3 Plan 07 / D-11)
+//
+// Phase 2 shipped `signWithAuthorization(_:)` as the protocol requirement. Phase 3
+// Plan 07 replaces it with the context-aware overload above so SensitiveActionService
+// can drive a single OS prompt (WWDC22). Existing callers that omit the `context:`
+// argument continue to work: this extension forwards them to the context-aware
+// variant with `context: nil`, which produces the legacy (Phase 2) behavior —
+// the SE ACL `.biometryCurrentSet` triggers its own OS prompt inside
+// SecKeyCreateSignature.
+public extension KeyStoreProtocol {
+    /// Backward-compat shim: delegates to the context-aware variant with `context: nil`.
+    /// Implementations only need to provide the context-aware variant.
+    func signWithAuthorization(_ data: Data) throws -> Data {
+        try signWithAuthorization(data, context: nil)
+    }
 }
