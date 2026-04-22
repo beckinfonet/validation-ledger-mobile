@@ -97,6 +97,37 @@ public final class KeychainStore: @unchecked Sendable {
     }
 }
 
+// MARK: - Phase 3 Plan 04 (D-16 / D-33) — bulk-delete by KeychainScope
+
+extension KeychainStore {
+    /// Bulk-delete all keys belonging to `scope`. Idempotent — missing keys
+    /// are silently skipped (composes over the existing `delete(_:)` contract,
+    /// which treats `errSecItemNotFound` as success).
+    ///
+    /// Scope membership is an explicit enumerable set (see `KeychainScope`),
+    /// NOT a snapshot of `enumerateAll()`. This is deliberately conservative:
+    /// if a future plan adds a new Keychain-resident secret, it will NOT be
+    /// silently vacuumed by `deleteAll(under: .session)` unless its key is
+    /// added to the scope's membership table — engineers must opt-in.
+    ///
+    /// Used by LogoutService (Plan 07) to wipe session-scope state in one call.
+    public func deleteAll(under scope: KeychainScope) throws {
+        let keys: [KeychainKey]
+        switch scope {
+        case .session:
+            keys = [
+                .sessionToken,
+                .sessionRole,
+                .sessionUserID,
+                .biometricDomainState,
+            ]
+        }
+        for key in keys {
+            try delete(key)  // existing API; idempotent on errSecItemNotFound
+        }
+    }
+}
+
 // MARK: - KeychainWiper (FOUND-02 / D-20)
 // Testable helper. AppDelegate (Plan 05) invokes this before AppContainer resolves.
 
