@@ -88,6 +88,7 @@ Plans:
 - [x] 03-10-PLAN.md — Wave 3 (depends_on: [09]): Lock/Region/Profile UI (BiometricLock + NotAvailableInRegion + AnotherActiveSession + Profile VCs + Environment.supportEmail)
 - [x] 03-11-PLAN.md — Wave 4: Composition root (AppContainer + SessionRestoreProbe lightweight cold-boot helper + SceneDelegate observer + AppCoordinator + 5 role TabBar avatar wiring)
 - [x] 03-12-PLAN.md — Wave 5: 5 role UI smoke tests (D-32 SC-1 — driven by -MockOTPRoleForUITest launchArg + mandatory StubLocationProvider/StubCountryGate injection per Warning 4)
+- [x] 03-13-PLAN.md — Wave 6 (gap-closure): SceneDelegate wires BiometricLockViewController over .role cold-boot + didBecomeActive observer (SESS-01/02/03 — closes 03-VERIFICATION.md gap 1)
 
 ### Phase 4: App Attest & Physical-Device CI Hardening
 **Goal**: Add App Attest to the device registration flow with server-side counter/challenge handling, and harden the physical-device CI pipeline to actually exercise Secure Enclave keypair generation, Keychain biometric-bound item storage, and App Attest assertion generation on every merge to `main`. After this phase, the attestation surface exists and the test surface that exercises it is real.
