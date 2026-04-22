@@ -1,17 +1,11 @@
 // validationLedgerTests/Attestation/FakeAttestationService.swift
 // Test double for AttestationService — records call counts and returns scriptable outcomes.
 // Used by Plan 05 D-01/D-06/D-07 tests + Plan 06 AppContainer wiring tests.
-//
-// AttestationService conformance added in post-merge reconciliation (04-01 and 04-02
-// are parallel in Wave 1). The method signatures below match the protocol shape from
-// 04-01-PLAN.md Task 1; the Wave-1 post-merge test gate will surface any signature
-// drift as a defect. This class intentionally omits the explicit `: AttestationService`
-// declaration until the protocol symbol is available from the 04-01 merge.
 
 import Foundation
 @testable import validationLedger
 
-final class FakeAttestationService: @unchecked Sendable {
+final class FakeAttestationService: AttestationService, @unchecked Sendable {
 
     // Scriptable outcomes
     var nextGenerateKeyIfNeeded: Result<(keyId: String, status: AttestationStatus), Error> = .success(("fake-key-id", .attested))
