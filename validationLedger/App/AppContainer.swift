@@ -41,6 +41,11 @@ final class AppContainer {
     let apiClient: APIClient
     let deepLinkRouter: DeepLinkRouter
 
+    // Phase 3 Plan 09 additions (Plan 11 refines composition root):
+    // AuthCoordinator (Plan 09) consumes these to drive D-20 geo gate.
+    let locationProvider: any LocationProvider
+    let countryGate: any CountryGate
+
     /// Primary initializer.
     ///
     /// - Parameters:
@@ -122,6 +127,13 @@ final class AppContainer {
         )
 
         self.deepLinkRouter = DeepLinkRouter()
+
+        // Phase 3 Plan 09: CLLocationManager + CLGeocoder wrappers for D-20 geo gate
+        // (consumed by PhoneEntryViewModel). Plan 11 refines the composition root —
+        // these are currently default-constructed; a future refactor may inject
+        // test doubles via the AppContainer init.
+        self.locationProvider = DefaultLocationProvider()
+        self.countryGate = DefaultCountryGate()
 
         logger.info(event: .init("app_container_init"), fields: [.event: env.name])
     }
