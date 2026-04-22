@@ -19,26 +19,29 @@ import Foundation
 import Security
 import CryptoKit
 
-final class SecureEnclaveKeyStore: KeyStoreProtocol {
-
-    enum Keyslot {
-        case device
-        case authorization
-
-        var applicationTag: Data {
-            switch self {
-            case .device:        return Data("com.maldin.validationLedger.deviceKey".utf8)
-            case .authorization: return Data("com.maldin.validationLedger.authKey".utf8)
-            }
-        }
-
-        var accessControlFlags: SecAccessControlCreateFlags {
-            switch self {
-            case .device:        return [.privateKeyUsage, .devicePasscode]
-            case .authorization: return [.privateKeyUsage, .biometryCurrentSet]
-            }
+// MARK: - Keyslot SE-specific attributes
+// Keyslot itself is declared in KeyStoreProtocol.swift (shared between
+// SecureEnclaveKeyStore + SoftwareKeyStore per Phase 3 Plan 04 D-16).
+// applicationTag + accessControlFlags are SE-specific — SoftwareKeyStore
+// has in-memory keys that don't use either — so they live as extension
+// properties here (file-private to SecureEnclaveKeyStore.swift).
+private extension Keyslot {
+    var applicationTag: Data {
+        switch self {
+        case .device:        return Data("com.maldin.validationLedger.deviceKey".utf8)
+        case .authorization: return Data("com.maldin.validationLedger.authKey".utf8)
         }
     }
+
+    var accessControlFlags: SecAccessControlCreateFlags {
+        switch self {
+        case .device:        return [.privateKeyUsage, .devicePasscode]
+        case .authorization: return [.privateKeyUsage, .biometryCurrentSet]
+        }
+    }
+}
+
+final class SecureEnclaveKeyStore: KeyStoreProtocol {
 
     init() {}
 
@@ -64,6 +67,26 @@ final class SecureEnclaveKeyStore: KeyStoreProtocol {
         // throws with errSecAuthFailed or -25293 errSecInvalidKey — Phase 3 SESS-03 catches
         // that error pattern and surfaces the "re-bind device" flow.
         try sign(data: data, slot: .authorization)
+    }
+
+    // Phase 3 Plan 04 (SESS-04 / D-16):
+    // Delete the key in the given slot via SecItemDelete. Mirrors the
+    // loadPrivateKey query shape minus kSecReturnRef — the same
+    // applicationTag + key-class selector that located the key is what
+    // deletes it. On SE-backed builds this removes the keychain entry
+    // plus its SecAccessControl; the SE storage area is then reclaimed
+    // by iOS. Idempotent: errSecItemNotFound is treated as success so
+    // LogoutService (Plan 07) never fails mid-teardown.
+    func deleteKey(slot: Keyslot) throws {
+        let query: [CFString: Any] = [
+            kSecClass: kSecClassKey,
+            kSecAttrKeyType: kSecAttrKeyTypeECSECPrimeRandom,
+            kSecAttrApplicationTag: slot.applicationTag,
+        ]
+        let status = SecItemDelete(query as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw KeyStoreError.keyDeletionFailed(status)
+        }
     }
 
     // MARK: - Private
