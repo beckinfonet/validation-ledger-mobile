@@ -154,11 +154,31 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
            idx + 1 < ProcessInfo.processInfo.arguments.count {
             let raw = ProcessInfo.processInfo.arguments[idx + 1]
             if let role = Role(rawValue: raw) {
+                // Phase 4 Plan 08 (D-11 / D-12): optional `-MockOTPTrustTierForUITest`
+                // launchArg selects the trust tier that will be (a) returned in the
+                // mocked /device/register response's `trust_tier` field AND (b) seeded
+                // directly into AppSession.trustTier via the AppContainer.uiTestTrustTierOverride
+                // seam — since OTPViewModel currently does not consume the
+                // /device/register response's trust_tier (wiring is Plan 07 scope),
+                // the override bridges the gap for UI smoke tests. Default to
+                // `.hardwareAttested` so existing Phase 3 RoleShellSmokeTests keep
+                // their banner-absent expectations.
+                let uiTestTrustTier: TrustTier = {
+                    guard let ttIdx = ProcessInfo.processInfo.arguments.firstIndex(of: "-MockOTPTrustTierForUITest"),
+                          ttIdx + 1 < ProcessInfo.processInfo.arguments.count,
+                          let tier = TrustTier(rawValue: ProcessInfo.processInfo.arguments[ttIdx + 1])
+                    else { return .hardwareAttested }
+                    return tier
+                }()
                 // 1. Register fixtures — OTPRequest + OTPVerify(role) + DeviceRegister
-                MockOTPRoleFixtureRegistry.registerForRole(role)
-                // 2. Inject stubbed location + country gate (Warning 4)
+                //    (Phase 4 D-12: fixture `trust_tier` mirrors uiTestTrustTier)
+                MockOTPRoleFixtureRegistry.registerForRole(role, trustTier: uiTestTrustTier)
+                // 2. Inject stubbed location + country gate (Warning 4) + Phase 4
+                //    trustTier override (D-11/D-12 seam so LimitedTrustBannerTests
+                //    can drive both softwareOnly and hardwareAttested paths).
                 AppContainer.uiTestLocationProvider = StubLocationProviderForUITest()
                 AppContainer.uiTestCountryGate = StubCountryGateForUITest()
+                AppContainer.uiTestTrustTierOverride = uiTestTrustTier
                 // 3. Force .mock network config so MockURLProtocol intercepts (reuses
                 //    the existing DevMenu override seam).
                 self.currentNetworkConfigOverride = .mock

@@ -62,6 +62,16 @@ final class AppContainer {
     #if DEBUG
     static var uiTestLocationProvider: (any LocationProvider)?
     static var uiTestCountryGate: (any CountryGate)?
+    // Phase 4 Plan 08 (D-11 / D-12): UI-test override for AppSession.trustTier.
+    // The LimitedTrustBannerTests XCUITests need to drive the role shell
+    // immediately under a specific trustTier without waiting for the real
+    // /device/register response → session.trustTier mutation path (that wiring
+    // is Plan 07's scope). SceneDelegate's -MockOTPTrustTierForUITest handler
+    // sets this override BEFORE AppContainer construction; init seeds
+    // AppSession(trustTier:) from the override when present, else the safe
+    // default `.softwareOnly`. Release builds compile zero bytes for this
+    // path (T-03-12-01 / T-APP-ATTEST-11 mitigation analog).
+    static var uiTestTrustTierOverride: TrustTier?
     #endif
 
     let env: Environment
@@ -294,7 +304,17 @@ final class AppContainer {
 
         // D-12 safe default: .softwareOnly so LimitedTrustBanner (Plan 08) renders
         // until the first /device/register or /device/heartbeat response lands.
+        // Plan 08 (D-11/D-12) UI-test seam: if SceneDelegate set
+        // `uiTestTrustTierOverride` via the -MockOTPTrustTierForUITest launchArg,
+        // seed AppSession with that tier so XCUITests can drive both
+        // .softwareOnly (banner visible) and .hardwareAttested (banner absent)
+        // code paths deterministically. Production path is unaffected
+        // (override nil → safe default).
+        #if DEBUG
+        self.session = AppSession(trustTier: AppContainer.uiTestTrustTierOverride ?? .softwareOnly)
+        #else
         self.session = AppSession(trustTier: .softwareOnly)
+        #endif
 
         // NET-03: URLSession + NetworkClient construction via the single `makeSession` factory.
         // AppContainer is the ONLY place URLSession is constructed — a grep over `validationLedger/`
