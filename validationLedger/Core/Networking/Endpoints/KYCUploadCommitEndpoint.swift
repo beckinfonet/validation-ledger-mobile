@@ -9,6 +9,14 @@ import Foundation
 nonisolated public struct KYCUploadCommitEndpoint: APIEndpoint {
     public struct RequestBody: Encodable, Sendable {
         public let uploadID: String
+
+        // IN-05 (Phase 2 carryover, closed Phase 3 Plan 02):
+        // Explicit CodingKeys pin the wire contract against JSONEncoder.convertToSnakeCase
+        // toolchain changes for trailing uppercase acronyms (ID).
+        // See OTPVerifyEndpoint.RequestBody for full rationale.
+        private enum CodingKeys: String, CodingKey {
+            case uploadID = "uploadId"
+        }
     }
     public struct Response: Decodable, Sendable {
         public let artifactID: String

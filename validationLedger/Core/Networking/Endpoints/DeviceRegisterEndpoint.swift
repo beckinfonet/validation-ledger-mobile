@@ -18,6 +18,16 @@ nonisolated public struct DeviceRegisterEndpoint: APIEndpoint {
             self.iosVersion = iosVersion
             self.installUUID = installUUID
         }
+
+        // IN-05 (Phase 2 carryover, closed Phase 3 Plan 02):
+        // Explicit CodingKeys pin the wire contract against JSONEncoder.convertToSnakeCase
+        // toolchain changes for trailing uppercase acronyms (UUID).
+        // See OTPVerifyEndpoint.RequestBody for full rationale.
+        private enum CodingKeys: String, CodingKey {
+            case model
+            case iosVersion
+            case installUUID = "installUuid"
+        }
     }
     public struct RequestBody: Encodable, Sendable {
         public let devicePublicKey: String  // base64-encoded DER, from SecureEnclaveKeyStore (Plan 06)

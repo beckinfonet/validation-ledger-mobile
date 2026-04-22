@@ -11,6 +11,18 @@ nonisolated public struct OTPVerifyEndpoint: APIEndpoint {
     public struct RequestBody: Encodable, Sendable {
         public let otpSessionID: String
         public let code: String  // 6-digit numeric string; M1 mock accepts "123456"
+
+        // IN-01 (Phase 2 carryover, closed Phase 3 Plan 02):
+        // APIClient sets `JSONEncoder.keyEncodingStrategy = .convertToSnakeCase`.
+        // On the current Swift 5.9+/Xcode 26.4 toolchain the strategy correctly maps
+        // `otpSessionID` to `otp_session_id`, but that behavior is implementation-defined
+        // for trailing uppercase acronyms. Explicit CodingKeys with the camelCase raw
+        // value ("otpSessionId") pin the wire contract to `otp_session_id` regardless of
+        // future toolchain changes. Symmetric to the Response.CodingKeys pattern below.
+        private enum CodingKeys: String, CodingKey {
+            case otpSessionID = "otpSessionId"
+            case code
+        }
     }
     public struct Response: Decodable, Sendable {
         public let sessionToken: String
