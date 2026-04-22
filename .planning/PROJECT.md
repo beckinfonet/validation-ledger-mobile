@@ -49,11 +49,15 @@ Native iOS client (iPhone + iPad, iOS 17+) for Validation Ledger — a verified-
 
 <!-- Milestone 1 ("Foundation") scope. Hypotheses until shipped + validated on real users. -->
 
-**Phase 3 target (OTP Auth + Role Shell + Session)**
+**Validated in Phase 3: OTP Auth + Role Shell + Session (2026-04-22)**
 
-- [ ] Phone + SMS OTP auth shim (FR-iOS-AUTH MUSTs) against mock backend (AUTH-01..06)
-- [ ] Session persistence across cold boot + clean logout + >5min background → biometric re-prompt (SESS-01..04)
-- [ ] Client-side country pre-check via `CLLocationManager` (GEO-01..03)
+- [x] Phone + SMS OTP auth shim against mock backend (AUTH-01..06) — AuthCoordinator + PhoneEntry/OTP VCs + VMs, 3-attempt 60s rate-limit, Keychain `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` token storage, 401 auto-logout, SensitiveActionService WWDC22 single-prompt
+- [x] Session persistence across cold boot + clean logout + >5min background → biometric re-prompt (SESS-01..04) — SessionLockService 4-branch lockState state machine (.coldBoot / .backgroundTimeout / .biometricReEnrolled / .neverUnlocked), SceneDelegate presents BiometricLockViewController on cold-boot .role transition + didBecomeActiveNotification observer (plan 03-13 gap closure), LogoutService funnel posts .sessionDidInvalidate. 4 physical-device HUMAN-UAT items pending.
+- [x] 5-role tab-bar shell with distinct tabs per TechStack.md §4 (SHELL-01..04) — RoleCoordinator role-switched roots, 5 role UI smoke tests (plan 03-12) green
+- [x] Client-side country pre-check via `CLLocationManager` (GEO-01..03) — LocationProvider + CountryGate + NSLocationWhenInUseUsageDescription + SwiftLint `ban_raw_coordinate_literal` + phantom-typed `AnalyticsEvent` making raw coordinates a compile error
+- [x] "Another active session" switch-device placeholder (DEV-06) — AnotherActiveSessionViewController + LogoutReason.anotherActiveSession routing
+
+### Active
 
 **Phase 4 target (Attestation + Device CI Hardening)**
 - [ ] App Attest productionization (DEV-04)
@@ -63,9 +67,10 @@ Native iOS client (iPhone + iPad, iOS 17+) for Validation Ledger — a verified-
 - [ ] KYC capture flow with GPS EXIF injection (KYC-01..06)
 - [ ] Resumable chunked upload pipeline (UPL-01..05)
 
-**Pre-Phase-3 required fixes (deferred per user approval 2026-04-21; must land before Phase 3 real backend integration):**
-- [ ] **CR-02 (Phase 2 review)**: `SecureEnclaveKeyStore.generateKey(slot:)` needs idempotent guard — a second call silently inserts a new key alongside the old; `loadPrivateKey` may return the old key → pub/priv mismatch. 5-line fix at top of `generateKey`.
-- [ ] **IN-01/05 (Phase 2 review)**: 4 `RequestBody` properties with acronym tails need explicit CodingKeys (`otpSessionID`, `uploadID` x2, `installUUID`) — without these, `.convertToSnakeCase` produces `otp_session_i_d`-style mangled wire keys that will break first real `/device/register` + `/otp/verify` call. One `case`-line addition per property.
+**Pre-Phase-3 required fixes — resolved in Phase 3 plan 03-02 (2026-04-22):**
+- [x] **CR-02 (Phase 2 review)**: `SecureEnclaveKeyStore.generateKey(slot:)` idempotent guard landed
+- [x] **IN-01/05 (Phase 2 review)**: Explicit CodingKeys added for `otpSessionID`, `uploadID` x2, `installUUID`
+- [x] **IN-02 (Phase 2 review)**: DER X9.62 unification across SoftwareKeyStore (sim) and SecureEnclaveKeyStore (device)
 
 **Follow-up items still open (non-blocking, may fix during Phase 3 or via `/gsd-code-review-fix`):**
 - [ ] CR-02b (Phase 1): PIIScrubber DL regex over-eager (matches transaction IDs like `TX1234567`) — narrow to validated US state codes
@@ -183,4 +188,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-21 after Phase 2 (Networking Contract & Device Keys) completion*
+*Last updated: 2026-04-22 after Phase 3 (OTP Auth + Role Shell + Session) completion*

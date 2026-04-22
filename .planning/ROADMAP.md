@@ -18,7 +18,7 @@ Per `.planning/research/PITFALLS.md` Pitfall 20 + research/SUMMARY.md: **~30% of
 
 - [x] **Phase 1: Foundational Conventions & Scaffolding** - UIKit module layout + 8 conventions + tooling + logging + Keychain + sim CI *(completed 2026-04-21, 8 HUMAN-UAT items pending)*
 - [x] **Phase 2: Networking Contract & Device Keys** - Contract-first mock networking + cert pinning + Secure Enclave keypair + token storage *(completed 2026-04-21, 3 HUMAN-UAT items pending)*
-- [ ] **Phase 3: OTP Auth + Role Shell + Session** - The fixed Phase 1 goal: 5 roles OTP-login to distinct tab shells, cold-boot into persisted session, clean logout
+- [x] **Phase 3: OTP Auth + Role Shell + Session** - The fixed Phase 1 goal: 5 roles OTP-login to distinct tab shells, cold-boot into persisted session, clean logout *(completed 2026-04-22, 4 HUMAN-UAT items pending physical-device test)*
 - [ ] **Phase 4: App Attest & Physical-Device CI Hardening** - App Attest productionization + on-device CI pipeline for Secure Enclave / Keychain biometric / App Attest paths
 - [ ] **Phase 5: KYC Capture & Upload Pipeline** - Live face + DL + vehicle capture with GPS metadata, resumable chunked upload, KYC status UI
 
@@ -122,7 +122,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Foundational Conventions & Scaffolding | 7/7 | Complete | 2026-04-21 |
 | 2. Networking Contract & Device Keys | 7/7 | Complete | 2026-04-21 |
-| 3. OTP Auth + Role Shell + Session | 0/12 | Not started | - |
+| 3. OTP Auth + Role Shell + Session | 13/13 | Complete | 2026-04-22 |
 | 4. App Attest & Physical-Device CI Hardening | 0/TBD | Not started | - |
 | 5. KYC Capture & Upload Pipeline | 0/TBD | Not started | - |
 

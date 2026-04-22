@@ -204,29 +204,29 @@ Every v1 requirement is mapped to exactly one roadmap phase. Status updated as p
 | NET-03 | Phase 2 | Pending |
 | NET-04 | Phase 2 | Pending |
 | NET-05 | Phase 2 | Pending |
-| AUTH-01 | Phase 3 | Pending |
-| AUTH-02 | Phase 3 | Pending |
-| AUTH-03 | Phase 3 | Pending |
-| AUTH-04 | Phase 3 | Pending |
-| AUTH-05 | Phase 3 | Pending |
-| AUTH-06 | Phase 3 | Pending |
+| AUTH-01 | Phase 3 | Validated (code) |
+| AUTH-02 | Phase 3 | Validated (code) |
+| AUTH-03 | Phase 3 | Validated (code) |
+| AUTH-04 | Phase 3 | Validated (code) |
+| AUTH-05 | Phase 3 | Validated (code) |
+| AUTH-06 | Phase 3 | Validated (code) |
 | DEV-01 | Phase 2 | Pending |
 | DEV-02 | Phase 2 | Pending |
 | DEV-03 | Phase 2 | Pending |
 | DEV-04 | Phase 4 | Pending |
 | DEV-05 | Phase 2 | Pending |
-| DEV-06 | Phase 3 | Pending |
-| SHELL-01 | Phase 3 | Pending |
-| SHELL-02 | Phase 3 | Pending |
-| SHELL-03 | Phase 3 | Pending |
-| SHELL-04 | Phase 3 | Pending |
-| SESS-01 | Phase 3 | Pending |
-| SESS-02 | Phase 3 | Pending |
-| SESS-03 | Phase 3 | Pending |
-| SESS-04 | Phase 3 | Pending |
-| GEO-01 | Phase 3 | Pending |
-| GEO-02 | Phase 3 | Pending |
-| GEO-03 | Phase 3 | Pending |
+| DEV-06 | Phase 3 | Validated (code) |
+| SHELL-01 | Phase 3 | Validated (code) |
+| SHELL-02 | Phase 3 | Validated (code) |
+| SHELL-03 | Phase 3 | Validated (code) |
+| SHELL-04 | Phase 3 | Validated (code) |
+| SESS-01 | Phase 3 | Validated (code; HUMAN-UAT pending) |
+| SESS-02 | Phase 3 | Validated (code; HUMAN-UAT pending) |
+| SESS-03 | Phase 3 | Validated (code; HUMAN-UAT pending) |
+| SESS-04 | Phase 3 | Validated (code; HUMAN-UAT pending) |
+| GEO-01 | Phase 3 | Validated (code) |
+| GEO-02 | Phase 3 | Validated (code) |
+| GEO-03 | Phase 3 | Validated (code) |
 | SEC-01 | Phase 2 | Pending |
 | SEC-02 | Phase 1 | Pending |
 | SEC-03 | Phase 1 | Pending |

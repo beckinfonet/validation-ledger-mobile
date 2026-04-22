@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: "Phase 3 context gathered — 16 decisions across 4 areas (Auth flow + Profile placement + cold-boot restore; SessionLockService extension + AUTH-06 infra; Biometric host UX + Logout/DEV-06 teardown; Geo pre-check + GEO-03 phantom-typed AnalyticsEvent). Two long-running Phase 1 deferrals resolved: Profile tab (top-bar avatar, no §4 drift) + GEO-03 SwiftLint rule (`ban_raw_coordinate_literal` + two disjoint type families). Pre-Phase-3 carryover fixes (CR-02, IN-01/05, IN-02) folded into Phase 3 scope."
-last_updated: "2026-04-22T02:24:02.947Z"
-last_activity: 2026-04-22 -- Phase 3 planning complete
+status: phase_complete
+stopped_at: "Phase 3 complete — gap-closure plan 03-13 wired SceneDelegate → BiometricLockViewController (cold-boot + didBecomeActive). 5/5 must-haves verified in code; 4 physical-device HUMAN-UAT items persist for later on-device testing. Ready to plan Phase 4 (App Attest & Physical-Device CI Hardening)."
+last_updated: "2026-04-22T09:05:00.000Z"
+last_activity: 2026-04-22 -- Phase 3 complete (user-approved after gap closure)
 progress:
   total_phases: 5
-  completed_phases: 2
-  total_plans: 26
-  completed_plans: 14
-  percent: 54
+  completed_phases: 3
+  total_plans: 27
+  completed_plans: 27
+  percent: 100
 ---
 
 # Project State
@@ -25,13 +25,13 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 
 ## Current Position
 
-Phase: 2 of 5 (Networking Contract & Device Keys) — **COMPLETE 2026-04-21**
-Next: Phase 3 (OTP Auth + Role Shell + Session) — the fixed Phase 1 user-visible win
-Plan: 7 of 7 in Phase 2
-Status: Ready to execute
-Last activity: 2026-04-22 -- Phase 3 planning complete
+Phase: 3 of 5 (OTP Auth + Role Shell + Session) — **COMPLETE 2026-04-22**
+Next: Phase 4 (App Attest & Physical-Device CI Hardening)
+Plan: 13 of 13 in Phase 3
+Status: Ready to discuss/plan next phase
+Last activity: 2026-04-22 -- Phase 3 complete (user-approved after gap closure)
 
-Progress: Phase 1 [██████████] 100% · Phase 2 [██████████] 100% · Milestone M1 [████░░░░░░] 40%
+Progress: Phase 1 [██████████] 100% · Phase 2 [██████████] 100% · Phase 3 [██████████] 100% · Milestone M1 [██████░░░░] 60%
 
 ## Performance Metrics
 
@@ -90,7 +90,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-04-21
-Stopped at: Phase 3 context gathered — 16 decisions across 4 areas (Auth flow + Profile placement + cold-boot restore; SessionLockService extension + AUTH-06 infra; Biometric host UX + Logout/DEV-06 teardown; Geo pre-check + GEO-03 phantom-typed AnalyticsEvent). Two long-running Phase 1 deferrals resolved: Profile tab (top-bar avatar, no §4 drift) + GEO-03 SwiftLint rule (`ban_raw_coordinate_literal` + two disjoint type families). Pre-Phase-3 carryover fixes (CR-02, IN-01/05, IN-02) folded into Phase 3 scope.
-Resume file: .planning/phases/03-otp-auth-role-shell-session-the-fixed-phase-1-goal/03-CONTEXT.md
-Next command: `/gsd-plan-phase 3`
+Last session: 2026-04-22
+Stopped at: Phase 3 complete after gap-closure plan 03-13 wired SceneDelegate to present BiometricLockViewController on cold-boot and UIApplication.didBecomeActiveNotification. Verifier returned human_needed with 5/5 code must-haves verified; user approved, so phase marked complete. 4 HUMAN-UAT items (cold-boot biometric, >5min background re-prompt, re-enrollment re-bind, SE ACL on logout) persist in 03-HUMAN-UAT.md for physical-iPhone testing.
+Resume file: .planning/phases/03-otp-auth-role-shell-session-the-fixed-phase-1-goal/03-VERIFICATION.md
+Next command: `/gsd-discuss-phase 4` (or `/gsd-plan-phase 4`)
