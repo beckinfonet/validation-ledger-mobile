@@ -1,0 +1,4 @@
+{
+  "error_code": "attestationInvalid",
+  "error_message": "Attestation is no longer valid — re-attest via /device/register"
+}
