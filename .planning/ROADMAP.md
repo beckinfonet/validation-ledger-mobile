@@ -98,7 +98,18 @@ Plans:
   1. On a physical device, first successful OTP verify generates an App Attest key once, persists its identifier to Keychain, and includes an assertion (server-generated challenge + request-body hash) in the `/device/register` payload — verified by inspecting the registered payload against the mock backend's counter/challenge check.
   2. On a device where App Attest is unavailable (older hardware, entitlement missing), registration proceeds with a logged warning and a graceful-skip flag in the payload — no user-facing error.
   3. CI physical-device pipeline runs Secure Enclave keypair-generation + Keychain biometric-bound storage + App Attest assertion tests on every merge to `main`, and blocks merges that break any of them — verified by intentionally breaking one test and confirming the pipeline fails.
-**Plans**: TBD
+**Plans:** 10 plans
+Plans:
+- [ ] 04-01-PLAN.md — Wave 1: Foundational types + protocol + KeychainKey extensions + entitlement + ADR 0005 + attestation-rotation runbook
+- [ ] 04-02-PLAN.md — Wave 1: Wave 0 test scaffolding — 4 JSON fixtures + KeychainScopeTests (D-03 pin) + FakeAttestationService + SeededLAContext
+- [ ] 04-03-PLAN.md — Wave 2: AttestationService implementations — DCAppAttestAttestationService (production) + SimulatorBypassAttestationService (DEBUG+sim) + AttestedKeyStore
+- [ ] 04-04-PLAN.md — Wave 2: Endpoints — DeviceChallenge (GET) + DeviceHeartbeat (POST) + DeviceRegister three-key payload extension + trustTier response
+- [ ] 04-05-PLAN.md — Wave 2: 9 simulator-side tests — D-01/D-04/D-05/D-06/D-07d/D-08/D-09/D-09f/D-10 + Release-strings grep guard script
+- [ ] 04-06-PLAN.md — Wave 3: AppContainer wiring — attestationService + preflightAttestationEntitlement + AppSession trustTier holder + biometricServiceOverride test seam (D-14)
+- [ ] 04-07-PLAN.md — Wave 3: SceneDelegate cold-boot + 24h warm-foreground heartbeat + DevMenu 'Re-attest now' row (D-07 + D-04 manual path)
+- [ ] 04-08-PLAN.md — Wave 4: LimitedTrustBannerView (UIKit non-dismissible) + RoleCoordinator wrap extension + 2 XCUITests + iPad landscape checkpoint (D-11 + D-12)
+- [ ] 04-09-PLAN.md — Wave 4: Device-CI tests — AppAttestRoundTripTests + KeychainBiometricACLTests + LogoutClearsAuthorizationKeyTests (D-13 + D-14 + D-03 on device)
+- [ ] 04-10-PLAN.md — Wave 5: CI pipeline — ci-device.yml upgrade + ci-simulator.yml Release guard + report-flaky-passes.sh + docs/ci.md + branch-protection HUMAN checkpoint (CI-03 + D-15 + D-16)
 
 ### Phase 5: KYC Capture & Upload Pipeline
 **Goal**: Build `KYCCoordinator` + capture flow (face → DL front/back → vehicle/trailer/plate) with GPS metadata attached at capture time via `AVCapturePhoto.fileDataRepresentation()` → `CGImageDestination` GPS injection (never through `UIImage`), and the resumable chunked upload pipeline (idempotency-keyed, jittered backoff, background URLSessionConfiguration). KYC status UI renders Pending/Under Review/Verified/Rejected with rejection-reason copy finalized in M1.
