@@ -29,6 +29,24 @@
 
 import Foundation
 import CryptoKit
+import DeviceCheck
+
+/// Phase 4 DEV-04 (D-09): result of `AppContainer.preflightAttestationEntitlement(...)`.
+///
+/// Unlike `preflightSecureEnclave` which returns `Bool` + fatalErrors in the production
+/// miss path, entitlement absence is RECOVERABLE (ship a fix, re-sign, re-upload
+/// TestFlight). A fatalError would brick every user with a bad build. D-09 routes
+/// the miss to `attestationStatus: "entitlementMissing"` at the `/device/register`
+/// call site so the backend decides policy (D-12).
+///
+/// rawValues are the exact strings flowed through PII-safe logger events —
+/// `LogField.event` is the only field ever used; no entitlement contents or
+/// `attestationObject` bytes reach the logger.
+public enum AttestationEntitlementPreflightResult: String, Sendable {
+    case available
+    case missing
+    case simulatorBypass
+}
 
 final class AppContainer {
 
@@ -74,6 +92,17 @@ final class AppContainer {
     let sensitiveAction: any SensitiveActionService
     let logoutService: any LogoutService
 
+    // Phase 4 Plan 06 additions (DEV-04):
+    //   - attestationService: selected via #if DEBUG && targetEnvironment(simulator)
+    //     mirroring the KeyStore gate (Pattern 9 analog). Production device +
+    //     Release → DCAppAttestAttestationService. Debug + simulator →
+    //     SimulatorBypassAttestationService (file-gated; not compiled into Release).
+    //   - session: mutable main-actor state holder carrying trustTier (D-12).
+    //     Plan 07 SceneDelegate heartbeat helper + Plan 08 LimitedTrustBanner
+    //     both read/write through this single holder.
+    public let attestationService: any AttestationService
+    public let session: AppSession
+
     /// Primary initializer.
     ///
     /// - Parameters:
@@ -86,10 +115,21 @@ final class AppContainer {
     ///                               The DEV-03 device test injects `false` to verify the Release
     ///                               fatalError path via `preflightSecureEnclave` without actually
     ///                               triggering the trap (the preflight static returns the decision).
+    ///   - biometricServiceOverride: Phase 4 Plan 06 (D-14) test seam. Defaults to `nil` so all
+    ///                               existing callers (Phase 1/2/3 app launch path, existing tests)
+    ///                               are unchanged. Plan 09 device tests pass
+    ///                               `biometricServiceOverride: SeededBiometricService(...)` to
+    ///                               inject a deterministic LAContext result without prompting
+    ///                               for real Face ID in unattended CI. When non-nil, the override
+    ///                               replaces the `DefaultBiometricService` that init would otherwise
+    ///                               construct; `sessionLock` + `sensitiveAction` observe the override
+    ///                               transitively because they resolve `biometricService` through the
+    ///                               container.
     init(
         env: Environment,
         networkConfig: NetworkConfig? = nil,
-        isSecureEnclaveAvailable: Bool = SecureEnclave.isAvailable
+        isSecureEnclaveAvailable: Bool = SecureEnclave.isAvailable,
+        biometricServiceOverride: (any BiometricService)? = nil
     ) {
         self.env = env
 
@@ -118,14 +158,27 @@ final class AppContainer {
         // (D-07/D-08/D-09 lockState machine). Plan 11 refines composition-root
         // wiring; this is the minimal-change to keep AppContainer compiling once
         // DefaultSessionLockService's init signature changed.
+        //
+        // Phase 4 Plan 06 (D-14): when `biometricServiceOverride` is non-nil,
+        // substitute it for the DefaultBiometricService that init would otherwise
+        // construct. Plan 09 device tests inject SeededBiometricService through
+        // this seam so `.success` is returned synchronously without a real Face
+        // ID prompt on a physical device under unattended CI. Downstream
+        // services (sessionLock, sensitiveAction) read through the override
+        // because they bind to the same local `biometricService` value below.
         let featureLogger = OSLogLoggerImpl(
             subsystem: LoggingSubsystem.auth,
             category: "auth.biometric"
         )
-        let biometricService = DefaultBiometricService(
-            keychain: self.keychainStore,
-            logger: featureLogger
-        )
+        let biometricService: any BiometricService
+        if let override = biometricServiceOverride {
+            biometricService = override
+        } else {
+            biometricService = DefaultBiometricService(
+                keychain: self.keychainStore,
+                logger: featureLogger
+            )
+        }
         self.biometricService = biometricService
         let sessionLock = DefaultSessionLockService(
             biometric: biometricService,
@@ -194,6 +247,54 @@ final class AppContainer {
             notificationCenter: .default
         )
         self.logoutService = logoutService
+
+        // Phase 4 Plan 06 (DEV-04): attestation service selection mirrors the
+        // KeyStore simulator/device gate (Pattern 9 analog — see PATTERNS.md
+        // lines 453-465). Production device + Release compiles
+        // DCAppAttestAttestationService; DEBUG + simulator compiles
+        // SimulatorBypassAttestationService (file-gated; not present in
+        // Release artifacts, verified by Plan 05's Release-strings grep).
+        //
+        // preflightAttestationEntitlement LOGS the result but does NOT
+        // fatalError (unlike preflightSecureEnclave): D-09 routes a missing
+        // entitlement to attestationStatus = "entitlementMissing" so the
+        // backend decides policy (D-12). A fatalError in Release would brick
+        // every user with a bad build — recoverable via re-sign/re-upload.
+        //
+        // PII discipline (T-APP-ATTEST-02 mitigation): logger fields are
+        // left empty ([:]). The event-name string alone ("attestation_preflight_*")
+        // carries the status; LogField is a closed enum that does not admit
+        // entitlement contents or attestationObject bytes.
+        let attestationPreflight = Self.preflightAttestationEntitlement()
+        switch attestationPreflight {
+        case .simulatorBypass:
+            logger.info(event: .init("attestation_preflight_simulatorBypass"), fields: [:])
+        case .available:
+            logger.info(event: .init("attestation_preflight_available"), fields: [:])
+        case .missing:
+            logger.error(event: .init("attestation_preflight_missing"), fields: [:])
+        }
+
+        let attestationLogger = OSLogLoggerImpl(
+            subsystem: LoggingSubsystem.auth,
+            category: "auth.attestation"
+        )
+        let attestedKeyStore = AttestedKeyStore(keychain: self.keychainStore)
+
+        #if DEBUG && targetEnvironment(simulator)
+        self.attestationService = SimulatorBypassAttestationService(keychain: self.keychainStore)
+        _ = attestedKeyStore      // retain the constructed store — sim path uses its own
+        _ = attestationLogger     // internally; keeping logger constructed for symmetry
+        #else
+        self.attestationService = DCAppAttestAttestationService(
+            keyStore: attestedKeyStore,
+            logger: attestationLogger
+        )
+        #endif
+
+        // D-12 safe default: .softwareOnly so LimitedTrustBanner (Plan 08) renders
+        // until the first /device/register or /device/heartbeat response lands.
+        self.session = AppSession(trustTier: .softwareOnly)
 
         // NET-03: URLSession + NetworkClient construction via the single `makeSession` factory.
         // AppContainer is the ONLY place URLSession is constructed — a grep over `validationLedger/`
@@ -323,5 +424,44 @@ final class AppContainer {
         }
         // Non-simulator (device) OR Release build — SE must be available.
         return isSecureEnclaveAvailable
+    }
+
+    // MARK: - DEV-04 attestation preflight (D-09 graceful-skip mirror of preflightSecureEnclave)
+
+    /// Preflight the App Attest entitlement. UNLIKE `preflightSecureEnclave`, this
+    /// does NOT fatalError when the entitlement is missing — entitlement absence
+    /// is recoverable (ship a fix, re-sign, re-upload TestFlight). D-09's
+    /// graceful-skip contract routes a miss to `attestationStatus: "entitlementMissing"`
+    /// at the `/device/register` call site so the backend decides policy (D-12).
+    ///
+    /// Returns an `AttestationEntitlementPreflightResult` enum (not `Bool`) to
+    /// distinguish simulator-bypass from true device availability — the call
+    /// site in `init` logs all three cases for operational visibility.
+    ///
+    /// Defaults mirror `preflightSecureEnclave`: tests inject explicit values
+    /// to simulate production Release + device.
+    static func preflightAttestationEntitlement(
+        isSupported: Bool = DCAppAttestService.shared.isSupported,
+        isSimulatorBuild: Bool = {
+            #if targetEnvironment(simulator)
+            return true
+            #else
+            return false
+            #endif
+        }(),
+        isDebugBuild: Bool = {
+            #if DEBUG
+            return true
+            #else
+            return false
+            #endif
+        }()
+    ) -> AttestationEntitlementPreflightResult {
+        if isDebugBuild && isSimulatorBuild {
+            // Simulator + DEBUG path uses SimulatorBypassAttestationService (D-10);
+            // entitlement absence is expected and harmless.
+            return .simulatorBypass
+        }
+        return isSupported ? .available : .missing
     }
 }
