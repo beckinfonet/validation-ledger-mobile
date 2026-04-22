@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: phase_complete
-stopped_at: "Phase 3 complete — gap-closure plan 03-13 wired SceneDelegate → BiometricLockViewController (cold-boot + didBecomeActive). 5/5 must-haves verified in code; 4 physical-device HUMAN-UAT items persist for later on-device testing. Ready to plan Phase 4 (App Attest & Physical-Device CI Hardening)."
-last_updated: "2026-04-22T09:05:00.000Z"
-last_activity: 2026-04-22 -- Phase 3 complete (user-approved after gap closure)
+status: discussing
+stopped_at: "Phase 4 context gathered — 16 decisions across 4 areas: App Attest key lifecycle (install-scoped generateKey + three-key /device/register payload + preserve-across-logout + backend-driven re-attest), challenge/assertion protocol (dedicated /device/challenge + registration attestation + cold-boot-plus-24h heartbeat on /device/heartbeat), graceful-skip contract (5-value attestationStatus enum + non-dismissible Limited-trust banner + server-driven trustTier), and device CI (full security surface with seeded LAContext + retry-once-then-fail + required GitHub status check). ADR 0004 extends to a new ADR 0005 for the three-key registration payload. Device CI D-13 retires 3 of 4 Phase 3 HUMAN-UAT items into CI coverage."
+last_updated: "2026-04-22T10:15:00.000Z"
+last_activity: 2026-04-22 -- Phase 4 context gathered
 progress:
   total_phases: 5
   completed_phases: 3
@@ -91,6 +91,6 @@ Items acknowledged and carried forward from previous milestone close:
 ## Session Continuity
 
 Last session: 2026-04-22
-Stopped at: Phase 3 complete after gap-closure plan 03-13 wired SceneDelegate to present BiometricLockViewController on cold-boot and UIApplication.didBecomeActiveNotification. Verifier returned human_needed with 5/5 code must-haves verified; user approved, so phase marked complete. 4 HUMAN-UAT items (cold-boot biometric, >5min background re-prompt, re-enrollment re-bind, SE ACL on logout) persist in 03-HUMAN-UAT.md for physical-iPhone testing.
-Resume file: .planning/phases/03-otp-auth-role-shell-session-the-fixed-phase-1-goal/03-VERIFICATION.md
-Next command: `/gsd-discuss-phase 4` (or `/gsd-plan-phase 4`)
+Stopped at: Phase 4 context gathered — 16 decisions across 4 areas (App Attest key lifecycle + challenge/assertion protocol + graceful-skip contract + device CI coverage & merge policy). CONTEXT.md + DISCUSSION-LOG.md written. ADR 0004 extends to ADR 0005 for three-key /device/register payload. Device CI full-security-surface plan retires 3 of 4 Phase 3 HUMAN-UAT items.
+Resume file: .planning/phases/04-app-attest-physical-device-ci-hardening/04-CONTEXT.md
+Next command: `/gsd-plan-phase 4`
