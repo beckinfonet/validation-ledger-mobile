@@ -58,6 +58,13 @@
         </dict>
     </dict>
 
+    <!-- GEO-01 / D-20 / Phase 3 Plan 08: location permission rationale.
+         CLLocationManager.requestWhenInUseAuthorization crashes without this key.
+         Copy mentions "United States" per product spec + App Store reviewer
+         expectation; CountryGateTests.infoPlistHasUsageDescription asserts both. -->
+    <key>NSLocationWhenInUseUsageDescription</key>
+    <string>Validation Ledger uses your location at sign-in to verify you're in the United States, our service area.</string>
+
     <!-- SEC-02: App Transport Security — strict, no exceptions -->
     <key>NSAppTransportSecurity</key>
     <dict>
