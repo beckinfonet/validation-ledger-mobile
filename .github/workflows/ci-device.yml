@@ -4,27 +4,68 @@ on:
   # Manual trigger — re-run the device job from the Actions tab after reconnecting
   # the device or restarting the self-hosted runner, without pushing a dummy commit.
   workflow_dispatch:
-  # D-16 (Pitfall 4 first-run): push to main ensures the check is registered with the
-  # branch-protection UI before the rule is flipped ON.
+  # D-16: the device security surface runs on every merge to main.
   push:
     branches: [main]
-  # D-16: PR gate — blocks merge when the job fails if branch protection is configured.
+  # D-16: PR gate. NOTE — intentionally NO `paths:` filter. The workflow triggers on
+  # EVERY PR so the required `device-security-surface` check is always reported; a
+  # path-filtered required check that never runs would leave non-security PRs stuck
+  # forever "waiting for status". The `changes` job below does the path filtering: it
+  # skips the expensive device job when no security-surface path changed, and GitHub
+  # treats a skipped required check as passing.
   pull_request:
     branches: [main]
-    paths:
-      - 'validationLedger/Core/Auth/**'
-      - 'validationLedger/Core/KeyStore/**'
-      - 'validationLedger/Core/Identity/**'
-      - 'validationLedger/Core/Networking/CertificatePinning/**'
-      - 'validationLedger/Core/Attestation/**'       # Phase 4 addition
-      - 'validationLedger/Core/Storage/Keychain/**'  # Phase 4 addition — KeychainKey + KeychainScope touch attestation invariants
-      - 'validationLedger/App/Info.plist'            # usage-description / permission surface — device tests crash on a wrong/missing key
-      - 'validationLedgerDeviceTests/**'             # Phase 4 addition — device tests themselves
-      - '.github/workflows/ci-device.yml'
 
 jobs:
+  # Fast path-detection gate (GitHub-hosted, ~15s). Keeps the self-hosted Mac runner
+  # free on PRs that don't touch the security surface.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      device: ${{ steps.detect.outputs.device }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so the PR base...head diff resolves
+
+      - name: Detect security-surface changes
+        id: detect
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        # Fail-safe: defaults to device=true on anything ambiguous (non-PR event, diff
+        # failure). The ONLY path to device=false is a clean diff matching no security path.
+        run: |
+          set -uo pipefail
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            echo "Non-PR event ($EVENT_NAME) — device surface runs."
+            echo "device=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CHANGED=$(git diff --name-only "$BASE_SHA...$HEAD_SHA" 2>/dev/null) || {
+            echo "diff failed — defaulting to device=true (fail-safe)."
+            echo "device=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          }
+          # Security surface: D-05 Phase 1 paths + Phase 4 additions + the workflow itself.
+          PATTERN='^(validationLedger/Core/Auth/|validationLedger/Core/KeyStore/|validationLedger/Core/Identity/|validationLedger/Core/Networking/CertificatePinning/|validationLedger/Core/Attestation/|validationLedger/Core/Storage/Keychain/|validationLedger/App/Info\.plist|validationLedgerDeviceTests/|\.github/workflows/ci-device\.yml)'
+          if printf '%s\n' "$CHANGED" | grep -E -q "$PATTERN"; then
+            echo "Security-surface paths changed — device surface runs."
+            echo "device=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No security-surface paths changed — device job skipped."
+            echo "device=false" >> "$GITHUB_OUTPUT"
+          fi
+
   # Job name MUST be stable (Pitfall 4 — this name is referenced in branch protection).
+  # Skipped (not failed) when `changes` reports device=false — GitHub counts a skipped
+  # required check as passing, so PRs that don't touch the security surface are never
+  # blocked while the device runner stays free.
   device-security-surface:
+    needs: changes
+    if: needs.changes.outputs.device == 'true'
     runs-on: [self-hosted, macOS, device]
     timeout-minutes: 25    # Bumped from 15 — App Attest round-trip adds latency
     steps:
