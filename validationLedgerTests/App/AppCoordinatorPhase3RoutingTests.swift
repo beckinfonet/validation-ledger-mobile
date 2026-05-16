@@ -137,12 +137,18 @@ struct AppCoordinatorPhase3RoutingTests {
                 ".auth phase must produce the AuthCoordinator's UINavigationController root (D-01)")
     }
 
-    @Test("AppCoordinator.makeRoot(.role(.carrier)) returns a CarrierTabBarController")
+    @Test("AppCoordinator.makeRoot(.role(.carrier)) routes to a CarrierTabBarController")
     func makeRootRole() {
         let container = makeContainer()
         let coord = AppCoordinator(container: container, phase: .role(.carrier))
-        #expect(coord.rootViewController is CarrierTabBarController,
-                ".role(.carrier) must produce a CarrierTabBarController (Phase 1 RoleCoordinator dispatch preserved)")
+        // Phase 4 Plan 08 (D-11/D-12): under the default .softwareOnly trust tier the
+        // role tab bar is wrapped in the limited-trust banner container, so the
+        // CarrierTabBarController is the wrapper's child rather than the root itself.
+        // Under .hardwareAttested the wrapper is a no-op and the tab bar is the root.
+        let carrierTabBar = coord.rootViewController as? CarrierTabBarController
+            ?? coord.rootViewController.children.first as? CarrierTabBarController
+        #expect(carrierTabBar != nil,
+                ".role(.carrier) must route to a CarrierTabBarController (RoleCoordinator dispatch preserved, banner-wrapped under .softwareOnly)")
     }
 
     @Test("SessionRestoreProbe source constructs only lightweight dependencies (Blocker 6)")

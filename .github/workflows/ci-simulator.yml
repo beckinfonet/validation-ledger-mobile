@@ -15,16 +15,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Select Xcode 16.4
-        # CI pins Xcode 16.4 per docs/ci.md (Flag #2); dev MacBook runs 26.4.
-        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+      - name: Select Xcode 26.3
+        # Pinned to Xcode 26.3 to match the dev machine + the self-hosted device
+        # runner. The project's .pbxproj sets SWIFT_DEFAULT_ACTOR_ISOLATION =
+        # MainActor and SWIFT_APPROACHABLE_CONCURRENCY = YES (Xcode 26 / Swift 6.2
+        # settings); Xcode 16.x silently ignores them, so the @MainActor-assuming
+        # composition root fails actor-isolation checks and the app won't compile.
+        run: sudo xcode-select -s /Applications/Xcode_26.3.app
 
       - name: Show Xcode version
         run: xcodebuild -version
-
-      - name: Install iOS 17 simulator runtime (fallback — macos-latest usually has it)
-        run: xcodebuild -downloadPlatform iOS -buildVersion 17.5 || true
-        continue-on-error: true
 
       - name: Cache SwiftPM dependencies
         uses: actions/cache@v4
@@ -33,12 +33,18 @@ jobs:
           key: spm-${{ runner.os }}-${{ hashFiles('Package.swift', 'Package.resolved') }}
 
       - name: Resolve SwiftPM packages
-        run: xcodebuild -project validationLedger.xcodeproj -resolvePackageDependencies
+        # Use `swift package resolve` (not `xcodebuild -resolvePackageDependencies`):
+        # only the swift CLI downloads binary-target artifacts into
+        # $GITHUB_WORKSPACE/.build/artifacts/, which the SwiftLint step below needs.
+        # `xcodebuild -resolvePackageDependencies` vendors packages into DerivedData
+        # and skips the binary artifact entirely. `xcodebuild test` re-resolves its
+        # own package graph, so a separate xcodebuild resolve step is redundant.
+        run: swift package resolve
 
       - name: SwiftLint (strict — fail-fast before tests)
         # SwiftLintPlugins ships a SwiftPM PLUGIN + binary artifact (not an executable product),
         # so `swift run swiftlint` errors with "no executable product named 'swiftlint'". The
-        # `resolvePackageDependencies` step above vendors the binary at a stable artifact path —
+        # `swift package resolve` step above vendors the binary at a stable artifact path —
         # invoke it directly. Fall back to Homebrew swiftlint if the artifact is missing.
         # Honors D-02 ordering: lint gate first.
         run: |
@@ -66,7 +72,7 @@ jobs:
           xcodebuild test \
             -project validationLedger.xcodeproj \
             -scheme validationLedger \
-            -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' \
+            -destination 'platform=iOS Simulator,name=iPhone 17' \
             -parallel-testing-enabled NO \
             -enableCodeCoverage YES \
             -resultBundlePath $PWD/build/TestResults.xcresult \
@@ -78,7 +84,7 @@ jobs:
         env:
           SCHEME: validationLedger
           PROJECT: validationLedger.xcodeproj
-          DESTINATION: "platform=iOS Simulator,name=iPhone 15,OS=17.5"
+          DESTINATION: "platform=iOS Simulator,name=iPhone 17"
 
       - name: Coverage gate (Core/ >= 70% — CI-01)
         run: bash scripts/check-coverage.sh $PWD/build/TestResults.xcresult 70

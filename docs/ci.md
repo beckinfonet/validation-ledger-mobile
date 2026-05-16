@@ -11,45 +11,55 @@ Two pipelines run:
 
 ## Xcode Version Policy
 
-- **Dev machine:** Xcode 26.4 (current stable locally).
-- **CI:** pins Xcode 16.4 via `sudo xcode-select -s /Applications/Xcode_16.4.app` in workflow.
-- **Reason:** CI uses the floor version so Swift Testing (bundled in Xcode 16+) + iOS 17 SDK availability are both guaranteed without surprises. `macos-latest` GitHub runner image typically ships Xcode 16.x + 26.x; pinning removes ambiguity. Dev machines get newer Xcode for iteration speed.
+- **Dev machine + self-hosted device runner:** Xcode 26.3.
+- **Simulator CI:** pins Xcode 26.3 via `sudo xcode-select -s /Applications/Xcode_26.3.app` in workflow.
+- **Reason:** the project's `.pbxproj` enables `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` and `SWIFT_APPROACHABLE_CONCURRENCY = YES` — Xcode 26 / Swift 6.2 build settings. Xcode 16.x silently ignores them, so the `@MainActor`-assuming composition root (`AppContainer`) fails actor-isolation checks and the app does not compile. CI must therefore run an Xcode that supports these settings. 26.3 matches the dev machine and the device runner, and is present on the `macos-15-arm64` GitHub runner image. The earlier "floor 16.4" policy predated the project's adoption of Swift 6.2 concurrency settings.
 
 ## Simulator Pipeline
 
 **Trigger:** `pull_request` on `main`
 **Runner:** `macos-latest` (GitHub-hosted) — D-01
-**Xcode:** floor 16.4 (bundled iOS 17 SDK + Swift Testing)
+**Xcode:** 26.3 (required for Swift 6.2 `SWIFT_DEFAULT_ACTOR_ISOLATION` — see Xcode Version Policy)
 **Steps:**
 1. Checkout
-2. Select Xcode 16.4
+2. Select Xcode 26.3
 3. Install iOS 17 simulator runtime (fallback — image usually has it)
 4. Restore SwiftPM cache
 5. SwiftLint `--strict` (fail-fast before tests)
-6. `xcodebuild test -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -enableCodeCoverage YES -only-testing:validationLedgerTests/Logging -only-testing:validationLedgerTests/Storage -only-testing:validationLedgerTests/Networking -only-testing:validationLedgerTests/Auth -only-testing:validationLedgerTests/Navigation -only-testing:validationLedgerTests/Roles`
+6. `xcodebuild test -destination 'platform=iOS Simulator,name=iPhone 17' -enableCodeCoverage YES -only-testing:validationLedgerTests -only-testing:validationLedgerUITests/RoleShellSmokeTests`
 7. `PrivacyInfo.xcprivacy` presence check (grep-able script per D-21 / FOUND-06)
 8. Coverage parser: `Core/` ≥ 70% (CI-01)
 
 **Excluded:** Secure Enclave + biometric + App Attest tests (D-03 — require real hardware). These live in `validationLedgerDeviceTests/` and are gated out by the `-only-testing:` flags above.
-**Coverage target:** ≥70% on `Core/` (CI-01).
+**Coverage target:** ≥70% on `Core/` (CI-01). `SecureEnclaveKeyStore.swift` and `DCAppAttestAttestationService.swift` are excluded from the simulator coverage measurement — Secure Enclave and App Attest are non-functional on the simulator, so this pipeline structurally cannot cover them (0% by design). Their coverage is the device pipeline's responsibility (`SecureEnclaveKeyStoreTests` + `AppAttestRoundTripTests`). With those excluded, simulator-measured `Core/` coverage is 73.15%.
 
 ## Device Pipeline
 
-**Trigger:** `push` to `main` OR `pull_request` touching security paths (D-05, extended in Phase 4)
-- Phase 1 security paths: `validationLedger/Core/Auth/**`, `validationLedger/Core/KeyStore/**`, `validationLedger/Core/Identity/**`, `validationLedger/Core/Networking/CertificatePinning/**`
-- Phase 4 additions: `validationLedger/Core/Attestation/**`, `validationLedger/Core/Storage/Keychain/**`, `validationLedgerDeviceTests/**`, `.github/workflows/ci-device.yml`
+**Trigger:** every `push` to `main` and every `pull_request` to `main`. There is intentionally **no `paths:` filter** on the trigger — the expensive device job is path-gated at the *job* level instead (see Job structure).
+
+**Job structure (doc-PR-safe gate):**
+- `changes` — GitHub-hosted `ubuntu-latest`, ~15s. Diffs the PR (`base...head`) and decides whether the security surface changed; outputs `device=true|false`. A `push` to `main` or a `workflow_dispatch` always yields `device=true`.
+- `device-security-surface` — self-hosted; `needs: changes`; runs only when `device=true`, otherwise **skipped**.
+
+The workflow triggers on every PR so the required `device-security-surface` check is always reported. When no security path changed, the device job is skipped — and GitHub counts a skipped required check as passing — so a docs- or UI-only PR is never left stuck "waiting for status", and the self-hosted Mac runner stays free. (This replaces the old trigger-level `paths:` filter, which would have left non-security PRs blocked on a required check that never runs — see Branch Protection below.)
+
+**Security surface — the device job runs when a PR touches any of:**
+- Phase 1 paths (D-05): `validationLedger/Core/Auth/**`, `validationLedger/Core/KeyStore/**`, `validationLedger/Core/Identity/**`, `validationLedger/Core/Networking/CertificatePinning/**`
+- Phase 4 additions: `validationLedger/Core/Attestation/**`, `validationLedger/Core/Storage/Keychain/**`, `validationLedger/App/Info.plist`, `validationLedgerDeviceTests/**`, `.github/workflows/ci-device.yml`
 
 **Runner:** self-hosted MacBook with connected iPhone (D-04)
 **Runner labels:** `[self-hosted, macOS, device]`
-**Xcode:** 26.4 (dev machine's installed Xcode)
-**Job name:** `device-security-surface` (stable — required for branch-protection UI check-name lookup per Pitfall 4).
+**Xcode:** runner default (Xcode 26.x — see Xcode Version Policy).
+**Job name:** `device-security-surface` (stable — referenced verbatim in branch protection).
 **Timeout:** 25 min (bumped from 15 in Phase 4 — App Attest round-trip adds latency).
 
-**Steps (Phase 4 upgraded):**
+**Steps (`device-security-surface` job — Phase 4 upgraded):**
 1. Checkout
-2. `xcodebuild test -destination 'platform=iOS,id=$DEVICE_UDID' -only-testing:validationLedgerDeviceTests -retry-tests-on-failure -test-iterations 2 -resultBundlePath build/DeviceTestResults.xcresult`
-3. Upload `DeviceTestResults.xcresult` as a 14-day-retention artifact.
-4. Invoke `scripts/report-flaky-passes.sh` on the xcresult — Slack-notifies on any pass-after-retry (D-15).
+2. Show Xcode version
+3. Unlock signing keychain — `security unlock-keychain` + `set-key-partition-list` so the LaunchAgent runner can codesign non-interactively (see Secrets → `KEYCHAIN_PASSWORD`).
+4. `xcodebuild test -destination 'platform=iOS,id=$DEVICE_UDID' -only-testing:validationLedgerDeviceTests -retry-tests-on-failure -test-iterations 2 -resultBundlePath build/DeviceTestResults.xcresult`
+5. Upload `DeviceTestResults.xcresult` as a 14-day-retention artifact.
+6. Invoke `scripts/report-flaky-passes.sh` on the xcresult — Slack-notifies on any pass-after-retry (D-15).
 
 **Self-hosted runner setup:** See `docs/adr/0003-module-layout-and-target-strategy.md` for the M2-boundary re-evaluation trigger; see GitHub Actions docs for runner labeling.
 
@@ -68,31 +78,40 @@ Two pipelines run:
 
 **Merge gate (D-16):** The job `device-security-surface` is a required GitHub branch-protection status check on `main`. Red pipeline blocks merge. Admins CAN override via GitHub UI for break-glass situations — this is a documented residual risk (solo-dev org; no adversarial admin assumed; record every override in `docs/ops-incidents.md`).
 
-### First-run branch-protection dance (Pitfall 4)
+### Branch protection (D-16)
 
-GitHub branch-protection only lists check names that have actually run on the protected branch. The first time Phase 4's upgraded `ci-device.yml` lands, follow this sequence:
+`main` requires two status checks before merge, configured via the GitHub API
+(`gh api -X PUT .../branches/main/protection`):
 
-1. Merge the Phase 4 PR containing `ci-device.yml` changes — this triggers the workflow on `main` via the `push: branches: [main]` trigger.
-2. Wait for the workflow to complete (pass or fail — only completion matters).
-3. Navigate to **Settings → Branches → Edit `main` rule**.
-4. Under **Require status checks to pass**, tick the checkbox.
-5. Select `device-security-surface` from the available-checks dropdown. (If not present, the workflow hasn't run yet — go back to step 2.)
-6. Also keep `CI (Simulator) / test` (or whatever the simulator job is named) checked.
-7. Save.
+- `device-security-surface` — the device CI job (its real result on a security PR, or its
+  skipped pass on a non-security PR).
+- `test` — the `CI (Simulator)` job.
 
-After this one-time setup, every future PR to `main` is gated by both simulator CI + device CI.
+Both run with **"Require branches to be up to date before merging"** (strict) — a PR must
+be current with `main` before its green checks count.
 
-**HUMAN-UAT checklist (Plan 04-10 Task 5 — completed by repo admin via github.com UI):**
+**Why no UI "dropdown dance" (the old Pitfall 4):** GitHub's branch-protection *UI* only
+offers check names that have already run on the branch. The *API* has no such limitation —
+it accepts the check context string directly — so the gate is set with `gh api` and takes
+effect immediately. The `push: branches: [main]` trigger still runs the device surface on
+every merge to `main`.
 
-- [ ] `device-security-surface` job has run at least once on `main` (verify in Actions tab).
-- [ ] Branch-protection rule for `main` exists with "Require status checks to pass before merging" enabled.
-- [ ] `device-security-surface` is in the required-checks list for `main`.
-- [ ] `CI (Simulator) / test` remains in the required-checks list for `main`.
-- [ ] "Require branches to be up to date before merging" is enabled.
-- [ ] Verified on a test PR: deliberate `validationLedgerDeviceTests` failure → `device-security-surface` red → Merge button shows "Required check failing" → disabled.
-- [ ] Fix the deliberate failure → push → Merge button re-enables.
-- [ ] Test PR closed without merging; test branch deleted.
-- [ ] Screenshot or text-confirmation of the above recorded in the Phase 4 SUMMARY.
+**Why the device check never blocks a non-security PR:** `ci-device.yml` triggers on every
+PR, and its `device-security-surface` job is *skipped* (not absent) when no security path
+changed. GitHub counts a skipped required check as passing — so the required check is
+always satisfied, whether the device tests ran or were skipped. A trigger-level `paths:`
+filter would instead leave the check un-reported and the PR stuck "waiting for status".
+
+**HUMAN-UAT checklist (Plan 04-10 Task 5):**
+
+- [ ] Branch-protection rule for `main` requires `device-security-surface` + `test`, strict.
+- [ ] Verified on a test PR touching `validationLedgerDeviceTests/`: a deliberate device-test
+      failure turns `device-security-surface` red and the PR's merge is blocked.
+- [ ] Fix the deliberate failure → `device-security-surface` green → merge re-enables.
+- [ ] Verified a non-security PR: `device-security-surface` reports `skipped` and does not
+      block the merge.
+- [ ] Test PR(s) closed without merging; test branch(es) deleted.
+- [ ] Verification evidence recorded in `.planning/phases/04-app-attest-physical-device-ci-hardening/04-10-SUMMARY.md`.
 
 **Break-glass:** If `main` ends up blocked with no valid path forward (e.g., a device-runner outage), admins can temporarily un-tick the required-status-check in Settings, merge, then re-tick. Record these events in the PR description + an incident note in `docs/ops-incidents.md` (create the file if needed). D-16 explicitly accepts this admin-override residual risk for a solo-dev org.
 
@@ -114,9 +133,18 @@ Self-hosted runner occupies the dev MacBook for ~5–15 min per run (25-min ceil
 |--------|--------------|---------|
 | `DEVICE_UDID` | GitHub Actions repo secret | `ci-device.yml` |
 | `SLACK_WEBHOOK_URL` | GitHub Actions repo secret (Phase 4) | `ci-device.yml` (flaky-pass notifier) |
+| `KEYCHAIN_PASSWORD` | GitHub Actions repo secret (Phase 4) | `ci-device.yml` (unlock signing keychain) |
 
 No API keys, signing certs, or provisioning profiles live in CI for Phase 1 (TestFlight submission is M5).
 `SLACK_WEBHOOK_URL` is optional — `scripts/report-flaky-passes.sh` silent-exits when unset.
+
+`KEYCHAIN_PASSWORD` is the runner account's macOS login password. The self-hosted runner
+runs as a LaunchAgent whose process context cannot reach the unlocked login keychain an
+interactive shell sees, so codesigning the XCTest injection dylibs fails with
+`errSecInternalComponent`. The `ci-device.yml` "Unlock signing keychain" step runs
+`security unlock-keychain` + `set-key-partition-list` before `xcodebuild` to permit
+non-interactive `codesign`. Set it once with `gh secret set KEYCHAIN_PASSWORD` (paste the
+login password at the prompt — it stays out of shell history and CI logs).
 
 ## Related
 

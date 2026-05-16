@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: active
-stopped_at: "Phase 4 Wave 4 + inserted Plan 04-11 complete and merged to main. 04-07, 04-08, 04-09, 04-11 all have SUMMARY.md and are marked [x] in ROADMAP.md. 04-08's human-verify checkpoint closed partial — iPhone portrait confirmed via physical-device screenshot 2026-04-22 11:30 PT; 4 remaining visual/gesture items deferred to .planning/phases/04-app-attest-physical-device-ci-hardening/04-HUMAN-UAT.md. Next: Wave 5 = plan 04-10 (CI pipeline — ci-device.yml + ci-simulator.yml + report-flaky-passes.sh + docs/ci.md + branch-protection HUMAN checkpoint for CI-03 + D-15 + D-16). autonomous: false; human-verify checkpoint required at end of plan for branch-protection GitHub config."
-last_updated: "2026-04-22T18:45:00.000Z"
-last_activity: 2026-04-22 -- Wave 4 + 04-11 merged to main; 04-08 checkpoint closed partial via iPhone screenshot; ready for Wave 5 (04-10 CI pipeline)
+stopped_at: "IN-PROGRESS quick task — Phase 4 close-out (bring device CI online + gate main). Branch ci/phase-4-device-ci-online, PR #1, 10 commits pushed, working tree clean. Simulator CI is now fully GREEN (9 root-cause fixes — it had never passed). Device CI BLOCKED on self-hosted-runner codesign (errSecInternalComponent). RESUME via .planning/quick/260516-phase-4-closeout/SUMMARY.md — it has the full handoff: the host keychain fix the user must run, then re-run device CI, then branch protection + Part D closeout. NOTE: STATE.md progress block below is stale (says 27/27 / phase 3; actual: Phase 4 complete on disk, 38/38 plans) — reconcile during Part D."
+last_updated: "2026-05-16T22:30:00.000Z"
+last_activity: 2026-05-16 -- Phase 4 close-out quick task in progress: simulator CI green; device CI blocked on runner codesign. Handoff: .planning/quick/260516-phase-4-closeout/SUMMARY.md
 progress:
   total_phases: 5
   completed_phases: 3

@@ -26,15 +26,26 @@ fi
 
 # Sum covered / executable lines across files under validationLedger/Core/.
 # xccov JSON shape: targets[].files[].{path, coveredLines, executableLines}
+#
+# Device-only exclusions: Secure Enclave and App Attest APIs are non-functional
+# on the iOS Simulator, so this (simulator) pipeline structurally cannot execute
+# a single line of these files — they sit at 0% here by design. Their coverage
+# is the device pipeline's responsibility: validationLedgerDeviceTests runs
+# SecureEnclaveKeyStoreTests + AppAttestRoundTripTests on real hardware.
+# Counting them against the simulator gate measures the wrong thing.
 COVERAGE_LINE=$(echo "$JSON" | python3 -c '
 import json, sys
+DEVICE_ONLY = (
+    "Core/KeyStore/SecureEnclaveKeyStore.swift",
+    "Core/Attestation/DCAppAttestAttestationService.swift",
+)
 data = json.load(sys.stdin)
 covered = 0
 executable = 0
 for target in data.get("targets", []):
     for file in target.get("files", []):
         path = file.get("path", "")
-        if "/Core/" in path:
+        if "/Core/" in path and not any(path.endswith(d) for d in DEVICE_ONLY):
             covered += file.get("coveredLines", 0)
             executable += file.get("executableLines", 0)
 if executable == 0:

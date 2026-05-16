@@ -49,6 +49,16 @@
                ReferencedContainer = "container:validationLedger.xcodeproj">
             </BuildableReference>
          </TestableReference>
+         <TestableReference
+            skipped = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "A30000000000000000000001"
+               BuildableName = "validationLedgerDeviceTests.xctest"
+               BlueprintName = "validationLedgerDeviceTests"
+               ReferencedContainer = "container:validationLedger.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
    </TestAction>
    <LaunchAction
