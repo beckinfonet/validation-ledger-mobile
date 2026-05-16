@@ -26,12 +26,12 @@ Two pipelines run:
 3. Install iOS 17 simulator runtime (fallback — image usually has it)
 4. Restore SwiftPM cache
 5. SwiftLint `--strict` (fail-fast before tests)
-6. `xcodebuild test -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' -enableCodeCoverage YES -only-testing:validationLedgerTests/Logging -only-testing:validationLedgerTests/Storage -only-testing:validationLedgerTests/Networking -only-testing:validationLedgerTests/Auth -only-testing:validationLedgerTests/Navigation -only-testing:validationLedgerTests/Roles`
+6. `xcodebuild test -destination 'platform=iOS Simulator,name=iPhone 17' -enableCodeCoverage YES -only-testing:validationLedgerTests -only-testing:validationLedgerUITests/RoleShellSmokeTests`
 7. `PrivacyInfo.xcprivacy` presence check (grep-able script per D-21 / FOUND-06)
 8. Coverage parser: `Core/` ≥ 70% (CI-01)
 
 **Excluded:** Secure Enclave + biometric + App Attest tests (D-03 — require real hardware). These live in `validationLedgerDeviceTests/` and are gated out by the `-only-testing:` flags above.
-**Coverage target:** ≥70% on `Core/` (CI-01).
+**Coverage target:** ≥70% on `Core/` (CI-01). `SecureEnclaveKeyStore.swift` and `DCAppAttestAttestationService.swift` are excluded from the simulator coverage measurement — Secure Enclave and App Attest are non-functional on the simulator, so this pipeline structurally cannot cover them (0% by design). Their coverage is the device pipeline's responsibility (`SecureEnclaveKeyStoreTests` + `AppAttestRoundTripTests`). With those excluded, simulator-measured `Core/` coverage is 73.15%.
 
 ## Device Pipeline
 
