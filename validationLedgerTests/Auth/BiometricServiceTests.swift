@@ -49,8 +49,7 @@ struct BiometricServiceTests {
     func infoPlistHasFaceIDUsageDescription() throws {
         let source = try Self.readSource("validationLedger/App/Info.plist")
         #expect(source.contains("NSFaceIDUsageDescription"),
-                "Info.plist missing NSFaceIDUsageDescription — the app crashes on a physical device "
-                + "when BiometricService accesses Face ID without it (caught by device CI on iPhone 16)")
+                "Info.plist missing NSFaceIDUsageDescription — app crashes on a physical device when BiometricService accesses Face ID without it (caught by device CI)")
     }
 
     // MARK: - Source-path resolution (pattern reused from PlatformPayloadFieldTests)
