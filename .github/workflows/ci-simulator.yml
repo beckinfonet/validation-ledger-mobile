@@ -26,10 +26,6 @@ jobs:
       - name: Show Xcode version
         run: xcodebuild -version
 
-      - name: Install iOS 17 simulator runtime (fallback — macos-latest usually has it)
-        run: xcodebuild -downloadPlatform iOS -buildVersion 17.5 || true
-        continue-on-error: true
-
       - name: Cache SwiftPM dependencies
         uses: actions/cache@v4
         with:
@@ -76,7 +72,7 @@ jobs:
           xcodebuild test \
             -project validationLedger.xcodeproj \
             -scheme validationLedger \
-            -destination 'platform=iOS Simulator,name=iPhone 15,OS=17.5' \
+            -destination 'platform=iOS Simulator,name=iPhone 17' \
             -parallel-testing-enabled NO \
             -enableCodeCoverage YES \
             -resultBundlePath $PWD/build/TestResults.xcresult \
@@ -88,7 +84,7 @@ jobs:
         env:
           SCHEME: validationLedger
           PROJECT: validationLedger.xcodeproj
-          DESTINATION: "platform=iOS Simulator,name=iPhone 15,OS=17.5"
+          DESTINATION: "platform=iOS Simulator,name=iPhone 17"
 
       - name: Coverage gate (Core/ >= 70% — CI-01)
         run: bash scripts/check-coverage.sh $PWD/build/TestResults.xcresult 70
