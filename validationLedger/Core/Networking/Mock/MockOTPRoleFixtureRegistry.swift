@@ -39,9 +39,9 @@ enum MockOTPRoleFixtureRegistry {
         // OTP request → returns otpSessionID
         MockURLProtocol.register { req in
             guard req.url?.path == "/auth/otp/request" else { return nil }
-            let body = """
+            let body = Data("""
             {"otp_session_id": "ui-test-session-id", "expires_in_seconds": 300}
-            """.data(using: .utf8)!
+            """.utf8)
             let resp = HTTPURLResponse(
                 url: req.url!, statusCode: 200,
                 httpVersion: "HTTP/1.1",
@@ -53,13 +53,13 @@ enum MockOTPRoleFixtureRegistry {
         // OTP verify → returns sessionToken + role + userID
         MockURLProtocol.register { req in
             guard req.url?.path == "/auth/otp/verify" else { return nil }
-            let body = """
+            let body = Data("""
             {
                 "session_token": "ui-test-token",
                 "role": "\(role.rawValue)",
                 "user_id": "ui-test-user-\(role.rawValue)"
             }
-            """.data(using: .utf8)!
+            """.utf8)
             let resp = HTTPURLResponse(
                 url: req.url!, statusCode: 200,
                 httpVersion: "HTTP/1.1",
@@ -77,9 +77,9 @@ enum MockOTPRoleFixtureRegistry {
         let trustTierRawValue = trustTier.rawValue
         MockURLProtocol.register { req in
             guard req.url?.path == "/device/register" else { return nil }
-            let body = """
+            let body = Data("""
             {"device_id": "ui-test-device-id", "registered_at": "2026-04-21T00:00:00Z", "trust_tier": "\(trustTierRawValue)"}
-            """.data(using: .utf8)!
+            """.utf8)
             let resp = HTTPURLResponse(
                 url: req.url!, statusCode: 200,
                 httpVersion: "HTTP/1.1",
@@ -103,11 +103,10 @@ final class StubLocationProviderForUITest: LocationProvider {
         maxAge: TimeInterval,
         maxAccuracy: CLLocationDistance
     ) async throws -> CLLocation {
-        // Apple Park — Cupertino, US. Literal allowed here because this file path
-        // `Core/Networking/Mock/` is NOT on the `ban_raw_coordinate_literal`
-        // allowlist, but the SwiftLint rule targets production geo code — this
-        // stub is DEBUG-only scaffolding. If the linter complains, add
-        // `// swiftlint:disable:next ban_raw_coordinate_literal` on the next line.
+        // Apple Park — Cupertino, US. A plain `CLLocation` literal — the
+        // `ban_raw_coordinate_literal` rule only matches the coordinate-pair
+        // constructor (`CLLocationCoordinate2D`), not `CLLocation`, so this
+        // DEBUG-only stub is not flagged and needs no disable directive.
         CLLocation(latitude: 37.3349, longitude: -122.0090)
     }
 }
