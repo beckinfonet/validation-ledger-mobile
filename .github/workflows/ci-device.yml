@@ -18,6 +18,7 @@ on:
       - 'validationLedger/Core/Networking/CertificatePinning/**'
       - 'validationLedger/Core/Attestation/**'       # Phase 4 addition
       - 'validationLedger/Core/Storage/Keychain/**'  # Phase 4 addition — KeychainKey + KeychainScope touch attestation invariants
+      - 'validationLedger/App/Info.plist'            # usage-description / permission surface — device tests crash on a wrong/missing key
       - 'validationLedgerDeviceTests/**'             # Phase 4 addition — device tests themselves
       - '.github/workflows/ci-device.yml'
 

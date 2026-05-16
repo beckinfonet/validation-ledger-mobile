@@ -65,6 +65,14 @@
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Validation Ledger uses your location at sign-in to verify you're in the United States, our service area.</string>
 
+    <!-- Biometric app-lock: BiometricService / BiometricLockViewController / SessionLockService
+         use LAContext biometric policy → Face ID. Accessing Face ID on a physical device
+         crashes the app without this key — the simulator has no biometric hardware so it
+         never surfaced until device CI ran on iPhone 16.
+         BiometricServiceTests.infoPlistHasFaceIDUsageDescription asserts its presence. -->
+    <key>NSFaceIDUsageDescription</key>
+    <string>Validation Ledger uses Face ID to unlock the app and authorize sensitive actions, keeping your verified identity secure on this device.</string>
+
     <!-- SEC-02: App Transport Security — strict, no exceptions -->
     <key>NSAppTransportSecurity</key>
     <dict>
