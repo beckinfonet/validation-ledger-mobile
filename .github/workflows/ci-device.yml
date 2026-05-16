@@ -1,6 +1,9 @@
 name: CI (Device)
 
 on:
+  # Manual trigger — re-run the device job from the Actions tab after reconnecting
+  # the device or restarting the self-hosted runner, without pushing a dummy commit.
+  workflow_dispatch:
   # D-16 (Pitfall 4 first-run): push to main ensures the check is registered with the
   # branch-protection UI before the rule is flipped ON.
   push:
