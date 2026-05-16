@@ -33,6 +33,25 @@ jobs:
       - name: Show Xcode version
         run: xcodebuild -version
 
+      # The runner is installed as a LaunchAgent; its process context cannot reach the
+      # unlocked login keychain that an interactive shell sees, so codesigning the XCTest
+      # injection dylibs fails with errSecInternalComponent. Unlock it explicitly here and
+      # (idempotently) re-assert the partition list so `codesign` is permitted
+      # non-interactively. KEYCHAIN_PASSWORD = the runner account's macOS login password,
+      # stored as a repo secret (see docs/ci.md).
+      - name: Unlock signing keychain (self-hosted runner)
+        env:
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${KEYCHAIN_PASSWORD:-}" ]; then
+            echo "::error::KEYCHAIN_PASSWORD secret is not set — set it with 'gh secret set KEYCHAIN_PASSWORD' (see docs/ci.md)."
+            exit 1
+          fi
+          KEYCHAIN="$HOME/Library/Keychains/login.keychain-db"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" >/dev/null
+
       - name: Run full device security surface (D-13) with single-retry (D-15)
         # -retry-tests-on-failure + -test-iterations 2 = retry the FAILED test once.
         # If it passes on retry → workflow green; flaky-pass annotation in xcresult → Slack.

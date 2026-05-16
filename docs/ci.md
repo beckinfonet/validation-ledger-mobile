@@ -114,9 +114,18 @@ Self-hosted runner occupies the dev MacBook for ~5–15 min per run (25-min ceil
 |--------|--------------|---------|
 | `DEVICE_UDID` | GitHub Actions repo secret | `ci-device.yml` |
 | `SLACK_WEBHOOK_URL` | GitHub Actions repo secret (Phase 4) | `ci-device.yml` (flaky-pass notifier) |
+| `KEYCHAIN_PASSWORD` | GitHub Actions repo secret (Phase 4) | `ci-device.yml` (unlock signing keychain) |
 
 No API keys, signing certs, or provisioning profiles live in CI for Phase 1 (TestFlight submission is M5).
 `SLACK_WEBHOOK_URL` is optional — `scripts/report-flaky-passes.sh` silent-exits when unset.
+
+`KEYCHAIN_PASSWORD` is the runner account's macOS login password. The self-hosted runner
+runs as a LaunchAgent whose process context cannot reach the unlocked login keychain an
+interactive shell sees, so codesigning the XCTest injection dylibs fails with
+`errSecInternalComponent`. The `ci-device.yml` "Unlock signing keychain" step runs
+`security unlock-keychain` + `set-key-partition-list` before `xcodebuild` to permit
+non-interactive `codesign`. Set it once with `gh secret set KEYCHAIN_PASSWORD` (paste the
+login password at the prompt — it stays out of shell history and CI logs).
 
 ## Related
 
