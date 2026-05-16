@@ -33,12 +33,18 @@ jobs:
           key: spm-${{ runner.os }}-${{ hashFiles('Package.swift', 'Package.resolved') }}
 
       - name: Resolve SwiftPM packages
-        run: xcodebuild -project validationLedger.xcodeproj -resolvePackageDependencies
+        # Use `swift package resolve` (not `xcodebuild -resolvePackageDependencies`):
+        # only the swift CLI downloads binary-target artifacts into
+        # $GITHUB_WORKSPACE/.build/artifacts/, which the SwiftLint step below needs.
+        # `xcodebuild -resolvePackageDependencies` vendors packages into DerivedData
+        # and skips the binary artifact entirely. `xcodebuild test` re-resolves its
+        # own package graph, so a separate xcodebuild resolve step is redundant.
+        run: swift package resolve
 
       - name: SwiftLint (strict — fail-fast before tests)
         # SwiftLintPlugins ships a SwiftPM PLUGIN + binary artifact (not an executable product),
         # so `swift run swiftlint` errors with "no executable product named 'swiftlint'". The
-        # `resolvePackageDependencies` step above vendors the binary at a stable artifact path —
+        # `swift package resolve` step above vendors the binary at a stable artifact path —
         # invoke it directly. Fall back to Homebrew swiftlint if the artifact is missing.
         # Honors D-02 ordering: lint gate first.
         run: |
