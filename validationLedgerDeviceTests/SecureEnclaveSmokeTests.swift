@@ -9,6 +9,7 @@
 // per Pitfall P8 / T-05-03).
 
 import Testing
+import Foundation
 import CryptoKit
 @testable import validationLedger
 
