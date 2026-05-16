@@ -76,6 +76,10 @@ struct AppAttestRoundTripTests {
             DCAppAttestService.shared.isSupported == true,
             "Device tests require App Attest capability; pre-A10 or missing iOS 17 would fail here"
         )
+        // TEMPORARY — branch-protection gate verification (test/gate-verify-device-fail).
+        // Deliberate failure to confirm a red device-security-surface check blocks merge.
+        // This branch is a throwaway and will be closed without merging.
+        #expect(Bool(false), "deliberate gate-verification failure — throwaway branch")
     }
 
     @Test("generateKeyIfNeeded returns .attested OR .quotaExceeded (Pitfall 2 accept-either)")
