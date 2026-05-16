@@ -11,18 +11,18 @@ Two pipelines run:
 
 ## Xcode Version Policy
 
-- **Dev machine:** Xcode 26.4 (current stable locally).
-- **CI:** pins Xcode 16.4 via `sudo xcode-select -s /Applications/Xcode_16.4.app` in workflow.
-- **Reason:** CI uses the floor version so Swift Testing (bundled in Xcode 16+) + iOS 17 SDK availability are both guaranteed without surprises. `macos-latest` GitHub runner image typically ships Xcode 16.x + 26.x; pinning removes ambiguity. Dev machines get newer Xcode for iteration speed.
+- **Dev machine + self-hosted device runner:** Xcode 26.3.
+- **Simulator CI:** pins Xcode 26.3 via `sudo xcode-select -s /Applications/Xcode_26.3.app` in workflow.
+- **Reason:** the project's `.pbxproj` enables `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` and `SWIFT_APPROACHABLE_CONCURRENCY = YES` — Xcode 26 / Swift 6.2 build settings. Xcode 16.x silently ignores them, so the `@MainActor`-assuming composition root (`AppContainer`) fails actor-isolation checks and the app does not compile. CI must therefore run an Xcode that supports these settings. 26.3 matches the dev machine and the device runner, and is present on the `macos-15-arm64` GitHub runner image. The earlier "floor 16.4" policy predated the project's adoption of Swift 6.2 concurrency settings.
 
 ## Simulator Pipeline
 
 **Trigger:** `pull_request` on `main`
 **Runner:** `macos-latest` (GitHub-hosted) — D-01
-**Xcode:** floor 16.4 (bundled iOS 17 SDK + Swift Testing)
+**Xcode:** 26.3 (required for Swift 6.2 `SWIFT_DEFAULT_ACTOR_ISOLATION` — see Xcode Version Policy)
 **Steps:**
 1. Checkout
-2. Select Xcode 16.4
+2. Select Xcode 26.3
 3. Install iOS 17 simulator runtime (fallback — image usually has it)
 4. Restore SwiftPM cache
 5. SwiftLint `--strict` (fail-fast before tests)

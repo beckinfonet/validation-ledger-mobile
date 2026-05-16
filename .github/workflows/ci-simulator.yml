@@ -15,9 +15,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Select Xcode 16.4
-        # CI pins Xcode 16.4 per docs/ci.md (Flag #2); dev MacBook runs 26.4.
-        run: sudo xcode-select -s /Applications/Xcode_16.4.app
+      - name: Select Xcode 26.3
+        # Pinned to Xcode 26.3 to match the dev machine + the self-hosted device
+        # runner. The project's .pbxproj sets SWIFT_DEFAULT_ACTOR_ISOLATION =
+        # MainActor and SWIFT_APPROACHABLE_CONCURRENCY = YES (Xcode 26 / Swift 6.2
+        # settings); Xcode 16.x silently ignores them, so the @MainActor-assuming
+        # composition root fails actor-isolation checks and the app won't compile.
+        run: sudo xcode-select -s /Applications/Xcode_26.3.app
 
       - name: Show Xcode version
         run: xcodebuild -version
