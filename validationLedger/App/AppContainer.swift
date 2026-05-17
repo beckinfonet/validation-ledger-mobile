@@ -30,6 +30,7 @@
 import Foundation
 import CryptoKit
 import DeviceCheck
+import UIKit
 
 /// Phase 4 DEV-04 (D-09): result of `AppContainer.preflightAttestationEntitlement(...)`.
 ///
@@ -132,6 +133,24 @@ final class AppContainer {
     let geoContext: GeoContext
     let kycUploader: KYCUploader
     let kycUploadScheduler: KYCUploadScheduler
+
+    // Phase 5 Plan 08 addition (D-08 — KYC status screen, second entry point):
+    //   - makeKYCStatusScreen: a composition-root factory that builds
+    //     `KYCStatusViewController` from `Core/` deps (apiClient / kycSessionStore
+    //     / logger). The role-shell `ProfileViewController` is handed this closure
+    //     so it can open the SAME single status screen plan 06 built WITHOUT
+    //     `Features/Profile` cross-importing `Features/Onboarding` (ARCH-05).
+    //     Construction lives here in the composition root, not in the Profile
+    //     feature; the closure's return type is the opaque `UIViewController`.
+    @MainActor
+    func makeKYCStatusScreen() -> UIViewController {
+        let viewModel = KYCStatusViewModel(
+            apiClient: apiClient,
+            store: kycSessionStore,
+            logger: logger
+        )
+        return KYCStatusViewController(viewModel: viewModel)
+    }
 
     /// Primary initializer.
     ///

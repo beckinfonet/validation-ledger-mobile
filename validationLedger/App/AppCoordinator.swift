@@ -136,12 +136,41 @@ final class AppCoordinator {
 
     @MainActor
     static func roleCoordinator(for role: Role, container: AppContainer) -> UITabBarController {
+        // Phase 5 D-08: hand each role tab bar the composition-root KYC-status
+        // factory so the modal `ProfileViewController` can open the KYC status
+        // screen (the screen's second entry point). The closure weakly captures
+        // `container` — the tab bar controller retains the closure, so a strong
+        // capture would cycle the container alive past a role swap (ADR 0002).
+        let kycStatusFactory: () -> UIViewController = { [weak container] in
+            guard let container else { return UIViewController() }
+            return container.makeKYCStatusScreen()
+        }
         switch role {
-        case .shipper:   return ShipperTabBarController(logoutService: container.logoutService)
-        case .broker:    return BrokerTabBarController(logoutService: container.logoutService)
-        case .carrier:   return CarrierTabBarController(logoutService: container.logoutService)
-        case .dispatch:  return DispatchTabBarController(logoutService: container.logoutService)
-        case .factoring: return FactoringTabBarController(logoutService: container.logoutService)
+        case .shipper:
+            return ShipperTabBarController(
+                logoutService: container.logoutService,
+                kycStatusScreenFactory: kycStatusFactory
+            )
+        case .broker:
+            return BrokerTabBarController(
+                logoutService: container.logoutService,
+                kycStatusScreenFactory: kycStatusFactory
+            )
+        case .carrier:
+            return CarrierTabBarController(
+                logoutService: container.logoutService,
+                kycStatusScreenFactory: kycStatusFactory
+            )
+        case .dispatch:
+            return DispatchTabBarController(
+                logoutService: container.logoutService,
+                kycStatusScreenFactory: kycStatusFactory
+            )
+        case .factoring:
+            return FactoringTabBarController(
+                logoutService: container.logoutService,
+                kycStatusScreenFactory: kycStatusFactory
+            )
         }
     }
 

@@ -103,3 +103,8 @@
 "kyc.status.empty.title" = "No verification in progress";
 "kyc.status.empty.body" = "Finish your KYC photos to start verification.";
 "kyc.status.error.title" = "Couldn't load status";
+
+/* MARK: - Profile screen (Phase 5 Plan 08 — D-08 / KYC-01)
+   The role-shell Profile row that opens the KYC status screen (the status
+   screen's second entry point). */
+"profile.kyc_status.row" = "Verification status";
