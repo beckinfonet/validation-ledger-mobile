@@ -6,3 +6,18 @@
   structured for Spanish in v2" is reserved. User-facing strings land starting
   in Phase 3 (OTP entry screens).
 */
+
+/* MARK: - KYC rejection reasons (Phase 5 Plan 02 — D-11 / KYC-05)
+   iOS owns this copy; the backend owns the matching code vocabulary. Each key
+   is kyc.reject.<backend_code>. kyc.reject.generic is the fallback for any
+   code outside the controlled vocabulary — see RejectionReasonCode.swift. */
+"kyc.reject.dl_front_glare" = "There's glare on your license. Retake it away from direct light.";
+"kyc.reject.dl_front_blurry" = "The front of your license is blurry. Hold steady and retake it.";
+"kyc.reject.dl_expired" = "This license looks expired. Use a current, valid license.";
+"kyc.reject.dl_back_unreadable" = "The back of your license can't be read. Retake it in better light.";
+"kyc.reject.face_not_centered" = "Center your face in the frame and take the photo again.";
+"kyc.reject.face_obscured" = "Something is covering your face. Remove it and retake the photo.";
+"kyc.reject.face_low_light" = "It's too dark to see your face clearly. Move to better light and retake it.";
+"kyc.reject.vehicle_plate_unreadable" = "The license plate can't be read. Move closer and retake the photo.";
+"kyc.reject.vehicle_photo_unclear" = "This vehicle photo is unclear. Retake it with the whole vehicle in frame.";
+"kyc.reject.generic" = "This photo needs to be retaken. Tap to try again.";
