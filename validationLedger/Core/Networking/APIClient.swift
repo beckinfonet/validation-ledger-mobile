@@ -88,6 +88,13 @@ public final class APIClient: Sendable {
                 throw NetworkError.encodingFailed(error)
             }
         }
+        // Per-request header seam (Phase 5 / RESEARCH Open Question 2). Applied AFTER the
+        // Accept/Content-Type defaults so an endpoint may override them, and BEFORE the
+        // requestInterceptors loop in request(_:) so a caller-supplied `Idempotency-Key`
+        // reaches IdempotencyInterceptor (which already skips a present key).
+        for (field, value) in endpoint.headers {
+            req.setValue(value, forHTTPHeaderField: field)
+        }
         return req
     }
 

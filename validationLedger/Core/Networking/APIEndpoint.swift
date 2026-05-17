@@ -18,6 +18,19 @@ public protocol APIEndpoint<Response>: Sendable {
     var path: String { get }
     var method: HTTPMethod { get }
     var body: RequestBody? { get }
+
+    /// Per-request header seam (Phase 5 / RESEARCH Open Question 2).
+    /// APIClient.buildRequest applies each entry via `setValue(_, forHTTPHeaderField:)`
+    /// AFTER the Accept/Content-Type defaults but BEFORE the requestInterceptors loop —
+    /// so a caller-supplied header (e.g. an explicit-replay `Idempotency-Key` set by
+    /// KYCUploader) reaches IdempotencyInterceptor, which already skips a present key.
+    /// The default extension below returns `[:]` so every existing endpoint compiles unchanged.
+    var headers: [String: String] { get }
+}
+
+public extension APIEndpoint {
+    /// Default: no per-request headers. Endpoints opt in by overriding `headers`.
+    var headers: [String: String] { [:] }
 }
 
 public enum HTTPMethod: String, Sendable {
