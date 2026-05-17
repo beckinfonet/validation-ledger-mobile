@@ -100,10 +100,10 @@ Infrastructure that must exist before feature work — the "8 conventions" surfa
 
 ### Upload Pipeline (UPL)
 
-- [ ] **UPL-01**: `Core/Identity/KYCUploader` uploads KYC artifacts via the chunked contract defined in NET-01. Chunk size default 512 KB, configurable.
+- [x] **UPL-01**: `Core/Identity/KYCUploader` uploads KYC artifacts via the chunked contract defined in NET-01. Chunk size default 512 KB, configurable.
 - [x] **UPL-02**: Resumable uploads persist chunk state to disk. If the app is killed mid-upload, resuming continues from the last committed chunk.
-- [ ] **UPL-03**: Exponential backoff with jitter on retryable failures (5xx, network errors). Max 5 attempts before surfacing failure to the user.
-- [ ] **UPL-04**: Upload progress is reported accurately — `Progress` object updates every chunk commit, not every byte. UI surfaces progress as a determinate `UIProgressView`.
+- [x] **UPL-03**: Exponential backoff with jitter on retryable failures (5xx, network errors). Max 5 attempts before surfacing failure to the user.
+- [x] **UPL-04**: Upload progress is reported accurately — `Progress` object updates every chunk commit, not every byte. UI surfaces progress as a determinate `UIProgressView`.
 - [x] **UPL-05**: Upload runs inside a `BGProcessingTaskRequest` when the app backgrounds, so in-flight uploads finish before iOS suspends the app.
 
 ### Logging & Observability (LOG)
@@ -236,10 +236,10 @@ Every v1 requirement is mapped to exactly one roadmap phase. Status updated as p
 | KYC-04 | Phase 5 | Complete |
 | KYC-05 | Phase 5 | Complete |
 | KYC-06 | Phase 5 | Complete |
-| UPL-01 | Phase 5 | Pending |
+| UPL-01 | Phase 5 | Complete |
 | UPL-02 | Phase 5 | Complete |
-| UPL-03 | Phase 5 | Pending |
-| UPL-04 | Phase 5 | Pending |
+| UPL-03 | Phase 5 | Complete |
+| UPL-04 | Phase 5 | Complete |
 | UPL-05 | Phase 5 | Complete |
 | LOG-01 | Phase 1 | Pending |
 | LOG-02 | Phase 1 | Pending |

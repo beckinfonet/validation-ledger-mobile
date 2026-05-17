@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 05-01-PLAN.md
-last_updated: "2026-05-17T06:04:17.106Z"
+stopped_at: Completed 05-04-PLAN.md
+last_updated: "2026-05-17T06:29:09.272Z"
 last_activity: 2026-05-17
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 46
-  completed_plans: 41
+  completed_plans: 42
   percent: 80
 ---
 
@@ -26,12 +26,12 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 ## Current Position
 
 Phase: 05 (kyc-capture-upload-pipeline) — EXECUTING
-Plan: 4 of 8
+Plan: 5 of 8
 Status: Ready to execute
 Next: Phase 5 — KYC Capture & Upload Pipeline (no plans yet — start with `/gsd-discuss-phase 5` or `/gsd-plan-phase 5`)
 Last activity: 2026-05-17
 
-Progress: [█████████░] 89%
+Progress: [█████████░] 91%
 
 ## Performance Metrics
 
@@ -60,6 +60,7 @@ Progress: [█████████░] 89%
 | Phase 05 P01 | 33min | 3 tasks | 25 files |
 | Phase 05 P02 | 11min | 3 tasks | 7 files |
 | Phase 05 P03 | 24min | 3 tasks | 7 files |
+| Phase 05 P04 | 22min | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,9 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 5 Plan 02: the on-disk KYC session store is deliberately excluded from LogoutService teardown (D-02) so an in-progress KYC survives a logout
 - [Phase ?]: Phase 5 Plan 03: FaceQualityGate.evaluate() is reached via the VisionFaceQualityGate concrete conformer — Swift forbids a static-member call on a bare protocol metatype
 - [Phase ?]: Phase 5 Plan 03: CameraSession.isCameraAvailable is nonisolated static so any actor (and the simulator test) can branch on the hardware gate without a MainActor hop
+- [Phase 05]: Phase 5 Plan 04: KYCUploader drives the shipped init/chunk/commit endpoints through the foreground APIClient — no background URLSession, JSON chunk contract unchanged (RATIFIED USER DECISION); file-based background-session rework is an explicit M2 follow-up
+- [Phase 05]: Phase 5 Plan 04: chunk-upload retry copies the GET-only RetryInterceptor backoff math + URLError classifier into the KYCUploader actor — the interceptor type is never reused (chunk POSTs); cap is 5 attempts not 3
+- [Phase 05]: Phase 5 Plan 04: a stable per-(uploadID, chunkIndex) Idempotency-Key routed through the plan-01 APIEndpoint.headers seam survives a force-quit + resume so the backend dedupes — SC-5 no duplicate chunk commits
 
 ### Pending Todos
 
@@ -98,7 +102,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-17T06:03:56.326Z
-Stopped at: Completed 05-01-PLAN.md
+Last session: 2026-05-17T06:29:09.266Z
+Stopped at: Completed 05-04-PLAN.md
 Resume file: None
 Next command: `/gsd-plan-phase 5` (Phase 5 — KYC Capture & Upload Pipeline; consider `/gsd-discuss-phase 5` first)
