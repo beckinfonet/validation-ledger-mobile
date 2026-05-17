@@ -142,7 +142,7 @@ Plans:
   4. Uploads continue in the background via `BGProcessingTaskRequest` keeping the foreground chunk loop alive across a background transition (ratified UPL-05 model — Pitfall 2 option 1; the file-based background `URLSession` is a deliberate M2 follow-up) — verified by backgrounding the app mid-upload and confirming the upload completes.
   5. Exponential backoff with jitter caps retries at 5 attempts on 5xx / network errors; server-side idempotency keys prevent duplicate chunk commits — verified by a stress test that injects transient failures and asserts no duplicate chunks land.
 
-**Plans:** 4/8 plans executed
+**Plans:** 5/8 plans executed
 Plans:
 **Wave 1**
 
@@ -153,7 +153,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 05-04-PLAN.md — Wave 2: KYCUploader actor — init/chunk/commit loop, disk-persisted resume, POST-aware 5-attempt jittered retry, stable per-chunk idempotency key
-- [ ] 05-05-PLAN.md — Wave 2: KYC capture flow — KYCCoordinator + 6 UIKit capture screens + Use/Retake preview + read-only DL extraction + camera-permission-denied
+- [x] 05-05-PLAN.md — Wave 2: KYC capture flow — KYCCoordinator + 6 UIKit capture screens + Use/Retake preview + read-only DL extraction + camera-permission-denied
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
@@ -177,7 +177,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Networking Contract & Device Keys | 7/7 | Complete | 2026-04-21 |
 | 3. OTP Auth + Role Shell + Session | 13/13 | Complete | 2026-04-22 |
 | 4. App Attest & Physical-Device CI Hardening | 0/TBD | Not started | - |
-| 5. KYC Capture & Upload Pipeline | 4/8 | In Progress|  |
+| 5. KYC Capture & Upload Pipeline | 5/8 | In Progress|  |
 
 ---
 *Roadmap created: 2026-04-20*

@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Completed 05-04-PLAN.md
-last_updated: "2026-05-17T06:29:09.272Z"
+last_updated: "2026-05-17T06:53:50.417Z"
 last_activity: 2026-05-17
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 46
-  completed_plans: 42
+  completed_plans: 43
   percent: 80
 ---
 
@@ -26,12 +26,12 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 ## Current Position
 
 Phase: 05 (kyc-capture-upload-pipeline) — EXECUTING
-Plan: 5 of 8
+Plan: 6 of 8
 Status: Ready to execute
 Next: Phase 5 — KYC Capture & Upload Pipeline (no plans yet — start with `/gsd-discuss-phase 5` or `/gsd-plan-phase 5`)
 Last activity: 2026-05-17
 
-Progress: [█████████░] 91%
+Progress: [█████████░] 93%
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ Progress: [█████████░] 91%
 | Phase 05 P02 | 11min | 3 tasks | 7 files |
 | Phase 05 P03 | 24min | 3 tasks | 7 files |
 | Phase 05 P04 | 22min | 2 tasks | 8 files |
+| Phase 05 P05 | 22min | 4 tasks | 18 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,9 @@ Recent decisions affecting current work:
 - [Phase 05]: Phase 5 Plan 04: KYCUploader drives the shipped init/chunk/commit endpoints through the foreground APIClient — no background URLSession, JSON chunk contract unchanged (RATIFIED USER DECISION); file-based background-session rework is an explicit M2 follow-up
 - [Phase 05]: Phase 5 Plan 04: chunk-upload retry copies the GET-only RetryInterceptor backoff math + URLError classifier into the KYCUploader actor — the interceptor type is never reused (chunk POSTs); cap is 5 attempts not 3
 - [Phase 05]: Phase 5 Plan 04: a stable per-(uploadID, chunkIndex) Idempotency-Key routed through the plan-01 APIEndpoint.headers seam survives a force-quit + resume so the backend dedupes — SC-5 no duplicate chunk commits
+- [Phase ?]: Phase 5 Plan 05: KYCCoordinator drives live nav but step ordering + the D-01 pipelined-upload-kick rule live in a pure value type KYCFlowSequencer the simulator suite exercises directly (RESEARCH Pitfall 1 — live AVFoundation/Vision produce no simulator frames)
+- [Phase ?]: Phase 5 Plan 05: GPSMetadataInjector is invoked in the capture ViewModel (FaceCaptureViewModel/VehicleCaptureViewModel), not the ViewController — the VC hosts the preview layer, the VM owns the capture-to-upload-Data pipeline (threat T-05-05-02)
+- [Phase ?]: Phase 5 Plan 05: physical-device camera/DataScanner verification is approved-pending and consolidated into plan 05-08's HUMAN-UAT checkpoint — the simulator cannot exercise live camera/scanner surfaces
 
 ### Pending Todos
 
@@ -102,7 +106,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-17T06:29:09.266Z
+Last session: 2026-05-17T06:53:32.270Z
 Stopped at: Completed 05-04-PLAN.md
 Resume file: None
 Next command: `/gsd-plan-phase 5` (Phase 5 — KYC Capture & Upload Pipeline; consider `/gsd-discuss-phase 5` first)
