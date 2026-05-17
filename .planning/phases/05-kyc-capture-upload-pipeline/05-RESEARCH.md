@@ -682,27 +682,34 @@ enum KYCOverallStatus: String, Decodable {
 | A5 | `DataScannerViewController` text recognition is sufficient to extract DL name/number/expiry for the D-05 format gate. | Pattern (KYC-03) | DL layouts vary by US state; if DataScanner's generic text recognition cannot reliably isolate the three fields, the format gate may need `recognizedDataTypes: [.text(...)]` tuning or fall back to a looser "scan succeeded" gate. The uploaded photo is authoritative regardless (D-05), so this only affects the early-catch UX. |
 | A6 | `BGProcessingTaskRequest` (not `BGAppRefreshTaskRequest`) is the right task type for upload continuation. | Pattern 6 | `BGProcessingTask` is for longer, deferrable work and is the correct choice for finishing an upload; `BGAppRefreshTask` is short (~30s). Low risk — UPL-05 names `BGProcessingTaskRequest` explicitly. |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> All four questions below are resolved by the Phase 5 plan design and the user-ratified
+> UPL-05 decision. Retained for traceability — no open work remains.
 
 1. **Does a KYC-submit endpoint already exist?**
    - What we know: CONTEXT lists `init`/`chunk`/`commit`/`status` endpoints + 8 fixtures. D-03 says "Submit fires only the final KYC-submission call."
    - What's unclear: whether that final call has an endpoint struct + fixture, or needs creating.
    - Recommendation: planner reads `Core/Networking/Endpoints/` first; if absent, add `KYCSubmitEndpoint` + success/failure fixtures as a Wave-0 task.
+   - **RESOLVED:** No `/kyc/submit` endpoint existed. `KYCSubmitEndpoint` is created in plan 01 Task 1 (modeled on `KYCUploadCommitEndpoint`), with `kyc-submit-success.json` / `kyc-submit-failure.json` fixtures added in plan 01 Task 2.
 
 2. **How does the stable per-chunk Idempotency-Key reach the request?**
    - What we know: `IdempotencyInterceptor` respects a caller-supplied `Idempotency-Key` header; `APIEndpoint` structs currently expose only `path`/`method`/`body` — no per-request headers.
    - What's unclear: the mechanism to set a per-chunk header before the interceptor runs.
    - Recommendation: planner adds a header-injection seam — either an optional `headers` dictionary on `APIEndpoint`, or a dedicated `KYCUploader` send path. Confirm with the Phase 2 endpoint conventions.
+   - **RESOLVED:** Plan 01 Task 1 adds an `APIEndpoint.headers` seam (a `var headers: [String: String]` protocol requirement with a `[:]` default extension) that `APIClient.buildRequest` applies before the request-interceptor loop runs — so a caller-supplied `Idempotency-Key` reaches `IdempotencyInterceptor` and is preserved. Plan 04 Task 2 sets the stable per-`(uploadID, chunkIndex)` key through that seam.
 
 3. **`OTPVerifyEndpoint.Response.kycStatus` — optional or required, and fixture impact?**
    - What we know: D-13 extends the response; Phase 2 shipped `otp-verify-success.json` (+ role fixtures).
    - What's unclear: whether existing fixtures break on a non-optional addition.
    - Recommendation: make `kycStatus` optional with a safe default, OR update every OTP-verify fixture in the same Wave-0 task. Optional is lower-risk for backward compatibility.
+   - **RESOLVED:** Plan 01 Task 1 declares `kycStatus` as `String?` (optional) so existing OTP-verify fixtures that lack the field still decode; plan 01 Task 3 adds a regression `@Test` proving the shipped `otp-verify-success.json` still decodes through `OTPVerifyEndpoint`.
 
 4. **Background-`URLSession` vs `BGProcessingTaskRequest` — final M1 scope.**
    - What we know: ROADMAP and UPL-05 name different mechanisms; the background-session path conflicts with the JSON chunk contract (Pitfall 2).
    - What's unclear: whether M1 must demonstrate true OS-managed background resumption or the foreground-loop + `BGProcessingTaskRequest` model is acceptable.
    - Recommendation: adopt option 1 (foreground loop + `BGProcessingTaskRequest`) for M1; record options 2/3 as an M2 follow-up tied to real-backend integration. Confirm with the user during planning if SC-4's "completion notification fires" wording implies more.
+   - **RESOLVED (user-ratified):** Option 1 is adopted for M1 — the foreground `URLSession` chunk loop + `BGProcessingTaskRequest` (plan 04 builds the loop, plan 07 wires the BGTask). The shipped JSON chunk contract, `APIClient`, certificate pinning, and `IdempotencyInterceptor` stay unchanged. The file-based background `URLSession` rework (Pitfall 2 option 2) is an explicit M2 follow-up — recorded in plan 04's SUMMARY notes; it must NOT be reintroduced into Phase 5.
 
 ## Environment Availability
 
