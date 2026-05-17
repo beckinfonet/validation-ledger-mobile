@@ -22,6 +22,7 @@
 // — no hard-coded portrait frames, no deprecated `videoOrientation`.
 
 import AVFoundation
+import OSLog
 import UIKit
 
 /// The Vision-gated face-capture screen (KYC-02). Auto-fires on the D-04
@@ -128,11 +129,27 @@ final class FaceCaptureViewController: UIViewController {
                 equalTo: view.safeAreaLayoutGuide.bottomAnchor,
                 constant: -DS.Spacing.xl
             ),
+            // ROOT-CAUSE FIX (debug session `front-camera-preview-black`):
+            // `previewContainer` is a plain `UIView` — it has no intrinsic
+            // content size. As an arranged subview of a vertical `.fill`
+            // UIStackView whose only sized siblings are the labels (which DO
+            // have intrinsic heights), the container had NO height preference
+            // and NO height constraint, so Auto Layout collapsed it to height
+            // 0. `previewLayer.frame = previewContainer.bounds` then copied a
+            // zero-height rect → the AVCaptureVideoPreviewLayer rendered into a
+            // 0pt-tall frame → solid-black preview area. Pinning a definite 3:4
+            // portrait aspect ratio gives the host view a real, device-
+            // independent height so the preview layer has a visible frame.
+            previewContainer.heightAnchor.constraint(
+                equalTo: previewContainer.widthAnchor,
+                multiplier: 4.0 / 3.0
+            ),
         ])
 
         previewLayer.frame = previewContainer.bounds
         previewContainer.layer.addSublayer(previewLayer)
         previewContainer.layer.addSublayer(ovalGuideLayer)
+        kycCameraLog.info("kyc_camera event=face_vc.viewDidLoad preview_layer_added_to=previewContainer videoGravity=\(String(describing: self.previewLayer.videoGravity), privacy: .public)")
 
         viewModel.onStateChange = { [weak self] state in
             self?.handle(state: state)
@@ -142,6 +159,7 @@ final class FaceCaptureViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        kycCameraLog.info("kyc_camera event=face_vc.viewWillAppear previewContainer.bounds=\(NSCoder.string(for: self.previewContainer.bounds), privacy: .public)")
         viewModel.start()
     }
 
@@ -156,6 +174,8 @@ final class FaceCaptureViewController: UIViewController {
         ovalGuideLayer.frame = previewContainer.bounds
         updateOvalPath()
         updatePreviewRotation()
+        let connection = previewLayer.connection
+        kycCameraLog.info("kyc_camera event=face_vc.viewDidLayoutSubviews previewContainer.bounds=\(NSCoder.string(for: self.previewContainer.bounds), privacy: .public) previewLayer.frame=\(NSCoder.string(for: self.previewLayer.frame), privacy: .public) inHierarchy=\(self.previewLayer.superlayer != nil, privacy: .public) connectionExists=\(connection != nil, privacy: .public) connectionActive=\(connection?.isActive ?? false, privacy: .public) connectionEnabled=\(connection?.isEnabled ?? false, privacy: .public)")
     }
 
     /// iPad rotation (RESEARCH Pitfall 7) — update the preview connection's

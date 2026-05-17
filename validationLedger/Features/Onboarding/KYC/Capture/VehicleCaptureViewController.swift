@@ -14,6 +14,7 @@
 // preview `videoRotationAngle` is updated on `viewWillTransition` (Pitfall 7).
 
 import AVFoundation
+import OSLog
 import UIKit
 
 /// The plain-photo capture screen reused for truck / trailer / plate (KYC-04).
@@ -121,10 +122,25 @@ class VehicleCaptureViewController: UIViewController {
             ),
             // 44pt touch-target floor (UI-SPEC).
             shutterButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
+            // ROOT-CAUSE FIX (debug session `front-camera-preview-black`):
+            // `previewContainer` is a plain `UIView` with no intrinsic content
+            // size. In this vertical `.fill` UIStackView its only sized
+            // siblings (labels + shutter button) have intrinsic heights, so the
+            // container had NO height preference and NO height constraint —
+            // Auto Layout collapsed it to height 0. `previewLayer.frame =
+            // previewContainer.bounds` then copied a zero-height rect → the
+            // AVCaptureVideoPreviewLayer rendered into a 0pt-tall frame → solid-
+            // black preview area. A definite 3:4 portrait aspect ratio gives
+            // the host view a real height so the preview layer is visible.
+            previewContainer.heightAnchor.constraint(
+                equalTo: previewContainer.widthAnchor,
+                multiplier: 4.0 / 3.0
+            ),
         ])
 
         previewLayer.frame = previewContainer.bounds
         previewContainer.layer.addSublayer(previewLayer)
+        kycCameraLog.info("kyc_camera event=vehicle_vc.viewDidLoad preview_layer_added_to=previewContainer videoGravity=\(String(describing: self.previewLayer.videoGravity), privacy: .public)")
 
         shutterButton.addTarget(self, action: #selector(shutterTapped), for: .touchUpInside)
 
@@ -136,6 +152,7 @@ class VehicleCaptureViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
+        kycCameraLog.info("kyc_camera event=vehicle_vc.viewWillAppear previewContainer.bounds=\(NSCoder.string(for: self.previewContainer.bounds), privacy: .public)")
         viewModel.start()
     }
 
@@ -148,6 +165,8 @@ class VehicleCaptureViewController: UIViewController {
         super.viewDidLayoutSubviews()
         previewLayer.frame = previewContainer.bounds
         updatePreviewRotation()
+        let connection = previewLayer.connection
+        kycCameraLog.info("kyc_camera event=vehicle_vc.viewDidLayoutSubviews previewContainer.bounds=\(NSCoder.string(for: self.previewContainer.bounds), privacy: .public) previewLayer.frame=\(NSCoder.string(for: self.previewLayer.frame), privacy: .public) inHierarchy=\(self.previewLayer.superlayer != nil, privacy: .public) connectionExists=\(connection != nil, privacy: .public) connectionActive=\(connection?.isActive ?? false, privacy: .public) connectionEnabled=\(connection?.isEnabled ?? false, privacy: .public)")
     }
 
     /// iPad rotation (RESEARCH Pitfall 7).

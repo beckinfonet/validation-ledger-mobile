@@ -19,6 +19,20 @@
 
 import AVFoundation
 import Foundation
+import OSLog
+
+// MARK: - Camera-path diagnostic log
+
+/// Dedicated OSLog channel for KYC camera-path diagnosis (debug session
+/// `front-camera-preview-black`). Every line carries the `kyc_camera` prefix so
+/// the on-device console can be filtered with a single grep token. This is
+/// deliberately a standalone `os.Logger` (not the injected `Logger`) so the
+/// instrumentation needs no DI plumbing through `AVFoundationCameraSession()`'s
+/// zero-arg construction. Carries no PII — only AVFoundation/layout facts.
+let kycCameraLog = os.Logger(
+    subsystem: LoggingSubsystem.identity,
+    category: "camera"
+)
 
 // MARK: - Error surface
 
@@ -150,7 +164,9 @@ public final class AVFoundationCameraSession: NSObject, CameraSession,
     }
 
     public func startAuthorizedSession(position: CameraPosition) async throws {
+        kycCameraLog.info("kyc_camera event=start_authorized_session.begin position=\(position == .front ? "front" : "back", privacy: .public)")
         guard Self.isCameraAvailable else {
+            kycCameraLog.error("kyc_camera event=start_authorized_session.camera_unavailable")
             throw CameraSessionError.cameraUnavailable
         }
 
@@ -160,20 +176,33 @@ public final class AVFoundationCameraSession: NSObject, CameraSession,
         // "Allow". `requestPermission()` prompts on `.notDetermined` and
         // returns only once the user has decided.
         let status = await requestPermission()
+        kycCameraLog.info("kyc_camera event=permission_resolved status=\(String(describing: status), privacy: .public)")
         guard status == .authorized else {
+            kycCameraLog.error("kyc_camera event=start_authorized_session.permission_denied")
             throw CameraSessionError.permissionDenied
         }
 
         // Configure inputs, then start — both on the session queue, off the
         // main thread (`startRunning()` is blocking).
-        try configureSessionInputs(position: position)
+        do {
+            try configureSessionInputs(position: position)
+        } catch {
+            kycCameraLog.error("kyc_camera event=configure_inputs.failed error=\(String(describing: error), privacy: .public)")
+            throw error
+        }
         start()
+        kycCameraLog.info("kyc_camera event=start_authorized_session.end")
     }
 
     public nonisolated func start() {
         sessionQueue.async { [session] in
-            guard !session.isRunning else { return }
+            guard !session.isRunning else {
+                kycCameraLog.info("kyc_camera event=session_start.already_running")
+                return
+            }
+            kycCameraLog.info("kyc_camera event=session_start.calling_startRunning inputs=\(session.inputs.count, privacy: .public) outputs=\(session.outputs.count, privacy: .public)")
             session.startRunning()
+            kycCameraLog.info("kyc_camera event=session_start.after_startRunning isRunning=\(session.isRunning, privacy: .public)")
         }
     }
 
@@ -206,15 +235,19 @@ public final class AVFoundationCameraSession: NSObject, CameraSession,
                 session.removeInput(input)
             }
             let device = try Self.captureDevice(for: position)
+            kycCameraLog.info("kyc_camera event=device_discovered name=\(device.localizedName, privacy: .public) position=\(device.position.rawValue, privacy: .public)")
             guard let input = try? AVCaptureDeviceInput(device: device),
                   session.canAddInput(input) else {
+                kycCameraLog.error("kyc_camera event=input_creation.failed name=\(device.localizedName, privacy: .public)")
                 throw CameraSessionError.configurationFailed
             }
             session.addInput(input)
+            kycCameraLog.info("kyc_camera event=input_added inputs=\(session.inputs.count, privacy: .public)")
 
             if !session.outputs.contains(photoOutput), session.canAddOutput(photoOutput) {
                 session.addOutput(photoOutput)
             }
+            kycCameraLog.info("kyc_camera event=configure_inputs.committed inputs=\(session.inputs.count, privacy: .public) outputs=\(session.outputs.count, privacy: .public)")
         }
     }
 
@@ -266,6 +299,7 @@ public final class AVFoundationCameraSession: NSObject, CameraSession,
             position: avPosition
         )
         guard let device = discovery.devices.first else {
+            kycCameraLog.error("kyc_camera event=device_discovery.empty position=\(avPosition.rawValue, privacy: .public) — no .builtInWideAngleCamera found")
             throw CameraSessionError.cameraUnavailable
         }
         return device
