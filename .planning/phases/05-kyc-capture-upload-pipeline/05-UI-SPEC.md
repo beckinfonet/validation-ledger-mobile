@@ -1,10 +1,11 @@
 ---
 phase: 5
 slug: kyc-capture-upload-pipeline
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-05-16
+reviewed_at: 2026-05-16
 ---
 
 # Phase 5 — UI Design Contract
