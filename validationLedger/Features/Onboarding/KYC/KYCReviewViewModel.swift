@@ -47,11 +47,15 @@ public final class KYCReviewViewModel {
     }
 
     /// One row of the 6-cell Review grid: the artifact type, its upload status,
-    /// and — when the locally-held bytes are still on disk (D-02) — the captured
-    /// image `Data` for the thumbnail. `thumbnailData` is the persisted
-    /// `KYCSession.artifactData` blob (GPS-injected JPEG); it is `nil` once the
-    /// local copy has been freed post-commit (debug session
-    /// `kyc-flow-device-audit`).
+    /// and the captured-image `Data` to render in the thumbnail cell.
+    ///
+    /// `thumbnailData` is the source for the cell image. Before an artifact
+    /// commits it is the full `KYCSession.artifactData` blob (GPS-injected JPEG)
+    /// still on disk; AFTER commit the multi-MB blob is freed (D-02 footprint
+    /// control) and `thumbnailData` becomes the small downscaled
+    /// `KYCSession.thumbnailData` JPEG `KYCUploader` retained at commit time
+    /// (debug session `kyc-session-store-data-race` — SECONDARY decision). It is
+    /// `nil` only for a not-yet-captured artifact.
     public struct ArtifactRow: Equatable, Sendable {
         public let artifact: KYCUploadInitEndpoint.ArtifactType
         public var status: ArtifactUploadStatus
@@ -146,15 +150,22 @@ public final class KYCReviewViewModel {
     /// Re-read the persisted `KYCSession` and recompute every row's status AND
     /// thumbnail. Called on `viewWillAppear` and after a retry so the grid
     /// reflects the pipelined uploads that ran while the user was still
-    /// capturing (D-01) and renders the captured-photo thumbnails (debug
-    /// session `kyc-flow-device-audit` — the thumbnails were never wired).
+    /// capturing (D-01) and renders the captured-photo thumbnails.
+    ///
+    /// Thumbnail source: prefer `KYCSession.thumbnailData` — the small
+    /// downscaled JPEG `KYCUploader` retains at commit time — and fall back to
+    /// the full `artifactData` blob for an artifact captured but not yet
+    /// committed (pre-commit the full bytes are still on disk and there is no
+    /// thumbnail yet). Post-commit the full blob is freed (D-02) and only the
+    /// thumbnail remains (debug session `kyc-session-store-data-race`).
     public func refresh() {
         let session = (try? store.loadSession()) ?? nil
         rows = Self.artifactOrder.map { artifact in
             ArtifactRow(
                 artifact: artifact,
                 status: Self.status(for: artifact, in: session),
-                thumbnailData: session?.data(for: artifact)
+                thumbnailData: session?.thumbnail(for: artifact)
+                    ?? session?.data(for: artifact)
             )
         }
     }

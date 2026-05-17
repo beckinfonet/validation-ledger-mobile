@@ -68,8 +68,9 @@ public enum KYCSessionStoreError: Error, Sendable {
 ///
 /// Thread-safe: every public method is guarded by a private `NSLock`, and the
 /// read-modify-write helpers (`withSession`, `markChunkAcked`, `markCommitted`,
-/// `deleteLocalArtifactData`) hold that lock across the whole load->mutate->
-/// persist so concurrent capture / upload writers can never lose an update.
+/// `deleteLocalArtifactData`, `commitAndFreeArtifactData`) hold that lock across
+/// the whole load->mutate->persist so concurrent capture / upload writers can
+/// never lose an update.
 public final class KYCSessionStore: @unchecked Sendable {
 
     private let directory: URL
@@ -189,6 +190,44 @@ public final class KYCSessionStore: @unchecked Sendable {
             state.localDataAvailable = false
             session.uploadStates[artifact.rawValue] = state
         }
+        try persistLocked(session)
+    }
+
+    /// Atomically record a successful commit for `artifact` AND free its
+    /// full-resolution local bytes in ONE held-lock read-modify-write:
+    ///   1. mark the `ArtifactUploadState` `committed` + record `artifactID`,
+    ///   2. retain a small downscaled `thumbnail` (when non-`nil`) under
+    ///      `thumbnailData[artifact]` so the Review grid can still render it,
+    ///   3. drop the multi-MB `artifactData[artifact]` blob (D-02 footprint),
+    ///   4. clear `localDataAvailable`.
+    ///
+    /// This MUST be one atomic update, not a `markCommitted` followed by a
+    /// separate `deleteLocalArtifactData`: two store calls would let a concurrent
+    /// capture write interleave between them and either lose the capture or
+    /// resurrect the just-freed bytes (debug: kyc-session-store-data-race). The
+    /// thumbnail is downscaled by the CALLER before this call — the store's
+    /// critical section stays fast and `await`-free; the bytes are only handed in
+    /// here so the thumbnail retain and the full-bytes free land together under
+    /// one held lock. A few-KB thumbnail is not the full-resolution identity-
+    /// image exposure D-02 guards — the multi-MB blob is still freed.
+    public func commitAndFreeArtifactData(
+        _ artifact: KYCUploadInitEndpoint.ArtifactType,
+        artifactID: String,
+        thumbnail: Data?
+    ) throws {
+        lock.lock()
+        defer { lock.unlock() }
+        guard var session = try loadSessionLocked() else { return }
+        if var state = session.uploadStates[artifact.rawValue] {
+            state.committed = true
+            state.artifactID = artifactID
+            state.localDataAvailable = false
+            session.uploadStates[artifact.rawValue] = state
+        }
+        if let thumbnail {
+            session.thumbnailData[artifact.rawValue] = thumbnail
+        }
+        session.artifactData.removeValue(forKey: artifact.rawValue)
         try persistLocked(session)
     }
 

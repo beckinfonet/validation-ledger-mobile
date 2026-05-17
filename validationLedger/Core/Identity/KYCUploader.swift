@@ -77,7 +77,7 @@ public actor KYCUploader {
     // MARK: - Public pipeline
 
     /// Upload one artifact end-to-end: resume-aware `init` → chunk loop →
-    /// `commit` → delete the local copy.
+    /// `commit` → free the local copy (keeping a small Review thumbnail).
     ///
     /// Called the instant an artifact is captured + confirmed (D-01), while the
     /// user keeps capturing the remaining artifacts. Safe to call again after a
@@ -179,9 +179,24 @@ public actor KYCUploader {
                          fields: [.event: artifactType.rawValue])
             throw KYCUploadError.commitFailed
         }
-        try store.markCommitted(artifactType, artifactID: commitResponse.artifactID)
-        // D-02 footprint control — the committed artifact's local bytes are freed.
-        try store.deleteLocalArtifactData(artifactType)
+
+        // Downscale the committed full-resolution image to a small (~150 px)
+        // Review thumbnail BEFORE handing it to the store — the downscale is the
+        // uploader's work, so the store's commit critical section stays fast and
+        // `await`-free. `data` here is the same buffer the chunk loop sent. A
+        // non-image blob downscales to `nil` and the commit simply carries no
+        // thumbnail (debug: kyc-session-store-data-race — SECONDARY decision).
+        let thumbnail = KYCThumbnail.downscaledJPEG(from: data)
+
+        // D-02 footprint control — record the commit, retain the few-KB
+        // thumbnail, and free the multi-MB full-resolution bytes, all in ONE
+        // atomic store update so a concurrent capture write cannot interleave
+        // between the commit and the free (debug: kyc-session-store-data-race).
+        try store.commitAndFreeArtifactData(
+            artifactType,
+            artifactID: commitResponse.artifactID,
+            thumbnail: thumbnail
+        )
         logger.info(event: LogEvent("kyc_upload_committed"),
                     fields: [.event: artifactType.rawValue])
     }
