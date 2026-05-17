@@ -232,7 +232,10 @@ final class KYCReviewViewController: UIViewController {
 
     private func render(rows: [KYCReviewViewModel.ArtifactRow]) {
         for row in rows {
-            cells[row.artifact]?.apply(status: row.status)
+            // Render the captured-photo thumbnail AND the status badge (debug
+            // session `kyc-flow-device-audit` — the thumbnail image was never
+            // wired; the cell only ever showed an empty surface-colored box).
+            cells[row.artifact]?.apply(status: row.status, thumbnailData: row.thumbnailData)
         }
     }
 
@@ -400,8 +403,25 @@ private final class ArtifactCell: UIView {
     @objc private func retryTapped() { onRetryUpload?() }
     @objc private func retakeTapped() { onRetake?() }
 
-    /// Render the per-artifact upload status badge (UI-SPEC).
-    func apply(status: KYCReviewViewModel.ArtifactUploadStatus) {
+    /// Render the captured-photo thumbnail + the per-artifact upload status
+    /// badge (UI-SPEC). `thumbnailData` is the GPS-injected JPEG persisted in the
+    /// `KYCSession`; `nil` once the local copy is freed post-commit (D-02), in
+    /// which case a placeholder symbol is shown.
+    func apply(
+        status: KYCReviewViewModel.ArtifactUploadStatus,
+        thumbnailData: Data?
+    ) {
+        if let thumbnailData, let image = UIImage(data: thumbnailData) {
+            thumbnail.image = image
+            thumbnail.contentMode = .scaleAspectFill
+            thumbnail.tintColor = nil
+        } else {
+            // No local bytes (committed + freed, or not captured yet) — show a
+            // neutral placeholder rather than an empty box.
+            thumbnail.image = UIImage(systemName: "photo")
+            thumbnail.contentMode = .center
+            thumbnail.tintColor = DS.Colors.labelSecondary
+        }
         switch status {
         case .uploaded:
             badge.image = UIImage(systemName: "checkmark.circle.fill")
