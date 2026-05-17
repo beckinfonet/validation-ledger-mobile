@@ -22,6 +22,18 @@
     <key>LSRequiresIPhoneOS</key>
     <true/>
 
+    <!-- Launch screen — REQUIRED for modern (non-legacy) window sizing.
+         Debug session `front-camera-preview-black` round 5 / Bug A: without a
+         `UILaunchScreen` (or a launch storyboard) iOS runs the app in a legacy
+         compatibility canvas of 320×480 — the `UIWindowScene` never receives the
+         real device geometry, so `UIWindow(windowScene:)` and every VC pushed
+         into it are 320×480 on a 393×852 device. An empty `UILaunchScreen` dict
+         opts the app into the modern launch path; the window then fills the
+         screen on all iPhone + iPad sizes. AppLaunchConfigurationTests asserts
+         this key's presence so it cannot be silently dropped. -->
+    <key>UILaunchScreen</key>
+    <dict/>
+
     <!-- iOS 17 / iPhone + iPad -->
     <key>UIApplicationSupportsMultipleScenes</key>
     <false/>
