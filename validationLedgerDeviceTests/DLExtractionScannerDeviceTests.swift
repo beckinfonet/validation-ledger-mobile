@@ -61,9 +61,30 @@ final class DLExtractionScannerDeviceTests: XCTestCase {
     /// (`startScannerIfAvailable`). On the device lane this builds the live
     /// `DataScannerViewController` child; the test asserts construction
     /// succeeds and the VC's view hierarchy is in place.
+    ///
+    /// The VC now carries the DL-front photo-capture pipeline (debug session
+    /// `kyc-flow-device-audit` — the DL-front *uploaded* artifact is the
+    /// captured photo, not the OCR text), so construction takes the geo /
+    /// GPS-injector / session-store / logger deps. A temp-directory
+    /// `KYCSessionStore` keeps the smoke test hermetic.
     @MainActor
     func testDLFrontScanViewControllerConstructs() throws {
-        let viewController = DLFrontScanViewController()
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("dlfront-scanner-smoke-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(
+            at: tempDir, withIntermediateDirectories: true
+        )
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        let viewController = DLFrontScanViewController(
+            geoContext: GeoContext(locationProvider: DefaultLocationProvider()),
+            gpsInjector: GPSMetadataInjector(),
+            sessionStore: try KYCSessionStore(directory: tempDir),
+            logger: OSLogLoggerImpl(
+                subsystem: LoggingSubsystem.identity,
+                category: "identity.kyc.dlfront.test"
+            )
+        )
 
         // Force `viewDidLoad` — builds the instruction header + scanner
         // container. `loadViewIfNeeded()` does not trap on the device lane.
