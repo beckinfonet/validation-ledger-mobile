@@ -21,7 +21,7 @@ Per `.planning/research/PITFALLS.md` Pitfall 20 + research/SUMMARY.md: **~30% of
 - [x] **Phase 2: Networking Contract & Device Keys** - Contract-first mock networking + cert pinning + Secure Enclave keypair + token storage *(completed 2026-04-21, 3 HUMAN-UAT items pending)*
 - [x] **Phase 3: OTP Auth + Role Shell + Session** - The fixed Phase 1 goal: 5 roles OTP-login to distinct tab shells, cold-boot into persisted session, clean logout *(completed 2026-04-22, 4 HUMAN-UAT items pending physical-device test)*
 - [x] **Phase 4: App Attest & Physical-Device CI Hardening** - App Attest productionization + on-device CI pipeline for Secure Enclave / Keychain biometric / App Attest paths *(completed 2026-05-16, 5 visual UAT items pending)*
-- [~] **Phase 5: KYC Capture & Upload Pipeline** - Live face + DL + vehicle capture with GPS metadata, resumable chunked upload, KYC status UI *(plans 05-01..05-07 complete + 05-08 Tasks 1-2; PAUSED at the 05-08 Task 3 `checkpoint:human-verify` gate — physical-iPhone SC-2/SC-4/D-08/D-12 verification, see 05-HUMAN-UAT.md)*
+- [x] **Phase 5: KYC Capture & Upload Pipeline** - Live face + DL + vehicle capture with GPS metadata, resumable chunked upload, KYC status UI *(completed 2026-05-17, 4 HUMAN-UAT items pending physical-device test — SC-2/SC-4/D-08/D-12, see 05-HUMAN-UAT.md)*
 
 ## Phase Details
 
@@ -162,7 +162,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [~] 05-08-PLAN.md — Wave 4: integration — Profile KYC-status entry + end-to-end + logout-preserves-session test + device force-quit-resume test + 05-VALIDATION.md *(Tasks 1-2 done; PAUSED at the Task 3 `checkpoint:human-verify` gate — see 05-HUMAN-UAT.md)*
+- [x] 05-08-PLAN.md — Wave 4: integration — Profile KYC-status entry + end-to-end + logout-preserves-session test + device force-quit-resume test + 05-VALIDATION.md *(complete; Task 3 device HUMAN-UAT deferred — see 05-HUMAN-UAT.md)*
 
 **UI hint**: yes
 
