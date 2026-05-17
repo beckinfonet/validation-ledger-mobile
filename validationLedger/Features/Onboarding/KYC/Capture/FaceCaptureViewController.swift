@@ -34,11 +34,24 @@ final class FaceCaptureViewController: UIViewController {
     // MARK: - UI components
 
     /// Hosts the live camera preview. Distinct from the upload path — render only.
+    ///
+    /// Layout (debug session `front-camera-preview-black`, round 3): this is a
+    /// plain `UIView` with NO intrinsic content size, placed in a vertical
+    /// `.fill` `UIStackView` that is pinned to the safe area on BOTH ends. For
+    /// the `.fill` stack to stretch THIS view (rather than a label) into the
+    /// leftover vertical space, its vertical content-hugging AND compression-
+    /// resistance priorities are set below the labels' defaults — making the
+    /// preview the slack-absorbing arranged subview. See `viewDidLoad`.
     private let previewContainer: UIView = {
         let view = UIView()
         view.backgroundColor = .black
         view.translatesAutoresizingMaskIntoConstraints = false
         view.accessibilityIdentifier = "kyc-face-preview"
+        // The labels keep the UIView default vertical hugging (250); the
+        // preview hugs at the lowest possible priority so the `.fill` stack
+        // always expands IT to fill the remaining height.
+        view.setContentHuggingPriority(.init(1), for: .vertical)
+        view.setContentCompressionResistancePriority(.init(1), for: .vertical)
         return view
     }()
 
@@ -105,10 +118,17 @@ final class FaceCaptureViewController: UIViewController {
             comment: "Face-capture instruction header"
         )
 
+        // The labels hug their intrinsic vertical content firmly so the `.fill`
+        // stack never steals their height — they stay label-sized and the
+        // preview container absorbs the slack (see `previewContainer` above).
+        instructionLabel.setContentHuggingPriority(.required, for: .vertical)
+        cueLabel.setContentHuggingPriority(.required, for: .vertical)
+
         let stack = UIStackView(arrangedSubviews: [instructionLabel, previewContainer, cueLabel])
         stack.axis = .vertical
         stack.spacing = DS.Spacing.md
         stack.alignment = .fill
+        stack.distribution = .fill
         stack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(stack)
 
@@ -129,21 +149,37 @@ final class FaceCaptureViewController: UIViewController {
                 equalTo: view.safeAreaLayoutGuide.bottomAnchor,
                 constant: -DS.Spacing.xl
             ),
-            // ROOT-CAUSE FIX (debug session `front-camera-preview-black`):
-            // `previewContainer` is a plain `UIView` — it has no intrinsic
-            // content size. As an arranged subview of a vertical `.fill`
-            // UIStackView whose only sized siblings are the labels (which DO
-            // have intrinsic heights), the container had NO height preference
-            // and NO height constraint, so Auto Layout collapsed it to height
-            // 0. `previewLayer.frame = previewContainer.bounds` then copied a
-            // zero-height rect → the AVCaptureVideoPreviewLayer rendered into a
-            // 0pt-tall frame → solid-black preview area. Pinning a definite 3:4
-            // portrait aspect ratio gives the host view a real, device-
-            // independent height so the preview layer has a visible frame.
-            previewContainer.heightAnchor.constraint(
-                equalTo: previewContainer.widthAnchor,
-                multiplier: 4.0 / 3.0
-            ),
+            // ROOT-CAUSE FIX — round 3 (debug session `front-camera-preview-black`).
+            //
+            // Round 2 (873becd) pinned a rigid 3:4 aspect ratio on
+            // `previewContainer`. On-device that constraint is UNSATISFIABLE:
+            // the stack is pinned to the safe area on BOTH ends, so its height
+            // is fully determined and the leftover space for the preview is
+            // fixed — a rigid `height == 1.333 * width` exceeds it, UIKit
+            // force-breaks the aspect constraint, and the plain UIView (no
+            // intrinsic size, no other height constraint) collapses to 0 AGAIN.
+            //
+            // The fix: NO rigid/aspect height. `videoGravity = .resizeAspectFill`
+            // already fills whatever frame the container gets, so an aspect
+            // ratio is not needed for correct video. Instead the preview hugs
+            // vertically at the lowest priority (set on `previewContainer`) and
+            // the labels hug at `.required` — so the `.fill` stack is FORCED to
+            // expand the preview into all remaining vertical space. The stack
+            // height is positive and the labels take only intrinsic height, so
+            // the remainder handed to the preview is always > 0 and there is no
+            // conflicting constraint left for UIKit to break.
+            //
+            // Defense-in-depth: a minimum-height floor at priority 250 — low
+            // enough that it can never fight the encapsulated-layout height
+            // (so it cannot reintroduce a breakable conflict), but it guards
+            // against any future layout change shrinking the preview to nothing.
+            {
+                let minHeight = previewContainer.heightAnchor.constraint(
+                    greaterThanOrEqualToConstant: 240
+                )
+                minHeight.priority = .init(250)
+                return minHeight
+            }(),
         ])
 
         previewLayer.frame = previewContainer.bounds

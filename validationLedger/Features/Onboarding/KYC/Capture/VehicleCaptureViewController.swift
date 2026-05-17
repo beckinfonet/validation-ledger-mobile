@@ -28,11 +28,23 @@ class VehicleCaptureViewController: UIViewController {
 
     // MARK: - UI components
 
+    /// Hosts the live camera preview. Render-only (Pitfall 6).
+    ///
+    /// Layout (debug session `front-camera-preview-black`, round 3): a plain
+    /// `UIView` with NO intrinsic content size in a vertical `.fill`
+    /// `UIStackView` pinned to the safe area on BOTH ends. Its vertical
+    /// content-hugging and compression-resistance priorities are set below the
+    /// labels'/shutter button's so the `.fill` stack stretches THIS view into
+    /// the leftover vertical space. See `viewDidLoad`.
     private let previewContainer: UIView = {
         let view = UIView()
         view.backgroundColor = .black
         view.translatesAutoresizingMaskIntoConstraints = false
         view.accessibilityIdentifier = "kyc-vehicle-preview"
+        // Hug at the lowest possible priority so the `.fill` stack always
+        // expands the preview (rather than a label/button) to fill the height.
+        view.setContentHuggingPriority(.init(1), for: .vertical)
+        view.setContentCompressionResistancePriority(.init(1), for: .vertical)
         return view
     }()
 
@@ -94,12 +106,18 @@ class VehicleCaptureViewController: UIViewController {
 
         instructionLabel.text = viewModel.instructionText
 
+        // The labels hug their intrinsic vertical content firmly so the `.fill`
+        // stack leaves them label-sized and stretches the preview instead.
+        instructionLabel.setContentHuggingPriority(.required, for: .vertical)
+        cueLabel.setContentHuggingPriority(.required, for: .vertical)
+
         let stack = UIStackView(arrangedSubviews: [
             instructionLabel, previewContainer, cueLabel, shutterButton,
         ])
         stack.axis = .vertical
         stack.spacing = DS.Spacing.md
         stack.alignment = .fill
+        stack.distribution = .fill
         stack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(stack)
 
@@ -122,20 +140,32 @@ class VehicleCaptureViewController: UIViewController {
             ),
             // 44pt touch-target floor (UI-SPEC).
             shutterButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
-            // ROOT-CAUSE FIX (debug session `front-camera-preview-black`):
-            // `previewContainer` is a plain `UIView` with no intrinsic content
-            // size. In this vertical `.fill` UIStackView its only sized
-            // siblings (labels + shutter button) have intrinsic heights, so the
-            // container had NO height preference and NO height constraint —
-            // Auto Layout collapsed it to height 0. `previewLayer.frame =
-            // previewContainer.bounds` then copied a zero-height rect → the
-            // AVCaptureVideoPreviewLayer rendered into a 0pt-tall frame → solid-
-            // black preview area. A definite 3:4 portrait aspect ratio gives
-            // the host view a real height so the preview layer is visible.
-            previewContainer.heightAnchor.constraint(
-                equalTo: previewContainer.widthAnchor,
-                multiplier: 4.0 / 3.0
-            ),
+            // ROOT-CAUSE FIX — round 3 (debug session `front-camera-preview-black`).
+            //
+            // Round 2 (873becd) pinned a rigid 3:4 aspect ratio on
+            // `previewContainer`. Inside this both-ends-pinned `.fill` stack of
+            // intrinsic-height siblings that constraint is UNSATISFIABLE —
+            // UIKit force-breaks it and the plain UIView collapses to height 0
+            // again → solid-black preview.
+            //
+            // The fix: NO rigid/aspect height. `videoGravity = .resizeAspectFill`
+            // fills whatever frame the container gets. The preview hugs
+            // vertically at the lowest priority (set on `previewContainer`)
+            // while the labels hug at `.required` and the shutter button keeps
+            // its `>= 44` floor — so the `.fill` stack expands the preview into
+            // all leftover vertical space. The remainder is always > 0 and no
+            // conflicting constraint is left for UIKit to break.
+            //
+            // Defense-in-depth: a minimum-height floor at priority 250, too low
+            // to fight the encapsulated-layout height (so no breakable conflict)
+            // yet guarding against a future layout change collapsing it.
+            {
+                let minHeight = previewContainer.heightAnchor.constraint(
+                    greaterThanOrEqualToConstant: 240
+                )
+                minHeight.priority = .init(250)
+                return minHeight
+            }(),
         ])
 
         previewLayer.frame = previewContainer.bounds
