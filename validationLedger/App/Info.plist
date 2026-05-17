@@ -73,6 +73,14 @@
     <key>NSFaceIDUsageDescription</key>
     <string>Validation Ledger uses Face ID to unlock the app and authorize sensitive actions, keeping your verified identity secure on this device.</string>
 
+    <!-- Phase 5 KYC capture pipeline: CameraSession / CameraPermissionViewController open an
+         AVCaptureSession for the selfie, driver's-license, and vehicle photo steps.
+         AVCaptureDevice video access traps the app at runtime without this key — the KYC
+         capture flow crashed on "Get started" the instant it reached the camera.
+         CameraUsageDescriptionTests.infoPlistHasCameraUsageDescription asserts its presence. -->
+    <key>NSCameraUsageDescription</key>
+    <string>Validation Ledger uses the camera to capture your selfie, driver's license, and vehicle photos so we can verify your identity for the freight network.</string>
+
     <!-- UPL-05 / Phase 5: BGTaskScheduler registration for the resumable upload-continuation
          task. BGTaskScheduler.register(forTaskWithIdentifier:) traps at runtime unless the
          identifier is declared in BGTaskSchedulerPermittedIdentifiers, and the OS will not
