@@ -21,3 +21,47 @@
 "kyc.reject.vehicle_plate_unreadable" = "The license plate can't be read. Move closer and retake the photo.";
 "kyc.reject.vehicle_photo_unclear" = "This vehicle photo is unclear. Retake it with the whole vehicle in frame.";
 "kyc.reject.generic" = "This photo needs to be retaken. Tap to try again.";
+
+/* MARK: - KYC flow start + sign-out (Phase 5 Plan 05 — KYC-01 / D-14)
+   The "Let's verify your identity" intro/empty state and the D-14 in-flow
+   sign-out affordance + destructive confirmation. */
+"kyc.start.title" = "Verify identity";
+"kyc.start.heading" = "Let's verify your identity";
+"kyc.start.body" = "We'll take 6 quick photos: your face, both sides of your license, and your truck, trailer, and plate. It takes about 2 minutes.";
+"kyc.start.cta" = "Get started";
+"kyc.signout.button" = "Sign out";
+"kyc.signout.confirm.title" = "Sign out of Validation Ledger?";
+"kyc.signout.confirm.body" = "Your photos are saved on this device and will resume next time you sign in.";
+"kyc.signout.confirm.action" = "Sign out";
+"kyc.signout.confirm.cancel" = "Stay";
+
+/* MARK: - KYC capture screens (Phase 5 Plan 05 — KYC-02/03/04 / D-04..D-07)
+   Capture-cue, error-state, extraction-confirm, preview, and permission-denied
+   copy. UI-SPEC Copywriting Contract. */
+"kyc.face.instruction" = "Position your face inside the oval.";
+"kyc.face.cue.center" = "Center your face";
+"kyc.face.cue.light" = "Move into better light";
+"kyc.face.cue.steady" = "Hold the phone steady";
+"kyc.face.cue.hold" = "Hold still";
+"kyc.dlfront.instruction" = "Fit your license inside the frame.";
+"kyc.dlback.instruction" = "Photograph the back of your license.";
+"kyc.truck.instruction" = "Take a photo of the truck.";
+"kyc.trailer.instruction" = "Take a photo of the trailer.";
+"kyc.plate.instruction" = "Take a photo of the license plate.";
+"kyc.extraction.title" = "Does this look right?";
+"kyc.extraction.field.name" = "Name";
+"kyc.extraction.field.dlnumber" = "License number";
+"kyc.extraction.field.expiry" = "Expiration";
+"kyc.extraction.cta" = "Looks good";
+"kyc.extraction.rescan" = "Rescan";
+"kyc.extraction.format_fail" = "That scan didn't come through clearly — let's try again.";
+"kyc.preview.title" = "Check your photo";
+"kyc.preview.cta" = "Use photo";
+"kyc.preview.retake" = "Retake";
+"kyc.error.gps_stale" = "We couldn't confirm your location. Move to an open area and try the photo again.";
+"kyc.error.camera_unavailable" = "The camera isn't available on this device.";
+"kyc.permission.heading" = "Camera access needed";
+"kyc.permission.body" = "Validation Ledger needs your camera to photograph your ID and vehicle. Turn it on in Settings.";
+"kyc.permission.open_settings" = "Open Settings";
+"kyc.permission.cancel" = "Cancel";
+"kyc.capture.shutter" = "Take photo";

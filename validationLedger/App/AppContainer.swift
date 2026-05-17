@@ -113,6 +113,19 @@ final class AppContainer {
     public let attestationService: any AttestationService
     public let session: AppSession
 
+    // Phase 5 Plan 05 additions (KYC capture + upload pipeline):
+    //   - kycSessionStore: encrypted on-disk in-progress KYC session store
+    //     (plan 02). Deliberately NOT wired into LogoutService teardown — the
+    //     on-disk KYC session survives a logout (D-02).
+    //   - geoContext:      fresh-CLLocation cache over locationProvider for
+    //     capture-time GPS injection (plan 03 / KYC-04 / Pitfall 5).
+    //   - kycUploader:     resumable chunked-upload pipeline (plan 04 / UPL-01).
+    //     KYCCoordinator kicks `upload(artifactType:)` per captured artifact
+    //     (D-01 pipelined upload).
+    let kycSessionStore: KYCSessionStore
+    let geoContext: GeoContext
+    let kycUploader: KYCUploader
+
     /// Primary initializer.
     ///
     /// - Parameters:
@@ -379,6 +392,33 @@ final class AppContainer {
         )
 
         self.deepLinkRouter = DeepLinkRouter()
+
+        // Phase 5 Plan 05 — KYC capture + upload services. Constructed AFTER
+        // apiClient + locationProvider since kycUploader depends on apiClient and
+        // geoContext builds on locationProvider.
+        //
+        // KYCSessionStore.init throws on a file-system failure constructing its
+        // protected directory. The composition root is non-throwing, so a
+        // failure here is a fatal misconfiguration (a non-writable app
+        // container) — fail fast rather than ship a launch that cannot persist
+        // an in-progress KYC session.
+        let kycStore: KYCSessionStore
+        do {
+            kycStore = try KYCSessionStore()
+        } catch {
+            fatalError("KYCSessionStore could not initialize its protected directory: \(error)")
+        }
+        self.kycSessionStore = kycStore
+        self.geoContext = GeoContext(locationProvider: self.locationProvider)
+        let kycLogger = OSLogLoggerImpl(
+            subsystem: LoggingSubsystem.identity,
+            category: "identity.kyc"
+        )
+        self.kycUploader = KYCUploader(
+            apiClient: self.apiClient,
+            store: kycStore,
+            logger: kycLogger
+        )
 
         logger.info(event: .init("app_container_init"), fields: [.event: env.name])
     }
