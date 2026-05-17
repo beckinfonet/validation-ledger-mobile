@@ -73,6 +73,20 @@
     <key>NSFaceIDUsageDescription</key>
     <string>Validation Ledger uses Face ID to unlock the app and authorize sensitive actions, keeping your verified identity secure on this device.</string>
 
+    <!-- UPL-05 / Phase 5: BGTaskScheduler registration for the resumable upload-continuation
+         task. BGTaskScheduler.register(forTaskWithIdentifier:) traps at runtime unless the
+         identifier is declared in BGTaskSchedulerPermittedIdentifiers, and the OS will not
+         run the task without the `processing` background mode. The identifier mirrors the
+         bundle id namespace (RESEARCH Pattern 6 / Runtime State Inventory). -->
+    <key>BGTaskSchedulerPermittedIdentifiers</key>
+    <array>
+        <string>com.maldin.validationLedger.kyc-upload</string>
+    </array>
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>processing</string>
+    </array>
+
     <!-- SEC-02: App Transport Security — strict, no exceptions -->
     <key>NSAppTransportSecurity</key>
     <dict>
