@@ -19,8 +19,12 @@
 // the simulator test and routes to device CI; it stays behind the protocol so
 // plan 05's capture VCs and plan 04's pipeline stay testable.
 
+import AVFoundation
 import CoreGraphics
+import CoreMedia
+import CoreVideo
 import Foundation
+import os
 import Vision
 
 // MARK: - Gate signal vocabulary
@@ -57,6 +61,14 @@ public protocol FaceQualityGate: AnyObject, Sendable {
     /// Begin emitting gate signals. Each frame produces one `FaceGateSignal`.
     /// On the simulator a conforming type yields nothing (no camera).
     @MainActor func signals() -> AsyncStream<FaceGateSignal>
+
+    /// Process one live camera frame from the `AVCaptureVideoDataOutput`
+    /// delegate (KYC-02 / D-04). The face-capture VM wires
+    /// `CameraSession.videoFrameHandler` to call this for every buffer; the
+    /// conformer runs face detection and yields a `FaceGateSignal` on `signals()`.
+    /// `nonisolated` — invoked on the camera's serial frame queue. On the
+    /// simulator there is no camera, so this is never called.
+    nonisolated func process(sampleBuffer: CMSampleBuffer, cameraPosition: CameraPosition)
 
     /// Stop processing frames and finish the signal stream.
     @MainActor func stop()
@@ -166,6 +178,32 @@ public struct SteadyHoldTracker {
     }
 }
 
+// MARK: - Vision orientation (pure, simulator-testable)
+
+/// The correct `CGImagePropertyOrientation` to hand Vision for a camera
+/// `CVPixelBuffer`, given the camera position. A pure function so it is locked
+/// by a unit test (RESEARCH Pitfall 1: face detection silently fails — Vision
+/// finds no faces, never throws — if the orientation is wrong).
+public enum VisionImageOrientation {
+
+    /// The orientation for the device's PORTRAIT interface.
+    ///
+    /// An `AVCaptureVideoDataOutput` `CVPixelBuffer` arrives in the sensor's
+    /// native landscape orientation (the long axis is the buffer's width). To
+    /// present that to Vision as an upright portrait image:
+    ///   - BACK camera: rotate 90° clockwise → `.right`.
+    ///   - FRONT camera: the front sensor is also rotated, but the feed is
+    ///     additionally mirrored — `.leftMirrored` yields an upright,
+    ///     correctly-handed image. Using `.right` (the back-camera value) leaves
+    ///     a front-camera face rotated 180° and Vision finds nothing.
+    public static func portrait(for position: CameraPosition) -> CGImagePropertyOrientation {
+        switch position {
+        case .front: return .leftMirrored
+        case .back:  return .right
+        }
+    }
+}
+
 // MARK: - Live Vision-backed implementation (device CI — not simulator-tested)
 
 /// The live face quality gate: runs `VNDetectFaceRectanglesRequest` over the
@@ -179,14 +217,24 @@ public final class VisionFaceQualityGate: FaceQualityGate, @unchecked Sendable {
 
     private var continuation: AsyncStream<FaceGateSignal>.Continuation?
 
+    /// Guards the one-shot "first frame arrived" diagnostic so the on-device
+    /// console gets ONE greppable confirmation line, not 30/sec. `nonisolated`
+    /// because the flag is flipped on the camera's serial frame queue.
+    private let firstFrameLogLock = NSLock()
+    private nonisolated(unsafe) var didLogFirstFrame = false
+
     public init() {}
 
     @MainActor public func signals() -> AsyncStream<FaceGateSignal> {
-        AsyncStream { continuation in
+        // Re-arm the one-shot first-frame diagnostic for this fresh stream.
+        firstFrameLogLock.lock()
+        didLogFirstFrame = false
+        firstFrameLogLock.unlock()
+        return AsyncStream { continuation in
             self.continuation = continuation
             // On the simulator there is no camera; the stream simply yields
-            // nothing until `stop()`. On device the capture coordinator (plan
-            // 05) feeds `process(sampleBuffer:)` from the AVFoundation delegate.
+            // nothing until `stop()`. On device the face-capture VM wires
+            // `CameraSession.videoFrameHandler` to feed `process(sampleBuffer:)`.
         }
     }
 
@@ -195,11 +243,44 @@ public final class VisionFaceQualityGate: FaceQualityGate, @unchecked Sendable {
         continuation = nil
     }
 
+    /// Process one camera frame from the `AVCaptureVideoDataOutput` delegate.
+    ///
+    /// This is the entry point the live frame pipeline calls (KYC-02 / D-04 —
+    /// debug session `front-camera-preview-black`, round 5 / Bug B): the
+    /// face-capture VM wires `CameraSession.videoFrameHandler` to call this for
+    /// every `CMSampleBuffer`. It extracts the `CVPixelBuffer`, picks the
+    /// correct Vision orientation for the (front) camera in portrait, and runs
+    /// face detection. Runs on the video-data-output's serial delegate queue —
+    /// `nonisolated` (the gate is `@unchecked Sendable`).
+    ///
+    /// Not reachable on the simulator (no camera frames — RESEARCH Pitfall 1).
+    public func process(
+        sampleBuffer: CMSampleBuffer,
+        cameraPosition: CameraPosition = .front
+    ) {
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        let orientation = VisionImageOrientation.portrait(for: cameraPosition)
+
+        // One-shot greppable confirmation that live frames are reaching the
+        // gate (debug session `front-camera-preview-black`, round 5 / Bug B —
+        // the next on-device test can verify the video-data-output pipeline).
+        firstFrameLogLock.lock()
+        let shouldLog = !didLogFirstFrame
+        didLogFirstFrame = true
+        firstFrameLogLock.unlock()
+        if shouldLog {
+            kycCameraLog.info("kyc_camera event=face_gate.first_frame pixelBuffer=\(CVPixelBufferGetWidth(pixelBuffer))x\(CVPixelBufferGetHeight(pixelBuffer), privacy: .public) visionOrientation=\(orientation.rawValue, privacy: .public)")
+        }
+
+        process(pixelBuffer: pixelBuffer, orientation: orientation)
+    }
+
     /// Process one camera frame: detect faces and emit a gate signal.
     ///
-    /// Called from the `AVCaptureVideoDataOutputSampleBufferDelegate` on device.
-    /// Not reachable on the simulator. Liveness is intentionally NOT performed —
-    /// only the KYC-02 quality gate (see the file header).
+    /// The low-level path — `process(sampleBuffer:cameraPosition:)` calls this
+    /// after extracting the buffer + resolving the orientation. Not reachable on
+    /// the simulator. Liveness is intentionally NOT performed — only the KYC-02
+    /// quality gate (see the file header).
     public func process(pixelBuffer: CVPixelBuffer, orientation: CGImagePropertyOrientation) {
         let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: orientation)
         let request = VNDetectFaceRectanglesRequest { [weak self] request, _ in

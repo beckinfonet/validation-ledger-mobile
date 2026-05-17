@@ -17,6 +17,7 @@
 import Testing
 import Foundation
 import CoreGraphics
+import ImageIO
 @testable import validationLedger
 
 @Suite("FaceQualityGate — gate logic + steady-hold (KYC-02 / D-04)")
@@ -114,6 +115,34 @@ struct FaceQualityGateTests {
         #expect(tracker.update(signal: .pass, at: 0.4) == false)
         #expect(tracker.update(signal: .pass, at: 1.0) == true)    // 0.6s into the new hold
     }
+
+    // MARK: - Vision orientation (debug session round 5 / Bug B)
+
+    /// Regression lock for the auto-fire-has-no-frames bug (debug session
+    /// `front-camera-preview-black`, round 5 / Bug B). The video-data-output
+    /// pipeline feeds `CVPixelBuffer`s to Vision; if the orientation is wrong
+    /// Vision finds NO faces and never throws — the auto-fire silently never
+    /// triggers. The front camera in portrait must be `.leftMirrored`; using
+    /// the back-camera value (`.right`) leaves a front face rotated 180°.
+
+    @Test("Front camera in portrait maps to .leftMirrored for Vision")
+    func frontCameraPortraitOrientationIsLeftMirrored() {
+        #expect(VisionImageOrientation.portrait(for: .front) == .leftMirrored)
+    }
+
+    @Test("Back camera in portrait maps to .right for Vision")
+    func backCameraPortraitOrientationIsRight() {
+        #expect(VisionImageOrientation.portrait(for: .back) == .right)
+    }
+
+    @Test("Front and back portrait orientations are distinct")
+    func frontAndBackPortraitOrientationsDiffer() {
+        // The front camera's feed is mirrored; the back camera's is not. If a
+        // refactor collapsed both to one value, front-camera face detection
+        // would break — this guards against that.
+        #expect(VisionImageOrientation.portrait(for: .front)
+                != VisionImageOrientation.portrait(for: .back))
+    }
 }
 
 @Suite("CameraSession — hardware availability gate (RESEARCH Pitfall 1)")
@@ -143,5 +172,26 @@ struct CameraSessionAvailabilityTests {
         // never via a bare configure()/start() that races the permission grant.
         let authorizedStart: (CameraPosition) async throws -> Void = session.startAuthorizedSession
         _ = authorizedStart
+    }
+
+    /// Regression lock for the auto-fire-has-no-frames defect (debug session
+    /// `front-camera-preview-black`, round 5 / Bug B). The D-04 face-capture
+    /// auto-fire needs a live `CMSampleBuffer` stream — the `videoFrameHandler`
+    /// is the seam the `FaceCaptureViewModel` wires to feed the Vision gate. If
+    /// a refactor drops this from the protocol, the gate goes frame-starved and
+    /// the capture screen becomes a dead end again.
+    @Test("CameraSession exposes the videoFrameHandler frame-sink seam")
+    @MainActor
+    func cameraSessionExposesVideoFrameHandler() async {
+        let session: any CameraSession = AVFoundationCameraSession()
+        // It must be settable and start out nil (no handler until the VM wires
+        // one in `observeGateSignals`).
+        #expect(session.videoFrameHandler == nil)
+        var received = 0
+        session.videoFrameHandler = { _ in received += 1 }
+        #expect(session.videoFrameHandler != nil)
+        session.videoFrameHandler = nil
+        #expect(session.videoFrameHandler == nil)
+        _ = received
     }
 }

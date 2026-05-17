@@ -151,8 +151,11 @@ final class FaceCaptureViewModel {
         }
     }
 
-    /// Stop the camera + the signal stream.
+    /// Stop the camera + the signal stream. Clears the live-frame handler so no
+    /// buffers reach the gate after the screen leaves (debug session
+    /// `front-camera-preview-black`, round 5 / Bug B).
     func stop() {
+        cameraSession.videoFrameHandler = nil
         faceQualityGate.stop()
         cameraSession.stop()
     }
@@ -171,8 +174,30 @@ final class FaceCaptureViewModel {
 
     // MARK: - Quality-gate stream → D-04 auto-fire
 
+    /// Wire the live camera-frame pipeline into the Vision gate, then consume
+    /// the gate's signal stream for the D-04 auto-fire.
+    ///
+    /// Debug session `front-camera-preview-black` round 5 / Bug B: this is the
+    /// frame source that was missing. Order matters — `signals()` installs the
+    /// `AsyncStream` continuation; only AFTER that is the `videoFrameHandler`
+    /// set, so the first processed buffer always has a live continuation to
+    /// yield into. Each `CMSampleBuffer` is handed to
+    /// `VisionFaceQualityGate.process(sampleBuffer:)`, which runs Vision face
+    /// detection and yields a `FaceGateSignal`; `handle(signal:)` then drives
+    /// the steady-hold auto-fire. The handler runs on the camera's serial
+    /// frame queue (`@Sendable`); the gate's `process` is `nonisolated`.
     private func observeGateSignals() {
         let stream = faceQualityGate.signals()
+
+        // Forward every camera frame to the gate. `faceQualityGate` is
+        // `Sendable` and `process(sampleBuffer:cameraPosition:)` is
+        // `nonisolated`, so this closure is safely `@Sendable` — it never
+        // touches `@MainActor` state.
+        let gate = faceQualityGate
+        cameraSession.videoFrameHandler = { sampleBuffer in
+            gate.process(sampleBuffer: sampleBuffer, cameraPosition: .front)
+        }
+
         Task { [weak self] in
             for await signal in stream {
                 self?.handle(signal: signal)

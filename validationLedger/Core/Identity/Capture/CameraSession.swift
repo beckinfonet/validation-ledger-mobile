@@ -97,6 +97,17 @@ public protocol CameraSession: AnyObject {
     /// The preview layer for on-screen display. Distinct from the upload path —
     /// the preview is render-only and is never the upload byte source.
     @MainActor var previewLayer: AVCaptureVideoPreviewLayer { get }
+
+    /// A live video-frame sink (KYC-02 / D-04). When non-`nil`, the session
+    /// delivers every `CMSampleBuffer` from its `AVCaptureVideoDataOutput` to
+    /// this closure on a background queue — this is what feeds the Vision
+    /// `FaceQualityGate` for the face-capture auto-fire. Render/analysis only;
+    /// never the upload byte source (the upload path is `capturePhoto()` —
+    /// RESEARCH Pitfall 6).
+    ///
+    /// `@Sendable` because the closure is invoked from the video-data-output's
+    /// serial delegate queue, not the main actor.
+    @MainActor var videoFrameHandler: (@Sendable (CMSampleBuffer) -> Void)? { get set }
 }
 
 // MARK: - Live AVFoundation implementation
@@ -108,7 +119,8 @@ public protocol CameraSession: AnyObject {
 /// follows the `LocationProvider` pattern.
 @MainActor
 public final class AVFoundationCameraSession: NSObject, CameraSession,
-                                              AVCapturePhotoCaptureDelegate {
+                                              AVCapturePhotoCaptureDelegate,
+                                              AVCaptureVideoDataOutputSampleBufferDelegate {
 
     /// Hardware availability gate (RESEARCH Pitfall 1). False on the simulator
     /// and on any device with no usable capture device — the capture VCs check
@@ -125,6 +137,48 @@ public final class AVFoundationCameraSession: NSObject, CameraSession,
 
     private let session = AVCaptureSession()
     private let photoOutput = AVCapturePhotoOutput()
+
+    /// The live-frame output (KYC-02 / D-04). Added to the session alongside
+    /// `photoOutput` so the Vision `FaceQualityGate` has a `CMSampleBuffer`
+    /// stream to consume. The face-capture screen needs this; the plain-photo
+    /// (DL-back / truck / trailer / plate) screens do not — but it is harmless
+    /// there: with no `videoFrameHandler` set the delegate callback drops every
+    /// buffer, and `alwaysDiscardsLateVideoFrames` keeps the queue shallow.
+    private let videoDataOutput = AVCaptureVideoDataOutput()
+
+    /// Dedicated SERIAL queue for the `AVCaptureVideoDataOutput` sample-buffer
+    /// delegate callbacks (KYC-02 / D-04). Separate from `sessionQueue` so frame
+    /// delivery never contends with `startRunning()`/configuration work. The
+    /// delegate callback (`captureOutput(_:didOutput:from:)`) is `nonisolated`
+    /// and runs here, hopping nothing onto the main actor — it just forwards the
+    /// buffer to `videoFrameHandler`, mirroring the `LocationProvider` pattern.
+    private let videoFrameQueue = DispatchQueue(
+        label: "com.maldin.validationLedger.camera.frames"
+    )
+
+    /// Background-queue lock guarding `_videoFrameHandler` — the handler is SET
+    /// on the main actor (`videoFrameHandler` setter) and READ on
+    /// `videoFrameQueue` (the delegate callback). The lock keeps that
+    /// cross-thread access safe without making the whole class lose its
+    /// `@MainActor` isolation.
+    private let videoFrameHandlerLock = NSLock()
+    private nonisolated(unsafe) var _videoFrameHandler: (@Sendable (CMSampleBuffer) -> Void)?
+
+    /// A live video-frame sink (KYC-02 / D-04). See the protocol doc. The
+    /// face-capture VM sets this to forward each buffer to the Vision gate.
+    public var videoFrameHandler: (@Sendable (CMSampleBuffer) -> Void)? {
+        get {
+            videoFrameHandlerLock.lock()
+            defer { videoFrameHandlerLock.unlock() }
+            return _videoFrameHandler
+        }
+        set {
+            videoFrameHandlerLock.lock()
+            _videoFrameHandler = newValue
+            videoFrameHandlerLock.unlock()
+        }
+    }
+
     private lazy var _previewLayer: AVCaptureVideoPreviewLayer = {
         let layer = AVCaptureVideoPreviewLayer(session: session)
         layer.videoGravity = .resizeAspectFill
@@ -226,7 +280,7 @@ public final class AVFoundationCameraSession: NSObject, CameraSession,
     /// the thread-safe `AVCaptureSession`/`AVCapturePhotoOutput`, whose access
     /// `sessionQueue` serializes.
     private nonisolated func configureSessionInputs(position: CameraPosition) throws {
-        try sessionQueue.sync { [session, photoOutput] in
+        try sessionQueue.sync { [session, photoOutput, videoDataOutput, videoFrameQueue] in
             session.beginConfiguration()
             defer { session.commitConfiguration() }
 
@@ -246,6 +300,20 @@ public final class AVFoundationCameraSession: NSObject, CameraSession,
 
             if !session.outputs.contains(photoOutput), session.canAddOutput(photoOutput) {
                 session.addOutput(photoOutput)
+            }
+
+            // KYC-02 / D-04: the live-frame output. The Vision `FaceQualityGate`
+            // needs a `CMSampleBuffer` stream — the lone `AVCapturePhotoOutput`
+            // never produced one, so the face-capture auto-fire never received
+            // frames (debug session `front-camera-preview-black`, round 5 / Bug
+            // B). Attach the video-data-output and point its serial delegate
+            // queue at `self`; `alwaysDiscardsLateVideoFrames` keeps face
+            // detection working on the freshest frame instead of backlogging.
+            if !session.outputs.contains(videoDataOutput), session.canAddOutput(videoDataOutput) {
+                videoDataOutput.alwaysDiscardsLateVideoFrames = true
+                videoDataOutput.setSampleBufferDelegate(self, queue: videoFrameQueue)
+                session.addOutput(videoDataOutput)
+                kycCameraLog.info("kyc_camera event=video_data_output_wired hasConnection=\(videoDataOutput.connection(with: .video) != nil, privacy: .public)")
             }
             kycCameraLog.info("kyc_camera event=configure_inputs.committed inputs=\(session.inputs.count, privacy: .public) outputs=\(session.outputs.count, privacy: .public)")
         }
@@ -282,6 +350,24 @@ public final class AVFoundationCameraSession: NSObject, CameraSession,
             }
             self.captureContinuation = nil
         }
+    }
+
+    // MARK: - AVCaptureVideoDataOutputSampleBufferDelegate
+
+    /// Live-frame delegate callback (KYC-02 / D-04). Runs on `videoFrameQueue`
+    /// (a serial background queue) — `nonisolated`, never hops onto the main
+    /// actor. Forwards each `CMSampleBuffer` to `videoFrameHandler`, which the
+    /// face-capture VM wires to `VisionFaceQualityGate.process(sampleBuffer:)`.
+    /// When no handler is set (the plain-photo screens) every buffer is dropped.
+    public nonisolated func captureOutput(
+        _ output: AVCaptureOutput,
+        didOutput sampleBuffer: CMSampleBuffer,
+        from connection: AVCaptureConnection
+    ) {
+        videoFrameHandlerLock.lock()
+        let handler = _videoFrameHandler
+        videoFrameHandlerLock.unlock()
+        handler?(sampleBuffer)
     }
 
     // MARK: - Helpers
