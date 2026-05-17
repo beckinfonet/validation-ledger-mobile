@@ -44,11 +44,11 @@ public actor KYCUploader {
 
     /// UPL-03 retry cap — a chunk POST is attempted at most this many times
     /// before `retriesExhausted` is thrown. Note this is 5, not the shipped
-    /// `RetryInterceptor`'s default of 3.
+    /// GET-only interceptor's default of 3.
     static let maxChunkAttempts = 5
 
-    /// Backoff base / ceiling in milliseconds — copied (not reused) from
-    /// `RetryInterceptor`'s vetted defaults.
+    /// Backoff base / ceiling in milliseconds — the same vetted defaults the
+    /// shipped GET-only interceptor uses; the values are copied, not shared.
     static let backoffBaseDelayMs: UInt64 = 500
     static let backoffCeilingMs: UInt64 = 30_000
 
@@ -271,12 +271,13 @@ public actor KYCUploader {
         }
     }
 
-    // MARK: - Backoff math (COPIED from RetryInterceptor — see CRITICAL note)
+    // MARK: - Backoff math (copied from the shipped GET-only interceptor)
 
-    // `RetryInterceptor` hard-guards `httpMethod == "GET"` and passes POSTs
-    // through unretried by design (NET-05). Chunk uploads are POSTs, so the
-    // retry loop lives HERE — only the backoff math + URLError classifier are
-    // copied, never the interceptor type itself (RESEARCH Pitfall 7).
+    // The shipped response-interceptor that retries idempotent GETs hard-guards
+    // `httpMethod == "GET"` and passes POSTs through unretried by design
+    // (NET-05). Chunk uploads are POSTs, so the retry loop lives HERE — only the
+    // backoff math + URLError classifier are copied, never the interceptor type
+    // itself (RESEARCH Pitfall 7).
 
     /// Jittered exponential backoff: `min(base << attempt, ceiling) ± 20%`.
     static func delayForAttempt(_ attempt: Int) -> UInt64 {
@@ -317,7 +318,8 @@ public actor KYCUploader {
         return false
     }
 
-    /// The retryable `URLError` cases — copied from `RetryInterceptor.isRetryable`.
+    /// The retryable `URLError` cases — copied from the shipped GET-only
+    /// interceptor's `isRetryable` classifier (the math, not the type).
     static func isRetryableURLError(_ error: URLError) -> Bool {
         switch error.code {
         case .networkConnectionLost,
