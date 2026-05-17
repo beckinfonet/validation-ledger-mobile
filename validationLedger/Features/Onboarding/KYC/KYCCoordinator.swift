@@ -247,7 +247,12 @@ final class KYCCoordinator {
     // MARK: - Navigation (KYC-01 push chain — D-07 advances per Use/Retake confirm)
 
     /// Step 1 — face capture (KYC-02 / D-04).
-    private func pushFaceCapture() {
+    ///
+    /// - Parameter onConfirm: what to do once the user confirms the Use/Retake
+    ///   preview. The forward chain advances to DL-front; the D-03/D-10 retake
+    ///   path (debug session `kyc-flow-device-audit`) re-uploads + pops back.
+    ///   Defaults to the forward chain.
+    private func pushFaceCapture(onConfirm: (() -> Void)? = nil) {
         let viewModel = FaceCaptureViewModel(
             cameraSession: AVFoundationCameraSession(),
             faceQualityGate: VisionFaceQualityGate(),
@@ -258,28 +263,44 @@ final class KYCCoordinator {
         )
         let vc = FaceCaptureViewController(viewModel: viewModel)
         installSignOutItem(on: vc)
-        viewModel.onCaptureConfirmed = { [weak self] in
+        viewModel.onCaptureConfirmed = onConfirm ?? { [weak self] in
             self?.confirmCapture()
             self?.pushDLFrontScan()
         }
         nav.pushViewController(vc, animated: true)
     }
 
-    /// Step 2 — DL front DataScanner OCR (KYC-03).
-    private func pushDLFrontScan() {
-        let vc = DLFrontScanViewController()
+    /// Step 2 — DL front DataScanner OCR (KYC-03). The scanner screen also
+    /// captures + persists the DL-front PHOTO artifact (debug session
+    /// `kyc-flow-device-audit`) — the uploaded artifact is the photo, not the
+    /// OCR text — so it carries the same capture-pipeline deps as the other
+    /// capture screens.
+    ///
+    /// - Parameter onExtractionConfirmed: what to do once the DL extraction
+    ///   confirm screen is accepted. Forward chain advances to DL-back; the
+    ///   retake path re-uploads + pops back to the originating screen.
+    private func pushDLFrontScan(onExtractionConfirmed: (() -> Void)? = nil) {
+        let vc = DLFrontScanViewController(
+            geoContext: geoContext,
+            gpsInjector: GPSMetadataInjector(),
+            sessionStore: container.kycSessionStore,
+            logger: container.logger
+        )
         installSignOutItem(on: vc)
         vc.onScanComplete = { [weak self] extraction in
-            self?.pushDLFrontExtraction(extraction)
+            self?.pushDLFrontExtraction(extraction, onConfirmed: onExtractionConfirmed)
         }
         nav.pushViewController(vc, animated: true)
     }
 
     /// Step 3 — read-only DL extraction confirmation (KYC-03 / D-05).
-    private func pushDLFrontExtraction(_ extraction: DLExtraction) {
+    private func pushDLFrontExtraction(
+        _ extraction: DLExtraction,
+        onConfirmed: (() -> Void)? = nil
+    ) {
         let vc = DLFrontExtractionViewController(extraction: extraction)
         installSignOutItem(on: vc)
-        vc.onConfirmed = { [weak self] in
+        vc.onConfirmed = onConfirmed ?? { [weak self] in
             self?.confirmCapture()
             self?.pushDLBack()
         }
@@ -290,7 +311,10 @@ final class KYCCoordinator {
     }
 
     /// Step 4 — DL back plain framed photo (KYC-04 / D-06 — no barcode scan).
-    private func pushDLBack() {
+    ///
+    /// - Parameter onConfirm: forward chain advances to truck; the retake path
+    ///   re-uploads + pops back. Defaults to the forward chain.
+    private func pushDLBack(onConfirm: (() -> Void)? = nil) {
         let viewModel = VehicleCaptureViewModel(
             artifactType: .dlBack,
             cameraSession: AVFoundationCameraSession(),
@@ -301,7 +325,7 @@ final class KYCCoordinator {
         )
         let vc = DLBackCaptureViewController(viewModel: viewModel)
         installSignOutItem(on: vc)
-        viewModel.onCaptureConfirmed = { [weak self] in
+        viewModel.onCaptureConfirmed = onConfirm ?? { [weak self] in
             self?.confirmCapture()
             self?.pushTruck()
         }
@@ -387,36 +411,72 @@ final class KYCCoordinator {
     /// Re-open the capture step for a single artifact (D-03 Review-screen Retake
     /// and D-10 status-screen rejected-artifact Retake). Verified/other
     /// artifacts are left untouched — only the named capture step is re-pushed.
+    ///
+    /// A retake is NOT a forward flow step (debug session
+    /// `kyc-flow-device-audit`): it must re-kick ONLY that artifact's upload and
+    /// pop straight back to the originating Review/Status screen — it must NOT
+    /// run the forward push chain (which would drag the user through every
+    /// remaining capture screen again and re-advance the sequencer past
+    /// `review`). Every case here therefore uses a "capture → kick upload → pop"
+    /// closure, not the default forward-chain `onConfirm`.
     private func reopenCapture(for artifact: KYCUploadInitEndpoint.ArtifactType) {
         container.logger.info(
             event: LogEvent("kyc_recapture_pushed"),
             fields: [.event: artifact.rawValue]
         )
+        // The screen the retake was invoked FROM (the Review or Status VC) — the
+        // retake must return exactly there, regardless of how many capture
+        // screens it pushed (the DL-front retake pushes two). Capturing the
+        // current top VC before pushing makes the return target unambiguous.
+        let originVC = nav.topViewController
         switch artifact {
         case .face:
-            pushFaceCapture()
+            pushFaceCapture { [weak self] in
+                self?.kickUpload(for: .face)
+                self?.popBack(to: originVC)
+            }
         case .dlFront:
-            pushDLFrontScan()
+            // The DL-front retake runs the scan → extraction-confirm two-screen
+            // chain; the upload kick + pop happens once the extraction confirm
+            // is accepted. `popBack(to:)` returns past BOTH pushed screens.
+            pushDLFrontScan { [weak self] in
+                self?.kickUpload(for: .dlFront)
+                self?.popBack(to: originVC)
+            }
         case .dlBack:
-            pushDLBack()
+            pushDLBack { [weak self] in
+                self?.kickUpload(for: .dlBack)
+                self?.popBack(to: originVC)
+            }
         case .truck:
             nav.pushViewController(
                 makeVehicleCapture(artifact: .truck) { [weak self] in
                     self?.kickUpload(for: .truck)
-                    self?.nav.popViewController(animated: true)
+                    self?.popBack(to: originVC)
                 }, animated: true)
         case .trailer:
             nav.pushViewController(
                 makeVehicleCapture(artifact: .trailer) { [weak self] in
                     self?.kickUpload(for: .trailer)
-                    self?.nav.popViewController(animated: true)
+                    self?.popBack(to: originVC)
                 }, animated: true)
         case .plate:
             nav.pushViewController(
                 makeVehicleCapture(artifact: .plate) { [weak self] in
                     self?.kickUpload(for: .plate)
-                    self?.nav.popViewController(animated: true)
+                    self?.popBack(to: originVC)
                 }, animated: true)
+        }
+    }
+
+    /// Pop the capture screen(s) pushed by a retake and return to the
+    /// originating Review/Status screen. Falls back to a single pop when the
+    /// origin VC is no longer on the stack (e.g. it was itself popped).
+    private func popBack(to originVC: UIViewController?) {
+        if let originVC, nav.viewControllers.contains(originVC) {
+            nav.popToViewController(originVC, animated: true)
+        } else {
+            nav.popViewController(animated: true)
         }
     }
 
