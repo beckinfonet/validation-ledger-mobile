@@ -276,6 +276,32 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         #endif
     }
 
+    // MARK: - Phase 5 Plan 07 (UPL-05) — background upload continuation
+
+    /// Phase 5 UPL-05: when the app backgrounds with at least one incomplete KYC
+    /// upload, submit a `BGProcessingTaskRequest` so the OS grants runtime to keep
+    /// the foreground chunk loop alive (RATIFIED USER DECISION — foreground loop +
+    /// BGTask, NOT a file-based background URLSession).
+    ///
+    /// The pending-upload check reads the SCENE AppContainer's `KYCSessionStore`
+    /// (`loadSession()` — a non-committed artifact means an upload is in flight)
+    /// and the scheduling uses that scene container's `KYCUploadScheduler`. No new
+    /// `AppContainer` is constructed anywhere (threat T-05-07-06).
+    func sceneDidEnterBackground(_ scene: UIScene) {
+        guard let container = appCoordinator?.container else { return }
+        // A non-committed artifact in the on-disk session = an upload still owes
+        // chunks. An absent session / a fully-committed session = nothing pending.
+        let hasPendingUploads: Bool
+        if let session = try? container.kycSessionStore.loadSession() {
+            hasPendingUploads = session.uploadStates.values.contains { !$0.committed }
+        } else {
+            hasPendingUploads = false
+        }
+        container.kycUploadScheduler.scheduleUploadContinuation(
+            hasPendingUploads: hasPendingUploads
+        )
+    }
+
     // MARK: - Deep-link forwarding
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
@@ -309,11 +335,28 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Fresh container + fresh coordinator per D-10.
         // In DEBUG, respect the DevMenu NetworkConfig override (NET-03 SC-2 demonstrator)
         // so toggling mock/live persists across subsequent role swaps.
+        //
+        // Phase 5 Plan 07 (UPL-05): pass the AppDelegate-owned `KYCUploadScheduler`
+        // into every AppContainer — the BGTask handler is registered on THAT
+        // scheduler at launch, so its live-uploader slot (filled below) must be
+        // the same instance every scene container sees.
+        let scheduler = (UIApplication.shared.delegate as? AppDelegate)?.kycUploadScheduler
         #if DEBUG
-        let container = AppContainer(env: .current, networkConfig: currentNetworkConfigOverride)
+        let container = AppContainer(
+            env: .current,
+            networkConfig: currentNetworkConfigOverride,
+            kycUploadScheduler: scheduler
+        )
         #else
-        let container = AppContainer(env: .current)
+        let container = AppContainer(env: .current, kycUploadScheduler: scheduler)
         #endif
+
+        // UPL-05: hand the scheduler this scene container's `kycUploader` so the
+        // BGTask handler resumes THIS container's foreground chunk loop. The
+        // handler captures this uploader via the scheduler's live-uploader slot —
+        // it never constructs a fresh AppContainer (threat T-05-07-06).
+        container.kycUploadScheduler.setLiveUploader(container.kycUploader)
+
         let coordinator = AppCoordinator(container: container, phase: phase)
 
         // Wire callbacks that can trigger re-routing in Phase 3+.

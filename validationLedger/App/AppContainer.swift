@@ -122,9 +122,16 @@ final class AppContainer {
     //   - kycUploader:     resumable chunked-upload pipeline (plan 04 / UPL-01).
     //     KYCCoordinator kicks `upload(artifactType:)` per captured artifact
     //     (D-01 pipelined upload).
+    //
+    // Phase 5 Plan 07 addition (UPL-05 background-continuation wiring):
+    //   - kycUploadScheduler: schedules the BGProcessingTaskRequest when the app
+    //     backgrounds mid-upload. SceneDelegate hands it `kycUploader` so the
+    //     BGTask handler resumes THIS scene container's foreground chunk loop —
+    //     the handler never constructs a fresh AppContainer (threat T-05-07-06).
     let kycSessionStore: KYCSessionStore
     let geoContext: GeoContext
     let kycUploader: KYCUploader
+    let kycUploadScheduler: KYCUploadScheduler
 
     /// Primary initializer.
     ///
@@ -148,11 +155,22 @@ final class AppContainer {
     ///                               construct; `sessionLock` + `sensitiveAction` observe the override
     ///                               transitively because they resolve `biometricService` through the
     ///                               container.
+    ///   - kycUploadScheduler: Phase 5 Plan 07 (UPL-05). `AppDelegate` owns the single
+    ///                         `KYCUploadScheduler` (its launch handler is registered with
+    ///                         `BGTaskScheduler` before launch completes) and passes that SAME
+    ///                         instance into every `AppContainer` the `SceneDelegate` builds —
+    ///                         so the BGTask handler's live-uploader slot, the slot
+    ///                         `SceneDelegate.sceneDidEnterBackground` fills, and the scheduling
+    ///                         decision all act on one scheduler. When `nil` (existing tests /
+    ///                         non-app callers) init constructs a fresh stand-alone scheduler so
+    ///                         the container is still fully formed; only the `AppDelegate`-fed
+    ///                         path has a registered BGTask handler.
     init(
         env: Environment,
         networkConfig: NetworkConfig? = nil,
         isSecureEnclaveAvailable: Bool = SecureEnclave.isAvailable,
-        biometricServiceOverride: (any BiometricService)? = nil
+        biometricServiceOverride: (any BiometricService)? = nil,
+        kycUploadScheduler: KYCUploadScheduler? = nil
     ) {
         self.env = env
 
@@ -419,6 +437,18 @@ final class AppContainer {
             store: kycStore,
             logger: kycLogger
         )
+
+        // Phase 5 Plan 07 (UPL-05): use the AppDelegate-owned scheduler when one
+        // is injected (the app launch path — its BGTask handler is registered
+        // with BGTaskScheduler at launch). When `nil` (existing tests / non-app
+        // callers), construct a fresh stand-alone scheduler so the container is
+        // fully formed. The app NEVER constructs an AppContainer inside the
+        // BGTask handler, so the handler always sees the AppDelegate scheduler.
+        let bgLogger = OSLogLoggerImpl(
+            subsystem: LoggingSubsystem.identity,
+            category: "identity.kyc.bgtask"
+        )
+        self.kycUploadScheduler = kycUploadScheduler ?? KYCUploadScheduler(logger: bgLogger)
 
         logger.info(event: .init("app_container_init"), fields: [.event: env.name])
     }
