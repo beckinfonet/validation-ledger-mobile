@@ -111,9 +111,9 @@ filter would instead leave the check un-reported and the PR stuck "waiting for s
       PR's `mergeStateStatus` went `BLOCKED`. PR closed without merging; branch deleted.
 - [x] Green path verified — PR #1 merged into `main` with `device-security-surface` + `test`
       both green and the strict (up-to-date) check satisfied.
-- [ ] Skip path — a non-security PR (this Phase 4 close-out PR) reports
-      `device-security-surface` as `skipped` and is not blocked by it. (Ticked in a
-      follow-up commit once observed on this PR.)
+- [x] Skip path verified — this close-out PR (#3, non-security) reports
+      `device-security-surface` as `skipped`; `mergeStateStatus` is `CLEAN`, confirming
+      branch protection treats a skipped required check as passing.
 - [x] Verification evidence recorded in
       `.planning/phases/04-app-attest-physical-device-ci-hardening/04-10-SUMMARY.md`.
 

@@ -142,8 +142,9 @@ string directly, so the historical "Pitfall 4 dropdown dance" does not apply.
   `mergeStateStatus` became `BLOCKED`. PR closed without merging; branch deleted.
 - **Green** — PR #1 merged into `main` with `device-security-surface` + `test` both green
   and the strict check satisfied (squash commit `72fa3ee`).
-- **Skip** — a non-security PR (the Phase 4 close-out PR) reports `device-security-surface`
-  as `skipped`; GitHub counts a skipped required check as passing, so the PR is not blocked.
+- **Skip** — the Phase 4 close-out PR #3 (non-security) reports `device-security-surface`
+  as `skipped` with `mergeStateStatus: CLEAN`; GitHub counts a skipped required check as
+  passing, so the PR is not blocked.
 
 ## Close-Out Addendum (2026-05-16 quick task)
 
