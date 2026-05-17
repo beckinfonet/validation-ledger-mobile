@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 5 UI-SPEC approved
-last_updated: "2026-05-17T05:15:12.306Z"
-last_activity: 2026-05-17 -- Phase 5 planning complete
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-05-17T05:34:12.369Z"
+last_activity: 2026-05-17
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 46
-  completed_plans: 38
+  completed_plans: 39
   percent: 80
 ---
 
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-20)
 
 **Core value:** Identity that cannot be spoofed and a chain-of-trust that cannot be faked.
-**Current focus:** Phase 5 — KYC Capture & Upload Pipeline (not yet planned)
+**Current focus:** Phase 05 — kyc-capture-upload-pipeline
 
 ## Current Position
 
-Phase: 4 of 5 COMPLETE (App Attest & Physical-Device CI Hardening) — all 11 plans done
-Plan: 38 of 38 plans complete across Phases 1-4 (every plan has a SUMMARY)
+Phase: 05 (kyc-capture-upload-pipeline) — EXECUTING
+Plan: 2 of 8
 Status: Ready to execute
 Next: Phase 5 — KYC Capture & Upload Pipeline (no plans yet — start with `/gsd-discuss-phase 5` or `/gsd-plan-phase 5`)
-Last activity: 2026-05-17 -- Phase 5 planning complete
+Last activity: 2026-05-17
 
-Progress: Phase 1 [██████████] 100% · Phase 2 [██████████] 100% · Phase 3 [██████████] 100% · Phase 4 [██████████] 100% · Phase 5 [░░░░░░░░░░] 0% · Milestone M1 [████████░░] 80%
+Progress: [█████████░] 85%
 
 ## Performance Metrics
 
@@ -57,6 +57,7 @@ Progress: Phase 1 [██████████] 100% · Phase 2 [████
 - Trend: n/a
 
 *Updated after each plan completion*
+| Phase 05 P01 | 33min | 3 tasks | 25 files |
 
 ## Accumulated Context
 
@@ -69,6 +70,7 @@ Recent decisions affecting current work:
 - Roadmap: Phase 1 absorbs all 8 FOUND-* conventions + ARCH-* + STACK-* + LOG-* + CI sim-side + PrivacyInfo.xcprivacy skeleton — retrofitting later costs exponentially more (PITFALLS P1–P8)
 - Roadmap: App Attest (DEV-04) and physical-device CI (CI-03) split into Phase 4 (not bundled into Phase 3) so Apple App Attest rate-limits during testing don't block the Phase 3 visible-win demo
 - Roadmap: Infrastructure tax budgeted at 30% of M1 engineering time per PITFALLS P20 — explicit so it's not discovered at week 2
+- [Phase ?]: Phase 5 Wave 0: APIEndpoint.headers per-request seam landed once so plans 05-02..08 build against a fixed networking contract
 
 ### Pending Todos
 
@@ -90,7 +92,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-17T03:35:00.145Z
-Stopped at: Phase 5 UI-SPEC approved
-Resume file: .planning/phases/05-kyc-capture-upload-pipeline/05-UI-SPEC.md
+Last session: 2026-05-17T05:34:12.362Z
+Stopped at: Completed 05-01-PLAN.md
+Resume file: None
 Next command: `/gsd-plan-phase 5` (Phase 5 — KYC Capture & Upload Pipeline; consider `/gsd-discuss-phase 5` first)
