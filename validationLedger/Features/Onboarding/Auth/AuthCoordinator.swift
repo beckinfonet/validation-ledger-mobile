@@ -13,7 +13,15 @@ import UIKit
 @MainActor
 final class AuthCoordinator {
     let rootViewController: UIViewController
+
+    /// Fires when OTP-verify succeeds AND the user's `kycStatus == "verified"` —
+    /// AppCoordinator root-swaps to the role shell.
     var onAuthenticated: ((Role) -> Void)?
+
+    /// Phase 5 D-12: fires when OTP-verify succeeds but the user is not yet
+    /// KYC-verified — AppCoordinator root-swaps to `AppPhase.kyc(role)`, the KYC
+    /// hard gate. Bubbled from `OTPViewModel.onKYCRequired`.
+    var onKYCRequired: ((Role) -> Void)?
 
     private let nav: UINavigationController
     private let container: AppContainer
@@ -52,6 +60,10 @@ final class AuthCoordinator {
         let vc = OTPViewController(viewModel: vm)
         vm.onAuthenticated = { [weak self] role in
             self?.onAuthenticated?(role)
+        }
+        // Phase 5 D-12: a not-yet-KYC-verified user bubbles up through onKYCRequired.
+        vm.onKYCRequired = { [weak self] role in
+            self?.onKYCRequired?(role)
         }
         nav.pushViewController(vc, animated: true)
     }

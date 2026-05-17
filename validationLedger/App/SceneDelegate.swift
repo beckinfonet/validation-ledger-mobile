@@ -9,6 +9,12 @@ import UIKit
 public enum AppPhase {
     case launch
     case auth
+    /// Phase 5 D-12: the KYC hard-gate phase. After OTP-verify a user whose
+    /// `kycStatus != "verified"` is routed here (and on cold boot, a restored
+    /// session with a non-verified cached `kycStatus` lands here). Produces a
+    /// `KYCCoordinator`-driven capture flow; the role shell is unreachable until
+    /// KYC is submitted.
+    case kyc(Role)
     case role(Role)
     /// Phase 3 D-18 / DEV-06: routed to after `LogoutService.logout(.anotherActiveSession)`.
     /// Produces an `AnotherActiveSessionViewController` (terminal support-contact screen).
@@ -220,6 +226,12 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                     await self.performHeartbeatIfNeeded(container: container)
                 }
             }
+        case .needsKYC(let role):
+            // Phase 5 D-12/D-13: a restored session whose cached `kycStatus` is not
+            // "verified" routes into the KYC hard gate. No biometric lock overlay —
+            // the KYC capture flow has its own D-14 sign-out affordance, and the
+            // role shell is not constructed at all until KYC is submitted.
+            presentRoot(.kyc(role))
         case .needsAuth:
             presentRoot(.auth)
         }
@@ -313,6 +325,12 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
         coordinator.onLogout = { [weak self] in
             self?.presentRoot(.auth)   // Phase 3 replaces with real phone-entry screen
+        }
+        // Phase 5 D-12: a not-yet-KYC-verified user (post-OTP-verify) root-swaps
+        // into the `.kyc` hard gate. The role shell is unreachable until the
+        // KYCCoordinator's `onKYCSubmitted` fires `onRoleResolved`.
+        coordinator.onKYCRequired = { [weak self] role in
+            self?.presentRoot(.kyc(role))
         }
 
         self.appCoordinator = coordinator                       // single strong reference
