@@ -53,6 +53,13 @@ final class CapturePreviewViewController: UIViewController {
         view.backgroundColor = .black
         view.translatesAutoresizingMaskIntoConstraints = false
         view.accessibilityIdentifier = "kyc-preview-image"
+        // In a `.fill` vertical stack pinned top+bottom, a UIImageView's height
+        // comes ONLY from its image's intrinsic size — a nil/odd image collapses
+        // it to 0 (the FaceCapture round-2 bug class — debug session
+        // `kyc-flow-device-audit`). Hug at the lowest priority so the `.fill`
+        // stack always expands the image view into the leftover vertical space.
+        view.setContentHuggingPriority(.init(1), for: .vertical)
+        view.setContentCompressionResistancePriority(.init(1), for: .vertical)
         return view
     }()
 
@@ -107,17 +114,29 @@ final class CapturePreviewViewController: UIViewController {
         )
         imageView.image = previewImage
 
+        // The title + buttons hug their intrinsic vertical content firmly so the
+        // `.fill` stack leaves them content-sized and stretches the image view
+        // (debug session `kyc-flow-device-audit`).
+        titleLabel.setContentHuggingPriority(.required, for: .vertical)
+
         let buttons = UIStackView(arrangedSubviews: [useButton, retakeButton])
         buttons.axis = .vertical
         buttons.spacing = DS.Spacing.sm
         buttons.alignment = .fill
+        buttons.setContentHuggingPriority(.required, for: .vertical)
 
         let stack = UIStackView(arrangedSubviews: [titleLabel, imageView, buttons])
         stack.axis = .vertical
         stack.spacing = DS.Spacing.md
         stack.alignment = .fill
+        stack.distribution = .fill
         stack.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(stack)
+
+        let imageMinHeight = imageView.heightAnchor.constraint(
+            greaterThanOrEqualToConstant: 240
+        )
+        imageMinHeight.priority = .init(250)
 
         NSLayoutConstraint.activate([
             stack.topAnchor.constraint(
@@ -136,6 +155,10 @@ final class CapturePreviewViewController: UIViewController {
                 equalTo: view.safeAreaLayoutGuide.bottomAnchor,
                 constant: -DS.Spacing.xl
             ),
+            // Defense-in-depth min-height floor for the preview image — too low
+            // (priority 250) to fight the encapsulated layout, mirrors the
+            // FaceCapture round-3 fix (debug session `kyc-flow-device-audit`).
+            imageMinHeight,
             // 44pt touch-target floor on both buttons (UI-SPEC / HIG).
             useButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
             retakeButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),

@@ -29,6 +29,12 @@ final class DLFrontExtractionViewController: UIViewController {
     private let extraction: DLExtraction
     private let formatValidator = DLFieldFormatValidator()
 
+    /// Guards the D-05 format gate so it runs (and can auto-prompt a rescan)
+    /// exactly once — `viewDidAppear` can fire more than once, and an
+    /// auto-rescan that double-fires would pop the nav stack twice (debug
+    /// session `kyc-flow-device-audit`).
+    private var didRunFormatGate = false
+
     // MARK: - UI components
 
     private let titleLabel: UILabel = {
@@ -153,8 +159,10 @@ final class DLFrontExtractionViewController: UIViewController {
 
     /// Run `DLFieldFormatValidator` over the extracted fields. On a failure the
     /// inline notice is shown, the confirm CTA is disabled, and a rescan is
-    /// auto-prompted (D-05).
+    /// auto-prompted (D-05). Runs at most once per VC instance.
     private func runFormatGate() {
+        guard !didRunFormatGate else { return }
+        didRunFormatGate = true
         let result = formatValidator.validate(
             name: extraction.name,
             dlNumber: extraction.dlNumber,
