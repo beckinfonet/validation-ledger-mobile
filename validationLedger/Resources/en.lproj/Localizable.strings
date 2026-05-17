@@ -65,3 +65,39 @@
 "kyc.permission.open_settings" = "Open Settings";
 "kyc.permission.cancel" = "Cancel";
 "kyc.capture.shutter" = "Take photo";
+
+/* MARK: - KYC Review screen (Phase 5 Plan 06 — D-03 / KYC-01) */
+"kyc.review.nav_title" = "Review";
+"kyc.review.title" = "Review your photos";
+"kyc.review.submit" = "Submit";
+"kyc.review.submit_helper" = "Submit unlocks once all 6 photos finish uploading.";
+"kyc.review.retry_upload" = "Retry upload";
+"kyc.review.retake" = "Retake";
+"kyc.review.status.uploaded" = "Uploaded";
+"kyc.review.status.uploading" = "Uploading…";
+"kyc.review.status.failed" = "Upload failed.";
+"kyc.review.status.pending" = "Waiting to upload…";
+"kyc.review.error.submit_failed" = "We couldn't submit your verification. Try again.";
+"kyc.artifact.face" = "Selfie";
+"kyc.artifact.dl_front" = "License front";
+"kyc.artifact.dl_back" = "License back";
+"kyc.artifact.truck" = "Truck";
+"kyc.artifact.trailer" = "Trailer";
+"kyc.artifact.plate" = "Plate";
+
+/* MARK: - KYC status screen (Phase 5 Plan 06 — D-08..D-11 / KYC-05) */
+"kyc.status.nav_title" = "Verification";
+"kyc.status.continue" = "Continue";
+"kyc.status.retake" = "Retake";
+"kyc.status.error" = "We couldn't load your verification status. Pull down to try again.";
+"kyc.status.pending.title" = "Verification pending";
+"kyc.status.pending.body" = "We've received your photos. Verification will begin shortly.";
+"kyc.status.under_review.title" = "Under review";
+"kyc.status.under_review.body" = "Our team is reviewing your identity. This usually takes a short while.";
+"kyc.status.verified.title" = "You're verified";
+"kyc.status.verified.body" = "Your identity is confirmed. You can start using Validation Ledger.";
+"kyc.status.rejected.title" = "Some photos need a retake";
+"kyc.status.rejected.body" = "Retake the photos below. The rest of your verification is fine.";
+"kyc.status.empty.title" = "No verification in progress";
+"kyc.status.empty.body" = "Finish your KYC photos to start verification.";
+"kyc.status.error.title" = "Couldn't load status";

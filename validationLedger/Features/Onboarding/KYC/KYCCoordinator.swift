@@ -335,17 +335,89 @@ final class KYCCoordinator {
         nav.pushViewController(vc, animated: true)
     }
 
-    /// Step 8 — review + submit. STUB — plan 06 fills this in with the
-    /// `KYCReviewViewController` (D-03). For now it advances the sequencer so
-    /// the flow-state ordering is complete and testable.
+    /// Step 8 — the Review screen (KYC-01 / D-03). Builds the
+    /// `KYCReviewViewModel` + `KYCReviewViewController`: the 6-thumbnail grid
+    /// with the all-6-committed gated Submit. `onSubmitted` advances to the
+    /// status screen; `onRetake` re-opens the matching capture step.
     private func pushReview() {
-        // Plan 06 (KYCReviewViewController / KYCReviewViewModel) replaces this
-        // stub. The sequencer has already advanced to `.review`; plan 06 will
-        // push the real review screen here and wire `onKYCSubmitted`.
         container.logger.info(
             event: LogEvent("kyc_flow_reached_review"),
             fields: [:]
         )
+        let viewModel = KYCReviewViewModel(
+            apiClient: container.apiClient,
+            store: container.kycSessionStore,
+            kycUploader: container.kycUploader,
+            logger: container.logger
+        )
+        let vc = KYCReviewViewController(viewModel: viewModel)
+        installSignOutItem(on: vc)
+        viewModel.onSubmitted = { [weak self] in
+            self?.pushStatus()
+        }
+        viewModel.onRetake = { [weak self] artifact in
+            self?.reopenCapture(for: artifact)
+        }
+        nav.pushViewController(vc, animated: true)
+    }
+
+    /// Step 9 — the KYC status screen (KYC-05 / D-08). Builds the
+    /// `KYCStatusViewModel` + `KYCStatusViewController`: the 4-state verdict
+    /// screen with fetch-on-appear + pull-to-refresh (D-09) and per-artifact
+    /// re-capture of rejected artifacts (D-10). `onVerified` fires when the user
+    /// taps the verified "Continue" CTA — it bubbles to `AppCoordinator`
+    /// (`onKYCSubmitted`), which root-swaps to the role shell (plan 07).
+    private func pushStatus() {
+        let viewModel = KYCStatusViewModel(
+            apiClient: container.apiClient,
+            store: container.kycSessionStore,
+            logger: container.logger
+        )
+        let vc = KYCStatusViewController(viewModel: viewModel)
+        installSignOutItem(on: vc)
+        viewModel.onVerified = { [weak self] in
+            self?.onKYCSubmitted?()
+        }
+        viewModel.onRecapture = { [weak self] artifact in
+            self?.reopenCapture(for: artifact)
+        }
+        nav.pushViewController(vc, animated: true)
+    }
+
+    /// Re-open the capture step for a single artifact (D-03 Review-screen Retake
+    /// and D-10 status-screen rejected-artifact Retake). Verified/other
+    /// artifacts are left untouched — only the named capture step is re-pushed.
+    private func reopenCapture(for artifact: KYCUploadInitEndpoint.ArtifactType) {
+        container.logger.info(
+            event: LogEvent("kyc_recapture_pushed"),
+            fields: [.event: artifact.rawValue]
+        )
+        switch artifact {
+        case .face:
+            pushFaceCapture()
+        case .dlFront:
+            pushDLFrontScan()
+        case .dlBack:
+            pushDLBack()
+        case .truck:
+            nav.pushViewController(
+                makeVehicleCapture(artifact: .truck) { [weak self] in
+                    self?.kickUpload(for: .truck)
+                    self?.nav.popViewController(animated: true)
+                }, animated: true)
+        case .trailer:
+            nav.pushViewController(
+                makeVehicleCapture(artifact: .trailer) { [weak self] in
+                    self?.kickUpload(for: .trailer)
+                    self?.nav.popViewController(animated: true)
+                }, animated: true)
+        case .plate:
+            nav.pushViewController(
+                makeVehicleCapture(artifact: .plate) { [weak self] in
+                    self?.kickUpload(for: .plate)
+                    self?.nav.popViewController(animated: true)
+                }, animated: true)
+        }
     }
 
     // MARK: - Helpers
