@@ -25,6 +25,19 @@
 // Every log call routes through the injected `Logger` and carries event names
 // only — never artifact `Data`, chunk bytes, or any DL / coordinate value. The
 // `LogField` enum cannot physically carry image bytes.
+//
+// === D-01 live-progress slot (debug: kyc-review-stale-status) ===
+// `onProgress` is a SETTABLE slot, not an init-time constant. The Review screen's
+// `KYCReviewViewModel` is constructed in `KYCCoordinator.pushReview()`, long after
+// `AppContainer.init` builds this uploader — so the uploader cannot be handed the
+// review VM at construction. Instead `pushReview()` calls `setOnProgress(_:)` with
+// a closure that WEAKLY captures the review VM and hops to `@MainActor`. The
+// closure fires once per server chunk-ack (UPL-04) AND is guaranteed to reach
+// `fraction == 1.0` once `commit` succeeds — so an upload that lands after the
+// Review screen's single `viewWillAppear` refresh still drives the row to
+// `.uploaded`. The post-commit `1.0` emission is suppressed only when the chunk
+// loop's final ack already reported `1.0` (the common backend behaviour the
+// UPL-04 progress tests exercise) — so the observer never sees a duplicate.
 
 import Foundation
 import CryptoKit
@@ -35,6 +48,11 @@ import CryptoKit
 /// (`chunksAcked`) is read, advanced, and persisted without races even when
 /// `resumeAllPendingUploads()` walks several artifacts.
 public actor KYCUploader {
+
+    /// The live-progress observer closure shape — invoked with the artifact and
+    /// a `0...1` completion fraction. `1.0` means the artifact has committed.
+    public typealias ProgressObserver =
+        @Sendable (KYCUploadInitEndpoint.ArtifactType, Double) -> Void
 
     // MARK: - Tunables
 
@@ -59,19 +77,38 @@ public actor KYCUploader {
     private let logger: any Logger
 
     /// UPL-04 progress observer — invoked once per server chunk-ack with the
-    /// fraction `chunksAcked / totalChunks`. Never byte-driven (Pitfall 3).
-    private let onProgress: (@Sendable (KYCUploadInitEndpoint.ArtifactType, Double) -> Void)?
+    /// fraction `chunksAcked / totalChunks`, and guaranteed to reach `1.0` once
+    /// `commit` succeeds. Never byte-driven (Pitfall 3).
+    ///
+    /// SETTABLE (debug: kyc-review-stale-status): the Review VM that consumes
+    /// this is built after the uploader, so `setOnProgress(_:)` installs the
+    /// observer when the Review screen appears. A second `pushReview()` on a
+    /// fresh VM replaces the slot cleanly; the installed closure WEAKLY captures
+    /// its VM so a stale closure that briefly outlives a restarted flow is inert.
+    private var onProgress: ProgressObserver?
 
     public init(
         apiClient: APIClient,
         store: KYCSessionStore,
         logger: any Logger,
-        onProgress: (@Sendable (KYCUploadInitEndpoint.ArtifactType, Double) -> Void)? = nil
+        onProgress: ProgressObserver? = nil
     ) {
         self.apiClient = apiClient
         self.store = store
         self.logger = logger
         self.onProgress = onProgress
+    }
+
+    /// Install (or replace) the live-progress observer (UPL-04 / debug:
+    /// kyc-review-stale-status). `KYCCoordinator.pushReview()` calls this with a
+    /// closure that weakly captures the freshly-built `KYCReviewViewModel`.
+    ///
+    /// Replacing the slot on a second `pushReview()` is the intended lifecycle:
+    /// the old closure is dropped, so the new review VM is the only observer.
+    /// Pass `nil` to clear the slot (e.g. when the Review screen is left and no
+    /// VM should be driven).
+    public func setOnProgress(_ observer: ProgressObserver?) {
+        self.onProgress = observer
     }
 
     // MARK: - Public pipeline
@@ -143,11 +180,21 @@ public actor KYCUploader {
             // The local copy is gone — already committed (D-02). Nothing to do.
             logger.info(event: LogEvent("kyc_upload_already_committed"),
                         fields: [.event: artifactType.rawValue])
+            // The artifact is committed on disk; surface that to a live Review
+            // observer that may have been installed after the commit landed
+            // (debug: kyc-review-stale-status).
+            onProgress?(artifactType, 1.0)
             return
         }
         let chunks = data.chunked(into: chunkSize)
         let totalChunks = chunks.count
         let startIndex = try store.loadSession()?.state(for: artifactType)?.chunksAcked ?? 0
+
+        // Track the last fraction emitted to the observer so the post-commit
+        // 1.0 emission can be suppressed when the final chunk-ack already
+        // reported 1.0 — the observer must never see a duplicate (debug:
+        // kyc-review-stale-status; preserves the UPL-04 progress-test contract).
+        var lastEmittedFraction: Double? = nil
 
         for index in startIndex..<totalChunks {
             let chunk = chunks[index]
@@ -165,6 +212,7 @@ public actor KYCUploader {
             // UPL-04 — progress is driven from the server ack, never bytes.
             let total = ackResponse.totalChunks > 0 ? ackResponse.totalChunks : totalChunks
             let fraction = Double(ackResponse.chunksAcked) / Double(total)
+            lastEmittedFraction = fraction
             onProgress?(artifactType, fraction)
         }
 
@@ -199,6 +247,17 @@ public actor KYCUploader {
         )
         logger.info(event: LogEvent("kyc_upload_committed"),
                     fields: [.event: artifactType.rawValue])
+
+        // D-01 live-progress (debug: kyc-review-stale-status) — the artifact is
+        // now committed on the backend; guarantee any live Review observer's row
+        // is driven to `.uploaded` (`fraction == 1.0`). This is the emission the
+        // Review screen's stale single `viewWillAppear` refresh used to miss for
+        // the last-captured artifact (Plate). Suppressed only when the final
+        // chunk-ack already reported exactly 1.0 — so the observer never sees a
+        // duplicate and the UPL-04 progress-test fraction sequence is unchanged.
+        if lastEmittedFraction != 1.0 {
+            onProgress?(artifactType, 1.0)
+        }
     }
 
     /// Resume every not-yet-committed artifact in the persisted `KYCSession`.

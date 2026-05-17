@@ -27,6 +27,18 @@
 // `Task { await container.kycUploader.upload(artifactType:) }` — the upload runs
 // while the user keeps shooting the remaining artifacts.
 //
+// === D-01 LIVE REVIEW REFRESH (debug: kyc-review-stale-status) ===
+// The last-captured artifact (Plate) has its upload kicked at the *same instant*
+// the Review screen is pushed — so its commit lands AFTER the Review screen's
+// single `viewWillAppear` refresh. `pushReview()` therefore installs a
+// `KYCUploader.onProgress` observer that WEAKLY captures the freshly-built
+// `KYCReviewViewModel` and hops to `@MainActor`, so an upload that completes
+// while the user is on the Review screen still drives its row to `.uploaded`.
+// `kickUpload(for:)`'s failure path likewise flips the row to `.failed` via the
+// same weakly-held VM. The VM is held weakly so a restarted KYC flow / re-created
+// coordinator never drives a dead VM; a second `pushReview()` cleanly replaces
+// both the weak reference and the uploader's `onProgress` slot.
+//
 // === D-14 SIGN-OUT ===
 // The nav chrome carries a sign-out bar-button on EVERY capture screen. Tapping
 // it shows the UI-SPEC destructive "Sign out of Validation Ledger?" confirmation;
@@ -138,6 +150,16 @@ final class KYCCoordinator {
     /// bookkeeping. Tests exercise `KYCFlowSequencer` directly.
     private var sequencer = KYCFlowSequencer()
 
+    /// The Review screen's view-model, held WEAKLY (debug:
+    /// kyc-review-stale-status). `pushReview()` builds the VM, the nav stack
+    /// retains it via its `KYCReviewViewController`, and this weak reference lets
+    /// `kickUpload(for:)`'s failure path drive `markFailed(_:)` on the *current*
+    /// Review VM — without pinning a VM from a Review screen the user has since
+    /// left or a restarted KYC flow. A `nil` here simply means no Review screen
+    /// is live, so a pipelined-upload failure has no row to flip yet (the
+    /// Review screen's own `refresh()` / pull-to-refresh covers that case).
+    private weak var reviewViewModel: KYCReviewViewModel?
+
     init(container: AppContainer) {
         self.container = container
         self.geoContext = container.geoContext
@@ -216,18 +238,31 @@ final class KYCCoordinator {
 
     /// Kick the pipelined background upload for `artifact` (D-01). Called on
     /// each capture-confirm — the chunk loop runs while the user keeps shooting.
+    ///
+    /// On failure: if a Review screen is live, flip that artifact's row to
+    /// `.failed` on the weakly-held `reviewViewModel` (debug:
+    /// kyc-review-stale-status) — so an upload that exhausts its retries while
+    /// the user is on the Review screen surfaces the ⚠ badge + inline recovery
+    /// without waiting for a manual refresh. When no Review screen is live the
+    /// failure is only logged; the Review screen's own `refresh()` on appear
+    /// recomputes the row from the persisted (non-committed) state.
     private func kickUpload(for artifact: KYCUploadInitEndpoint.ArtifactType) {
         let uploader = container.kycUploader
-        Task {
+        Task { [weak self] in
             do {
                 try await uploader.upload(artifactType: artifact)
             } catch {
                 // A failed upload is recoverable from the plan-06 review screen
                 // ("Retry upload"); it must not block the capture flow.
-                container.logger.warn(
+                self?.container.logger.warn(
                     event: LogEvent("kyc_pipelined_upload_failed"),
                     fields: [.event: artifact.rawValue]
                 )
+                // Drive the live Review row to `.failed` (no-op if no Review
+                // screen is live or its VM has been deallocated).
+                await MainActor.run {
+                    self?.reviewViewModel?.markFailed(artifact)
+                }
             }
         }
     }
@@ -372,6 +407,14 @@ final class KYCCoordinator {
         let vc = makeVehicleCapture(artifact: .plate) { [weak self] in
             // Issue 2b — kick `.plate` directly. The OLD sequencer-routed kick
             // never reached this artifact at all (the off-by-one).
+            //
+            // NOTE (debug: kyc-review-stale-status): `.plate`'s upload is kicked
+            // here, then `pushReview()` is called synchronously on the next
+            // line — so Plate's commit lands AFTER the Review screen's single
+            // `viewWillAppear` refresh. The live `onProgress` observer that
+            // `pushReview()` installs is what drives Plate's row to `.uploaded`
+            // when that commit lands. Navigation is intentionally NOT gated on
+            // the upload — the live-refresh wiring is the fix.
             self?.advanceFlowStep()
             self?.kickUpload(for: .plate)
             self?.pushReview()
@@ -383,6 +426,15 @@ final class KYCCoordinator {
     /// `KYCReviewViewModel` + `KYCReviewViewController`: the 6-thumbnail grid
     /// with the all-6-committed gated Submit. `onSubmitted` advances to the
     /// status screen; `onRetake` re-opens the matching capture step.
+    ///
+    /// Live-refresh wiring (debug: kyc-review-stale-status): installs a
+    /// `KYCUploader.onProgress` observer that hops to `@MainActor` and feeds the
+    /// freshly-built `KYCReviewViewModel`. The observer WEAKLY captures the VM,
+    /// and the VM is also retained weakly by this coordinator (`reviewViewModel`)
+    /// so `kickUpload`'s failure path can reach it. A second `pushReview()` on a
+    /// fresh VM replaces both the weak reference AND the uploader's slot — the
+    /// previous VM's closure is dropped and, being a weak capture, is inert even
+    /// if it briefly survives.
     private func pushReview() {
         container.logger.info(
             event: LogEvent("kyc_flow_reached_review"),
@@ -394,6 +446,12 @@ final class KYCCoordinator {
             kycUploader: container.kycUploader,
             logger: container.logger
         )
+        // Hold the Review VM weakly so `kickUpload`'s failure path can flip a
+        // row to `.failed` on the *current* Review screen (debug:
+        // kyc-review-stale-status). The nav stack owns the strong reference via
+        // the VC; this never extends the VM's lifetime.
+        self.reviewViewModel = viewModel
+
         let vc = KYCReviewViewController(viewModel: viewModel)
         installSignOutItem(on: vc)
         viewModel.onSubmitted = { [weak self] in
@@ -402,6 +460,23 @@ final class KYCCoordinator {
         viewModel.onRetake = { [weak self] artifact in
             self?.reopenCapture(for: artifact)
         }
+
+        // D-01 live-refresh — install the uploader progress observer. The
+        // closure WEAKLY captures `viewModel` and hops to `@MainActor`
+        // (`KYCReviewViewModel` is `@MainActor`-isolated). An upload that
+        // commits after the Review screen's single `viewWillAppear` refresh —
+        // the last-captured Plate artifact in particular — therefore still
+        // drives its row via `updateProgress(for:fraction:)`. `setOnProgress`
+        // is `actor`-isolated on `KYCUploader`, so it is set from a `Task`.
+        let uploader = container.kycUploader
+        Task {
+            await uploader.setOnProgress { [weak viewModel] artifact, fraction in
+                Task { @MainActor in
+                    viewModel?.updateProgress(for: artifact, fraction: fraction)
+                }
+            }
+        }
+
         nav.pushViewController(vc, animated: true)
     }
 

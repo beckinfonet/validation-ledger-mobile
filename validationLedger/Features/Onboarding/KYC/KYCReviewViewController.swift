@@ -16,6 +16,17 @@
 //   - the "Submit" primary CTA (`borderedProminent`), disabled until
 //     `submitEnabled`; while disabled the helper caption explains the gate.
 //
+// === Live upload refresh (debug: kyc-review-stale-status) ===
+// `viewWillAppear` fires `viewModel.refresh()` exactly once. The last-captured
+// artifact (Plate) has its upload kicked at the same instant this screen is
+// pushed, so its commit lands AFTER that single refresh. Two mechanisms keep the
+// grid live afterwards:
+//   1. PRIMARY — `KYCCoordinator.pushReview()` installs a `KYCUploader.onProgress`
+//      observer that feeds `viewModel.updateProgress(...)` as uploads land.
+//   2. SAFETY NET — this VC adds a `UIRefreshControl` pull-to-refresh on the
+//      scroll view calling `viewModel.refresh()`, so a user who sees a stuck row
+//      always has a manual recovery that re-reads the persisted store.
+//
 // All copy via `NSLocalizedString(_, value:)`; all spacing via `DS.Spacing`;
 // `adjustsFontForContentSizeCategory = true` throughout.
 
@@ -30,8 +41,17 @@ final class KYCReviewViewController: UIViewController {
     private let scrollView: UIScrollView = {
         let s = UIScrollView()
         s.translatesAutoresizingMaskIntoConstraints = false
+        // Always allow the pull-to-refresh gesture even when the content is
+        // shorter than the viewport (debug: kyc-review-stale-status).
+        s.alwaysBounceVertical = true
         return s
     }()
+
+    /// Pull-to-refresh safety net (debug: kyc-review-stale-status) — a manual
+    /// re-read of the persisted `KYCSession` for the user whose row looks stuck.
+    /// The PRIMARY live-refresh path is the coordinator-installed
+    /// `KYCUploader.onProgress` observer; this is the cheap manual fallback.
+    private let refreshControl = UIRefreshControl()
 
     private let contentStack: UIStackView = {
         let s = UIStackView()
@@ -145,7 +165,11 @@ final class KYCReviewViewController: UIViewController {
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         // Re-read the persisted session — pipelined uploads (D-01) may have
-        // completed while the user was still capturing.
+        // completed while the user was still capturing. NOTE: this is a SINGLE
+        // read; the last-captured artifact's commit can land after it. The
+        // coordinator-installed `KYCUploader.onProgress` observer and the
+        // `UIRefreshControl` pull-to-refresh cover that window (debug:
+        // kyc-review-stale-status).
         viewModel.refresh()
     }
 
@@ -180,6 +204,10 @@ final class KYCReviewViewController: UIViewController {
         view.addSubview(scrollView)
         scrollView.addSubview(contentStack)
 
+        // Pull-to-refresh safety net (debug: kyc-review-stale-status).
+        refreshControl.accessibilityIdentifier = "kyc-review-refresh"
+        scrollView.refreshControl = refreshControl
+
         contentStack.addArrangedSubview(headingLabel)
         contentStack.addArrangedSubview(gridStack)
         contentStack.addArrangedSubview(submitButton)
@@ -209,6 +237,9 @@ final class KYCReviewViewController: UIViewController {
 
     private func wireActions() {
         submitButton.addTarget(self, action: #selector(submitTapped), for: .touchUpInside)
+        // Pull-to-refresh safety net (debug: kyc-review-stale-status) — re-reads
+        // the persisted store so a stuck row recovers on a manual pull.
+        refreshControl.addTarget(self, action: #selector(pullToRefresh), for: .valueChanged)
     }
 
     private func bindViewModel() {
@@ -226,6 +257,15 @@ final class KYCReviewViewController: UIViewController {
 
     @objc private func submitTapped() {
         Task { await viewModel.submit() }
+    }
+
+    /// Pull-to-refresh handler (debug: kyc-review-stale-status). Re-reads the
+    /// persisted `KYCSession` via `viewModel.refresh()` — the manual fallback to
+    /// the coordinator-installed live `onProgress` observer. `refresh()` is
+    /// synchronous, so the spinner is ended on the next runloop tick.
+    @objc private func pullToRefresh() {
+        viewModel.refresh()
+        refreshControl.endRefreshing()
     }
 
     // MARK: - State → UI

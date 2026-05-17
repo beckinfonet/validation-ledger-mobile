@@ -21,6 +21,14 @@
 // uploader's retries are exhausted. `KYCUploader`'s `onProgress` observer feeds
 // the live `.uploading` fraction; `refresh()` re-reads the persisted store.
 //
+// === Single-fire callback discipline (debug: kyc-review-stale-status) ===
+// `rows` carries a `didSet` that fires BOTH `onRowsChange` AND
+// `onSubmitEnabledChange`. The live-refresh mutators (`updateProgress`,
+// `markFailed`, `retryUpload`) therefore mutate `rows` and let the `didSet` do
+// the one notification — they do NOT additionally call the callbacks by hand
+// (that produced a redundant double-fire of the VC render path). The `didSet` is
+// the single source of truth for "the grid changed".
+//
 // === Session lifetime (D-02) ===
 // `submit()` does NOT clear the on-disk KYC session. The session is cleared only
 // once `KYCStatusEndpoint` confirms a `verified` verdict — that happens in
@@ -94,8 +102,12 @@ public final class KYCReviewViewModel {
         didSet { onStateChange?(state) }
     }
 
-    /// The current 6-row grid model. Mutating it re-fires `onRowsChange` so the
-    /// Review VC can reload affected cells.
+    /// The current 6-row grid model. Mutating it — the whole array OR a single
+    /// element's `status` via the subscript — re-fires `onRowsChange` and
+    /// `onSubmitEnabledChange` exactly once, so the Review VC reloads the grid
+    /// and re-evaluates the Submit gate. The live-refresh mutators rely on this
+    /// `didSet` and do not call the callbacks themselves (debug:
+    /// kyc-review-stale-status).
     public private(set) var rows: [ArtifactRow] = [] {
         didSet {
             onRowsChange?(rows)
@@ -148,7 +160,8 @@ public final class KYCReviewViewModel {
     // MARK: - Refresh
 
     /// Re-read the persisted `KYCSession` and recompute every row's status AND
-    /// thumbnail. Called on `viewWillAppear` and after a retry so the grid
+    /// thumbnail. Called on `viewWillAppear`, after a retry, and from the Review
+    /// screen's pull-to-refresh (debug: kyc-review-stale-status) so the grid
     /// reflects the pipelined uploads that ran while the user was still
     /// capturing (D-01) and renders the captured-photo thumbnails.
     ///
@@ -196,6 +209,13 @@ public final class KYCReviewViewModel {
 
     /// Update one artifact's row from a live `KYCUploader.onProgress` callback
     /// (D-01 pipelined upload). `fraction == 1.0` is treated as committed.
+    ///
+    /// This is the path the coordinator-installed `onProgress` observer drives
+    /// so an upload that commits AFTER the Review screen's single
+    /// `viewWillAppear` refresh still reaches the grid — the last-captured Plate
+    /// artifact in particular (debug: kyc-review-stale-status). The single
+    /// `rows[index].status` mutation fires the `rows` `didSet` once, which is
+    /// the only notification the VC needs.
     public func updateProgress(
         for artifact: KYCUploadInitEndpoint.ArtifactType,
         fraction: Double
@@ -206,18 +226,16 @@ public final class KYCReviewViewModel {
             : .uploading(progress: min(max(fraction, 0), 1))
         guard rows[index].status != newStatus else { return }
         rows[index].status = newStatus
-        onRowsChange?(rows)
-        onSubmitEnabledChange?(submitEnabled)
     }
 
     /// Mark an artifact's row failed — invoked when a pipelined upload throws
-    /// after the uploader's retries are exhausted.
+    /// after the uploader's retries are exhausted (the coordinator's
+    /// `kickUpload` catch path drives this — debug: kyc-review-stale-status).
+    /// The single `rows[index].status` mutation fires the `rows` `didSet` once.
     public func markFailed(_ artifact: KYCUploadInitEndpoint.ArtifactType) {
         guard let index = rows.firstIndex(where: { $0.artifact == artifact }) else { return }
         guard rows[index].status != .failed else { return }
         rows[index].status = .failed
-        onRowsChange?(rows)
-        onSubmitEnabledChange?(submitEnabled)
     }
 
     // MARK: - submit() — D-03 thin finalizer
@@ -284,9 +302,8 @@ public final class KYCReviewViewModel {
     /// success the row flips to `.uploaded`; on failure it stays `.failed`.
     public func retryUpload(artifactType: KYCUploadInitEndpoint.ArtifactType) async {
         guard let index = rows.firstIndex(where: { $0.artifact == artifactType }) else { return }
+        // Show the in-progress state — the single mutation fires the `didSet`.
         rows[index].status = .uploading(progress: 0)
-        onRowsChange?(rows)
-        onSubmitEnabledChange?(submitEnabled)
         do {
             try await kycUploader.upload(artifactType: artifactType)
             logger.info(
