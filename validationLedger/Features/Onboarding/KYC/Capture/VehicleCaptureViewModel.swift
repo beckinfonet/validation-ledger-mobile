@@ -120,22 +120,40 @@ final class VehicleCaptureViewModel {
 
     /// Start the (back) camera. No-ops the live session on the simulator
     /// (RESEARCH Pitfall 1).
+    ///
+    /// The session start is routed through `startAuthorizedSession` so camera
+    /// authorization is resolved BEFORE the `AVCaptureSession` is configured +
+    /// started. A session started before the permission grant resolves never
+    /// receives the camera feed — the preview would stay black even after the
+    /// user grants access. Awaiting the permission resolution closes that race.
     func start() {
         guard AVFoundationCameraSession.isCameraAvailable else {
             logger.info(event: LogEvent("kyc_vehicle_capture_no_camera"),
                         fields: [.event: artifactType.rawValue])
             return
         }
-        do {
-            try cameraSession.configure(position: .back)
-            cameraSession.start()
-            state = .ready
-        } catch {
-            state = .failed(NSLocalizedString(
-                "kyc.error.camera_unavailable",
-                value: "The camera isn't available on this device.",
-                comment: "KYC camera-unavailable error"
-            ))
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await self.cameraSession.startAuthorizedSession(position: .back)
+                self.state = .ready
+            } catch CameraSessionError.permissionDenied {
+                self.logger.warn(
+                    event: LogEvent("kyc_vehicle_capture_permission_denied"),
+                    fields: [.event: self.artifactType.rawValue]
+                )
+                self.state = .failed(NSLocalizedString(
+                    "kyc.error.camera_permission",
+                    value: "Camera access is needed to verify your identity. Turn it on in Settings.",
+                    comment: "KYC camera-permission-denied capture error"
+                ))
+            } catch {
+                self.state = .failed(NSLocalizedString(
+                    "kyc.error.camera_unavailable",
+                    value: "The camera isn't available on this device.",
+                    comment: "KYC camera-unavailable error"
+                ))
+            }
         }
     }
 

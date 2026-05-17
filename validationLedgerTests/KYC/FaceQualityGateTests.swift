@@ -125,4 +125,23 @@ struct CameraSessionAvailabilityTests {
         // report false so the capture VCs branch away from a live session.
         #expect(AVFoundationCameraSession.isCameraAvailable == false)
     }
+
+    /// Regression lock for the black-preview defect (debug session
+    /// `front-camera-preview-black`): an `AVCaptureSession` started BEFORE the
+    /// camera-permission grant resolves never receives the camera feed. The
+    /// fix routes every capture screen's session start through
+    /// `startAuthorizedSession`, which awaits `requestPermission()` first.
+    /// This test pins that permission-gated entry point onto the `CameraSession`
+    /// protocol so a future change cannot quietly drop it and reintroduce the
+    /// start-before-grant race.
+    @Test("CameraSession exposes the permission-gated startAuthorizedSession entry point")
+    @MainActor
+    func cameraSessionExposesAuthorizedStart() async {
+        let session: any CameraSession = AVFoundationCameraSession()
+        // Referencing the method as a value proves it is part of the protocol
+        // contract — the capture VMs MUST start the session through this path,
+        // never via a bare configure()/start() that races the permission grant.
+        let authorizedStart: (CameraPosition) async throws -> Void = session.startAuthorizedSession
+        _ = authorizedStart
+    }
 }

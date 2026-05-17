@@ -60,6 +60,7 @@
 "kyc.preview.retake" = "Retake";
 "kyc.error.gps_stale" = "We couldn't confirm your location. Move to an open area and try the photo again.";
 "kyc.error.camera_unavailable" = "The camera isn't available on this device.";
+"kyc.error.camera_permission" = "Camera access is needed to verify your identity. Turn it on in Settings.";
 "kyc.permission.heading" = "Camera access needed";
 "kyc.permission.body" = "Validation Ledger needs your camera to photograph your ID and vehicle. Turn it on in Settings.";
 "kyc.permission.open_settings" = "Open Settings";

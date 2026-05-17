@@ -102,23 +102,42 @@ final class FaceCaptureViewModel {
     /// Start the camera + the quality-gate signal stream. On the simulator
     /// `isCameraAvailable` is false so this no-ops the live session
     /// (RESEARCH Pitfall 1).
+    ///
+    /// The session start is routed through `startAuthorizedSession` so camera
+    /// authorization is resolved BEFORE the `AVCaptureSession` is configured +
+    /// started. A session started before the permission grant resolves never
+    /// receives the camera feed — the preview would stay black even after the
+    /// user grants access. Awaiting the permission resolution closes that race.
     func start() {
         guard AVFoundationCameraSession.isCameraAvailable else {
             logger.info(event: LogEvent("kyc_face_capture_no_camera"), fields: [:])
             return
         }
-        do {
-            try cameraSession.configure(position: .front)
-            cameraSession.start()
-        } catch {
-            state = .failed(NSLocalizedString(
-                "kyc.error.camera_unavailable",
-                value: "The camera isn't available on this device.",
-                comment: "KYC camera-unavailable error"
-            ))
-            return
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await self.cameraSession.startAuthorizedSession(position: .front)
+            } catch CameraSessionError.permissionDenied {
+                self.logger.warn(
+                    event: LogEvent("kyc_face_capture_permission_denied"),
+                    fields: [:]
+                )
+                self.state = .failed(NSLocalizedString(
+                    "kyc.error.camera_permission",
+                    value: "Camera access is needed to verify your identity. Turn it on in Settings.",
+                    comment: "KYC camera-permission-denied capture error"
+                ))
+                return
+            } catch {
+                self.state = .failed(NSLocalizedString(
+                    "kyc.error.camera_unavailable",
+                    value: "The camera isn't available on this device.",
+                    comment: "KYC camera-unavailable error"
+                ))
+                return
+            }
+            self.observeGateSignals()
         }
-        observeGateSignals()
     }
 
     /// Stop the camera + the signal stream.

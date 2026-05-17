@@ -53,6 +53,20 @@ public protocol CameraSession: AnyObject {
     /// `CameraSessionError.cameraUnavailable` on hardware without a camera.
     @MainActor func configure(position: CameraPosition) throws
 
+    /// Resolve camera authorization, then (only if granted) configure the
+    /// session for `position` and start it running.
+    ///
+    /// This is the correct entry point for the capture screens: an
+    /// `AVCaptureSession` started BEFORE the camera-permission grant resolves
+    /// never receives the camera feed — the preview stays black even after the
+    /// user taps "Allow". Awaiting `requestPermission()` here guarantees the
+    /// session is configured + started only once authorization is resolved.
+    ///
+    /// Throws `CameraSessionError.permissionDenied` when authorization is
+    /// denied/restricted, `.cameraUnavailable` on hardware with no camera, or
+    /// `.configurationFailed` if the front/back input cannot be added.
+    @MainActor func startAuthorizedSession(position: CameraPosition) async throws
+
     /// Start the capture session running.
     @MainActor func start()
 
@@ -103,6 +117,16 @@ public final class AVFoundationCameraSession: NSObject, CameraSession,
         return layer
     }()
 
+    /// Dedicated serial queue for `AVCaptureSession` lifecycle work.
+    ///
+    /// `beginConfiguration`/`commitConfiguration` and especially
+    /// `startRunning()` are blocking calls that Apple documents MUST NOT run on
+    /// the main thread (`startRunning()` blocks until the session has started —
+    /// on the main thread it stalls the UI and the camera pipeline). All session
+    /// mutation hops onto this queue; the `@MainActor` API surface stays
+    /// unchanged for callers.
+    private let sessionQueue = DispatchQueue(label: "com.maldin.validationLedger.camera.session")
+
     /// Bridges the single `AVCapturePhotoCaptureDelegate` callback into the
     /// `capturePhoto()` async result — the `LocationProvider` continuation pattern.
     private var captureContinuation: CheckedContinuation<AVCapturePhoto, Error>?
@@ -122,37 +146,76 @@ public final class AVFoundationCameraSession: NSObject, CameraSession,
         guard Self.isCameraAvailable else {
             throw CameraSessionError.cameraUnavailable
         }
-        session.beginConfiguration()
-        defer { session.commitConfiguration() }
+        try configureSessionInputs(position: position)
+    }
 
-        // Remove any existing inputs before (re)configuring.
-        for input in session.inputs {
-            session.removeInput(input)
+    public func startAuthorizedSession(position: CameraPosition) async throws {
+        guard Self.isCameraAvailable else {
+            throw CameraSessionError.cameraUnavailable
         }
-        let device = try captureDevice(for: position)
-        guard let input = try? AVCaptureDeviceInput(device: device),
-              session.canAddInput(input) else {
-            throw CameraSessionError.configurationFailed
-        }
-        session.addInput(input)
 
-        if !session.outputs.contains(photoOutput), session.canAddOutput(photoOutput) {
-            session.addOutput(photoOutput)
+        // Resolve authorization FIRST. An AVCaptureSession configured + started
+        // before the camera-permission grant resolves never receives the
+        // camera feed — the preview stays black even after the user taps
+        // "Allow". `requestPermission()` prompts on `.notDetermined` and
+        // returns only once the user has decided.
+        let status = await requestPermission()
+        guard status == .authorized else {
+            throw CameraSessionError.permissionDenied
+        }
+
+        // Configure inputs, then start — both on the session queue, off the
+        // main thread (`startRunning()` is blocking).
+        try configureSessionInputs(position: position)
+        start()
+    }
+
+    public nonisolated func start() {
+        sessionQueue.async { [session] in
+            guard !session.isRunning else { return }
+            session.startRunning()
         }
     }
 
-    public func start() {
-        guard !session.isRunning else { return }
-        session.startRunning()
-    }
-
-    public func stop() {
-        guard session.isRunning else { return }
-        session.stopRunning()
+    public nonisolated func stop() {
+        sessionQueue.async { [session] in
+            guard session.isRunning else { return }
+            session.stopRunning()
+        }
     }
 
     public func switchCamera(to position: CameraPosition) throws {
-        try configure(position: position)
+        try configureSessionInputs(position: position)
+    }
+
+    /// Configure the session's camera input + photo output for `position`.
+    ///
+    /// Runs synchronously on `sessionQueue` (off the main thread —
+    /// `beginConfiguration`/`commitConfiguration` are blocking) and rethrows
+    /// any `CameraSessionError` raised inside the configuration block to the
+    /// caller. `nonisolated` because it touches no `@MainActor` state — only
+    /// the thread-safe `AVCaptureSession`/`AVCapturePhotoOutput`, whose access
+    /// `sessionQueue` serializes.
+    private nonisolated func configureSessionInputs(position: CameraPosition) throws {
+        try sessionQueue.sync { [session, photoOutput] in
+            session.beginConfiguration()
+            defer { session.commitConfiguration() }
+
+            // Remove any existing inputs before (re)configuring.
+            for input in session.inputs {
+                session.removeInput(input)
+            }
+            let device = try Self.captureDevice(for: position)
+            guard let input = try? AVCaptureDeviceInput(device: device),
+                  session.canAddInput(input) else {
+                throw CameraSessionError.configurationFailed
+            }
+            session.addInput(input)
+
+            if !session.outputs.contains(photoOutput), session.canAddOutput(photoOutput) {
+                session.addOutput(photoOutput)
+            }
+        }
     }
 
     public func capturePhoto() async throws -> AVCapturePhoto {
@@ -190,7 +253,12 @@ public final class AVFoundationCameraSession: NSObject, CameraSession,
 
     // MARK: - Helpers
 
-    private func captureDevice(for position: CameraPosition) throws -> AVCaptureDevice {
+    /// Resolve the `.builtInWideAngleCamera` for `position`. `static nonisolated`
+    /// so it can run inside the `sessionQueue` configuration block — it touches
+    /// no instance or `@MainActor` state.
+    private nonisolated static func captureDevice(
+        for position: CameraPosition
+    ) throws -> AVCaptureDevice {
         let avPosition: AVCaptureDevice.Position = position == .front ? .front : .back
         let discovery = AVCaptureDevice.DiscoverySession(
             deviceTypes: [.builtInWideAngleCamera],
