@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Completed 05-01-PLAN.md
-last_updated: "2026-05-17T05:49:40.711Z"
+last_updated: "2026-05-17T06:04:17.106Z"
 last_activity: 2026-05-17
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 46
-  completed_plans: 40
+  completed_plans: 41
   percent: 80
 ---
 
@@ -26,12 +26,12 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 ## Current Position
 
 Phase: 05 (kyc-capture-upload-pipeline) — EXECUTING
-Plan: 3 of 8
+Plan: 4 of 8
 Status: Ready to execute
 Next: Phase 5 — KYC Capture & Upload Pipeline (no plans yet — start with `/gsd-discuss-phase 5` or `/gsd-plan-phase 5`)
 Last activity: 2026-05-17
 
-Progress: [█████████░] 87%
+Progress: [█████████░] 89%
 
 ## Performance Metrics
 
@@ -59,6 +59,7 @@ Progress: [█████████░] 87%
 *Updated after each plan completion*
 | Phase 05 P01 | 33min | 3 tasks | 25 files |
 | Phase 05 P02 | 11min | 3 tasks | 7 files |
+| Phase 05 P03 | 24min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,8 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 5 Wave 0: APIEndpoint.headers per-request seam landed once so plans 05-02..08 build against a fixed networking contract
 - [Phase ?]: Phase 5 Plan 02: KYCSessionStore uses NSFileProtectionComplete file-level encryption; simulator downgrades to CompleteUntilFirstUserAuthentication (documented), strict .complete verified on device CI
 - [Phase ?]: Phase 5 Plan 02: the on-disk KYC session store is deliberately excluded from LogoutService teardown (D-02) so an in-progress KYC survives a logout
+- [Phase ?]: Phase 5 Plan 03: FaceQualityGate.evaluate() is reached via the VisionFaceQualityGate concrete conformer — Swift forbids a static-member call on a bare protocol metatype
+- [Phase ?]: Phase 5 Plan 03: CameraSession.isCameraAvailable is nonisolated static so any actor (and the simulator test) can branch on the hardware gate without a MainActor hop
 
 ### Pending Todos
 
@@ -95,7 +98,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-17T05:49:20.874Z
+Last session: 2026-05-17T06:03:56.326Z
 Stopped at: Completed 05-01-PLAN.md
 Resume file: None
 Next command: `/gsd-plan-phase 5` (Phase 5 — KYC Capture & Upload Pipeline; consider `/gsd-discuss-phase 5` first)
