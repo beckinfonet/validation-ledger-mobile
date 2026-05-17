@@ -1,5 +1,5 @@
 // validationLedger/Features/Onboarding/KYC/Capture/FaceCaptureViewController.swift
-// Phase 5 Plan 05 — KYC-02 / D-04: the Vision-gated face-capture screen.
+// Phase 5 Plan 05 — KYC-02: the Vision-gated face-capture screen.
 //
 // Programmatic UIKit VC (no SwiftUI — CLAUDE.md hard constraint: camera surfaces
 // are UIKit, never SwiftUI). Scaffold copied from `OTPViewController`, using
@@ -8,13 +8,17 @@
 // `NSLocalizedString(_, value:)`; every label sets
 // `adjustsFontForContentSizeCategory = true`.
 //
-// === D-04 AUTO-FIRE ===
-// The VC hosts the `CameraSession` preview behind an oval framing guide. The
-// `FaceCaptureViewModel` consumes the Vision `FaceQualityGate` stream; when it
-// reports the steady-hold pass the photo auto-fires — there is no shutter
-// button. The guide stroke is `.white` (reduced alpha) while gates fail and
-// `.systemGreen` when all pass; the live inline cue is driven by the gate's
-// adjust reason (no alert).
+// === MANUAL SHUTTER (debug session `kyc-upload-capture-bugs`, Issue 1b) ===
+// SUPERSEDES the D-04 hands-free auto-fire. The selfie screen now carries a
+// manual shutter button — the EXACT affordance the `VehicleCaptureViewController`
+// plain-photo screens use (44pt touch-target floor, `kyc-face-shutter`
+// accessibility id, the `.fill`-stack layout pattern). The capture fires ONLY on
+// a shutter tap. The Vision quality gate is RETAINED but repurposed: it gates
+// the shutter — `shutterButton.isEnabled` tracks the VM's `.readyToCapture`
+// state, so the shutter unlocks only while the face-quality gate holds a steady
+// `.pass` (the user still cannot shoot a bad selfie). All 6 KYC capture screens
+// now use a manual shutter — see the Resolution in
+// `.planning/debug/resolved/kyc-upload-capture-bugs.md`.
 //
 // === PREVIEW HOSTING (debug session `front-camera-preview-black`, round 4) ===
 // The camera preview is hosted by a `CameraPreviewView` — a `UIView` subclass
@@ -35,8 +39,9 @@ import AVFoundation
 import OSLog
 import UIKit
 
-/// The Vision-gated face-capture screen (KYC-02). Auto-fires on the D-04
-/// steady-hold gate pass.
+/// The Vision-gated face-capture screen (KYC-02). The Vision quality gate
+/// enables/disables a manual shutter button (Issue 1b — supersedes the D-04
+/// hands-free auto-fire).
 final class FaceCaptureViewController: UIViewController {
 
     private let viewModel: FaceCaptureViewModel
@@ -50,8 +55,9 @@ final class FaceCaptureViewController: UIViewController {
     ///
     /// Layout (round 3, retained): a vertical `.fill` `UIStackView` pinned to the
     /// safe area on BOTH ends. The preview hugs vertically at the lowest priority
-    /// while the labels hug at `.required`, so the `.fill` stack stretches the
-    /// preview into all leftover vertical space — it cannot collapse to 0.
+    /// while the labels and shutter button hug firmly, so the `.fill` stack
+    /// stretches the preview into all leftover vertical space — it cannot
+    /// collapse to 0.
     private let previewView: CameraPreviewView = {
         let view = CameraPreviewView()
         view.translatesAutoresizingMaskIntoConstraints = false
@@ -100,6 +106,23 @@ final class FaceCaptureViewController: UIViewController {
         return label
     }()
 
+    /// The manual shutter button (Issue 1b — supersedes the D-04 auto-fire).
+    /// The EXACT affordance `VehicleCaptureViewController` uses: a
+    /// `borderedProminent` button with a 44pt touch-target floor and a stable
+    /// accessibility id. Enabled only while the VM is `.readyToCapture` — the
+    /// Vision quality gate gates the shutter so a bad selfie cannot be shot.
+    private let shutterButton: UIButton = {
+        var cfg = UIButton.Configuration.borderedProminent()
+        cfg.title = NSLocalizedString(
+            "kyc.capture.shutter",
+            value: "Take photo",
+            comment: "Plain-photo capture shutter button"
+        )
+        let button = UIButton(configuration: cfg)
+        button.accessibilityIdentifier = "kyc-face-shutter"
+        return button
+    }()
+
     /// The camera preview layer — the backing layer of `previewView`.
     private var previewLayer: AVCaptureVideoPreviewLayer { previewView.previewLayer }
 
@@ -138,7 +161,9 @@ final class FaceCaptureViewController: UIViewController {
         instructionLabel.setContentHuggingPriority(.required, for: .vertical)
         cueLabel.setContentHuggingPriority(.required, for: .vertical)
 
-        let stack = UIStackView(arrangedSubviews: [instructionLabel, previewView, cueLabel])
+        let stack = UIStackView(arrangedSubviews: [
+            instructionLabel, previewView, cueLabel, shutterButton,
+        ])
         stack.axis = .vertical
         stack.spacing = DS.Spacing.md
         stack.alignment = .fill
@@ -163,12 +188,15 @@ final class FaceCaptureViewController: UIViewController {
                 equalTo: view.safeAreaLayoutGuide.bottomAnchor,
                 constant: -DS.Spacing.xl
             ),
+            // 44pt touch-target floor (UI-SPEC) — mirrors VehicleCaptureVC.
+            shutterButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
             // ROUND-3 layout fix (retained). The `.fill` stack expands the
             // preview view into all leftover vertical space because the preview
-            // hugs at the lowest priority while the labels hug at `.required`.
-            // Defense-in-depth: a min-height floor at priority 250 — too low to
-            // fight the encapsulated-layout height (so it can never reintroduce
-            // a breakable conflict) yet it guards against a future layout change
+            // hugs at the lowest priority while the labels hug at `.required`
+            // and the shutter button keeps its `>= 44` floor. Defense-in-depth:
+            // a min-height floor at priority 250 — too low to fight the
+            // encapsulated-layout height (so it can never reintroduce a
+            // breakable conflict) yet it guards against a future layout change
             // shrinking the preview to nothing.
             {
                 let minHeight = previewView.heightAnchor.constraint(
@@ -187,6 +215,8 @@ final class FaceCaptureViewController: UIViewController {
         previewView.videoGravity = .resizeAspectFill
         previewView.layer.addSublayer(ovalGuideLayer)
         kycCameraLog.info("kyc_camera event=face_vc.viewDidLoad preview_host=CameraPreviewView(layerClass) videoGravity=\(String(describing: self.previewLayer.videoGravity), privacy: .public) sessionWired=\(self.previewLayer.session != nil, privacy: .public)")
+
+        shutterButton.addTarget(self, action: #selector(shutterTapped), for: .touchUpInside)
 
         viewModel.onStateChange = { [weak self] state in
             self?.handle(state: state)
@@ -268,25 +298,31 @@ final class FaceCaptureViewController: UIViewController {
 
     // MARK: - State → UI
 
+    /// Drive the cue, the oval-guide stroke, and the shutter-enabled state from
+    /// the VM state. Issue 1b: the shutter is enabled ONLY in `.readyToCapture`
+    /// (the Vision gate holds a steady `.pass`) — every other state locks it.
     private func handle(state: FaceCaptureViewModel.State) {
         switch state {
         case let .adjusting(reason):
             cueLabel.text = cueText(for: reason)
             setGuidePassing(false)
-        case .holding:
+            shutterButton.isEnabled = false
+        case .readyToCapture:
             cueLabel.text = NSLocalizedString(
-                "kyc.face.cue.hold",
-                value: "Hold still",
-                comment: "Face-capture steady-hold cue (D-04)"
+                "kyc.face.cue.ready",
+                value: "Looks good — take the photo",
+                comment: "Face-capture shutter-ready cue (Issue 1b)"
             )
             setGuidePassing(true)
+            shutterButton.isEnabled = true
         case .capturing:
             cueLabel.text = NSLocalizedString(
                 "kyc.face.cue.hold",
                 value: "Hold still",
-                comment: "Face-capture steady-hold cue (D-04)"
+                comment: "Face-capture steady-hold cue"
             )
             setGuidePassing(true)
+            shutterButton.isEnabled = false
         case .locationUnavailable:
             cueLabel.text = NSLocalizedString(
                 "kyc.error.gps_stale",
@@ -294,11 +330,14 @@ final class FaceCaptureViewController: UIViewController {
                 comment: "KYC GPS-stale capture error"
             )
             setGuidePassing(false)
+            shutterButton.isEnabled = false
         case .captured:
+            shutterButton.isEnabled = false
             presentPreview()
         case let .failed(message):
             cueLabel.text = message
             setGuidePassing(false)
+            shutterButton.isEnabled = false
         }
     }
 
@@ -354,6 +393,15 @@ final class FaceCaptureViewController: UIViewController {
         if connection.isVideoRotationAngleSupported(angle) {
             connection.videoRotationAngle = angle
         }
+    }
+
+    // MARK: - Actions
+
+    /// Fire the shutter (Issue 1b) — mirrors `VehicleCaptureViewController`.
+    /// The VM's `capture()` is itself guarded on `.readyToCapture`, so a tap
+    /// while the gate is failing is a safe no-op.
+    @objc private func shutterTapped() {
+        viewModel.capture()
     }
 
     private func presentPreview() {

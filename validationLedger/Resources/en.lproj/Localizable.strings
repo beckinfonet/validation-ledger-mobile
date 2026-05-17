@@ -43,6 +43,7 @@
 "kyc.face.cue.light" = "Move into better light";
 "kyc.face.cue.steady" = "Hold the phone steady";
 "kyc.face.cue.hold" = "Hold still";
+"kyc.face.cue.ready" = "Looks good — take the photo";
 "kyc.dlfront.instruction" = "Fit your license inside the frame.";
 "kyc.dlback.instruction" = "Photograph the back of your license.";
 "kyc.truck.instruction" = "Take a photo of the truck.";

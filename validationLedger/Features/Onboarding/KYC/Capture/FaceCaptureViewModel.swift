@@ -1,14 +1,20 @@
 // validationLedger/Features/Onboarding/KYC/Capture/FaceCaptureViewModel.swift
-// Phase 5 Plan 05 — KYC-02 / D-04: the face-capture view model.
+// Phase 5 Plan 05 — KYC-02: the face-capture view model.
 //
 // VM contract copied from `OTPViewModel` — `@MainActor final class`, a nested
 // `State: Equatable, Sendable`, a `state` `didSet` firing `onStateChange`,
 // `on…: ((…) -> Void)?` callbacks, and initializer DI (ARCH-04).
 //
-// D-04: the photo auto-fires when the Vision quality gate (plan 03
-// `FaceQualityGate` / `SteadyHoldTracker`) holds `.pass` steady ~0.5s. The
-// live gate-signal stream is a device-only surface (RESEARCH Pitfall 1) — the
-// VM consumes the protocol; the SteadyHoldTracker decision logic is pure.
+// === MANUAL SHUTTER (debug session `kyc-upload-capture-bugs`, Issue 1b) ===
+// SUPERSEDES the D-04 hands-free auto-fire. The selfie screen no longer
+// auto-captures: the user fires the shutter explicitly, exactly like the
+// `VehicleCaptureViewModel` plain-photo screens. The Vision quality gate
+// (plan 03 `FaceQualityGate` / `SteadyHoldTracker`) is RETAINED — but it is
+// repurposed: the gate-signal stream now drives the SHUTTER-ENABLED state, so
+// the shutter unlocks only while the face-quality gate holds a steady `.pass`
+// (the user still cannot capture a bad selfie). The steady-hold dwell remains
+// the de-bounce — a transient `.pass` does not unlock the shutter. See the
+// Resolution in `.planning/debug/resolved/kyc-upload-capture-bugs.md`.
 //
 // KYC-04 / Pitfall 5: at capture the VM reads `GeoContext.freshLocation()`;
 // a stale fix throws and capture is blocked with the GPS-stale copy. On success
@@ -22,9 +28,9 @@ import CoreLocation
 import Foundation
 import UIKit
 
-/// Drives the face-capture screen: the live quality-gate stream, the D-04
-/// steady-hold auto-fire, the capture-time GPS injection, and persistence of the
-/// captured bytes into the KYC session.
+/// Drives the face-capture screen: the live quality-gate stream (now gating the
+/// manual shutter — Issue 1b), the manual-shutter capture, the capture-time GPS
+/// injection, and persistence of the captured bytes into the KYC session.
 @MainActor
 final class FaceCaptureViewModel {
 
@@ -33,9 +39,11 @@ final class FaceCaptureViewModel {
     /// The capture screen's UI state.
     enum State: Equatable, Sendable {
         /// Waiting for the quality gate — `reason` drives the live inline cue.
+        /// The shutter is DISABLED in this state.
         case adjusting(FaceAdjustReason?)
-        /// The gate passes and is holding steady (~0.5s) — the "Hold still" cue.
-        case holding
+        /// The gate passes and is holding steady (~0.5s) — the shutter is
+        /// ENABLED; the user may fire it (Issue 1b). The "Hold still" cue shows.
+        case readyToCapture
         /// A still-photo capture is in flight.
         case capturing
         /// Capture is blocked because the GPS fix is stale/unavailable (Pitfall 5).
@@ -76,12 +84,15 @@ final class FaceCaptureViewModel {
     private let sessionStore: KYCSessionStore
     private let logger: any Logger
 
-    /// The D-04 auto-fire trigger — `.pass` must hold ~0.5s before the shutter
-    /// fires. Pure value type; exercised in plan 03's `FaceQualityGateTests`.
+    /// The Vision quality gate's steady-hold de-bounce (plan 03). RETAINED from
+    /// the D-04 design but REPURPOSED (Issue 1b): `.pass` must hold ~0.5s before
+    /// the tracker reports `true` — and that now drives the SHUTTER-ENABLED
+    /// state, not an auto-fire. Pure value type; exercised in plan 03's
+    /// `FaceQualityGateTests`.
     private var steadyHold = SteadyHoldTracker()
 
-    /// `true` once a capture has fired — guards against a double auto-fire while
-    /// the still-capture is in flight.
+    /// `true` once a capture has fired — guards against a double-fire while the
+    /// still-capture is in flight (e.g. a double-tap on the shutter).
     private var captureInFlight = false
 
     init(
@@ -170,7 +181,8 @@ final class FaceCaptureViewModel {
     }
 
     /// Reset the screen for a Retake (D-07) — clears the steady-hold run and
-    /// the stale render-only preview image.
+    /// the stale render-only preview image. The shutter re-locks until the
+    /// quality gate next holds a steady `.pass` (Issue 1b).
     func resetForRetake() {
         steadyHold.reset()
         captureInFlight = false
@@ -183,20 +195,20 @@ final class FaceCaptureViewModel {
         onCaptureConfirmed?()
     }
 
-    // MARK: - Quality-gate stream → D-04 auto-fire
+    // MARK: - Quality-gate stream → shutter-enabled state (Issue 1b)
 
     /// Wire the live camera-frame pipeline into the Vision gate, then consume
-    /// the gate's signal stream for the D-04 auto-fire.
+    /// the gate's signal stream to drive the SHUTTER-ENABLED state (Issue 1b).
     ///
     /// Debug session `front-camera-preview-black` round 5 / Bug B: this is the
-    /// frame source that was missing. Order matters — `signals()` installs the
-    /// `AsyncStream` continuation; only AFTER that is the `videoFrameHandler`
-    /// set, so the first processed buffer always has a live continuation to
-    /// yield into. Each `CMSampleBuffer` is handed to
-    /// `VisionFaceQualityGate.process(sampleBuffer:)`, which runs Vision face
-    /// detection and yields a `FaceGateSignal`; `handle(signal:)` then drives
-    /// the steady-hold auto-fire. The handler runs on the camera's serial
-    /// frame queue (`@Sendable`); the gate's `process` is `nonisolated`.
+    /// frame source. Order matters — `signals()` installs the `AsyncStream`
+    /// continuation; only AFTER that is the `videoFrameHandler` set, so the
+    /// first processed buffer always has a live continuation to yield into.
+    /// Each `CMSampleBuffer` is handed to `VisionFaceQualityGate.process(
+    /// sampleBuffer:)`, which runs Vision face detection and yields a
+    /// `FaceGateSignal`; `handle(signal:)` then drives the shutter-enable gate.
+    /// The handler runs on the camera's serial frame queue (`@Sendable`); the
+    /// gate's `process` is `nonisolated`.
     private func observeGateSignals() {
         let stream = faceQualityGate.signals()
 
@@ -216,12 +228,19 @@ final class FaceCaptureViewModel {
         }
     }
 
-    /// Apply one gate signal: update the live cue, and on a steady `.pass` hold
-    /// auto-fire the shutter (D-04).
+    /// Apply one gate signal: update the live cue and the shutter-enabled state.
+    ///
+    /// Issue 1b: the gate stream no longer auto-fires the shutter. It drives the
+    /// `.adjusting` ↔ `.readyToCapture` transition — the shutter is enabled only
+    /// once the gate holds a steady `.pass` (the `SteadyHoldTracker` de-bounce).
+    /// A non-`.pass` signal re-locks the shutter so a bad selfie cannot be shot.
     private func handle(signal: FaceGateSignal) {
+        // While a capture is in flight (or already captured), gate signals are
+        // ignored — the shutter state must not flip under the preview screen.
         guard !captureInFlight else { return }
+        if case .captured = state { return }
 
-        let readyToFire = steadyHold.update(
+        let gateHeld = steadyHold.update(
             signal: signal,
             at: Date().timeIntervalSinceReferenceDate
         )
@@ -232,16 +251,20 @@ final class FaceCaptureViewModel {
         case let .adjust(reason):
             state = .adjusting(reason)
         case .pass:
-            state = .holding
-            if readyToFire {
-                fireCapture()
-            }
+            // The shutter unlocks only once the steady-hold de-bounce confirms
+            // the `.pass` has held ~0.5s — a transient pass keeps it locked.
+            state = gateHeld ? .readyToCapture : .adjusting(nil)
         }
     }
 
-    // MARK: - Capture (KYC-04 / Pitfall 5/6)
+    // MARK: - Capture (manual shutter — Issue 1b / KYC-04 / Pitfall 5/6)
 
-    private func fireCapture() {
+    /// Fire the shutter — invoked by the VC's shutter button (Issue 1b). Mirrors
+    /// `VehicleCaptureViewModel.capture()`. A no-op unless the shutter is
+    /// currently enabled (`.readyToCapture`) and no capture is already in flight,
+    /// so a stray tap while the gate is failing cannot shoot a bad selfie.
+    func capture() {
+        guard !captureInFlight, state == .readyToCapture else { return }
         captureInFlight = true
         state = .capturing
         Task { [weak self] in
