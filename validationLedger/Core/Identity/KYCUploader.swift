@@ -346,6 +346,11 @@ public actor KYCUploader {
 
     /// Persist a fresh `ArtifactUploadState` for a just-initialized upload,
     /// preserving the artifact `Data` already in the session.
+    ///
+    /// Uses the store's atomic `withSession` read-modify-write so this
+    /// upload-state write cannot clobber a concurrent capture's artifact-bytes
+    /// write — D-01 runs this chunk loop while the user keeps capturing
+    /// (debug: kyc-session-store-data-race).
     private func persistFreshState(
         artifactType: KYCUploadInitEndpoint.ArtifactType,
         uploadID: String,
@@ -354,20 +359,20 @@ public actor KYCUploader {
         totalBytes: Int,
         sha256: String
     ) throws {
-        var session = (try store.loadSession()) ?? KYCSession()
-        session.uploadStates[artifactType.rawValue] = ArtifactUploadState(
-            artifactType: artifactType,
-            uploadID: uploadID,
-            totalChunks: totalChunks,
-            totalBytes: totalBytes,
-            chunkSize: chunkSize,
-            chunksAcked: 0,
-            sha256: sha256,
-            committed: false,
-            artifactID: nil,
-            localDataAvailable: true
-        )
-        try store.persist(session)
+        try store.withSession { session in
+            session.uploadStates[artifactType.rawValue] = ArtifactUploadState(
+                artifactType: artifactType,
+                uploadID: uploadID,
+                totalChunks: totalChunks,
+                totalBytes: totalBytes,
+                chunkSize: chunkSize,
+                chunksAcked: 0,
+                sha256: sha256,
+                committed: false,
+                artifactID: nil,
+                localDataAvailable: true
+            )
+        }
     }
 }
 

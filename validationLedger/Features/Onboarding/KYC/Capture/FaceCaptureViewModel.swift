@@ -318,11 +318,17 @@ final class FaceCaptureViewModel {
 
     /// Write the captured face bytes into the on-disk KYC session so plan 04's
     /// `KYCUploader` can pick them up for the pipelined upload (D-01).
+    ///
+    /// Uses the store's atomic `withSession` read-modify-write. A bare
+    /// `loadSession()` then `persist()` (two separate store calls) would race
+    /// the `KYCUploader` actor's concurrent load->mutate->persist and silently
+    /// drop this capture or an upload-state mutation (debug:
+    /// kyc-session-store-data-race).
     private func persist(_ data: Data) {
         do {
-            var session = (try sessionStore.loadSession()) ?? KYCSession()
-            session.artifactData[KYCUploadInitEndpoint.ArtifactType.face.rawValue] = data
-            try sessionStore.persist(session)
+            try sessionStore.withSession { session in
+                session.artifactData[KYCUploadInitEndpoint.ArtifactType.face.rawValue] = data
+            }
         } catch {
             logger.error(event: LogEvent("kyc_face_capture_persist_failed"), fields: [:])
         }

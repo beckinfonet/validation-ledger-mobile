@@ -264,11 +264,18 @@ final class VehicleCaptureViewModel {
     }
 
     /// Write the captured bytes into the on-disk KYC session for `KYCUploader`.
+    ///
+    /// Uses the store's atomic `withSession` read-modify-write. A bare
+    /// `loadSession()` then `persist()` (two separate store calls) would race
+    /// the `KYCUploader` actor's concurrent load->mutate->persist — D-01
+    /// pipelines the previous artifact's upload while this capture runs — and
+    /// silently drop either this capture's bytes or an upload-state mutation
+    /// (debug: kyc-session-store-data-race).
     private func persist(_ data: Data) {
         do {
-            var session = (try sessionStore.loadSession()) ?? KYCSession()
-            session.artifactData[artifactType.rawValue] = data
-            try sessionStore.persist(session)
+            try sessionStore.withSession { session in
+                session.artifactData[artifactType.rawValue] = data
+            }
         } catch {
             logger.error(event: LogEvent("kyc_vehicle_capture_persist_failed"),
                          fields: [.event: artifactType.rawValue])
