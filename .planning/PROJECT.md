@@ -45,6 +45,14 @@ Native iOS client (iPhone + iPad, iOS 17+) for Validation Ledger — a verified-
 - [x] 90 unit tests + 5 UI tests across 17 suites pass; 76.82% Core/ coverage (> 70% gate)
 - [x] Release binary D-13 proof preserved: 0 matches for `DevMenu|LogViewer|RoleSwitcher|KeychainInspector|NetworkConfigToggle` in `strings` dump
 
+**Validated in Phase 5: KYC Capture & Upload Pipeline (2026-05-17)**
+
+- [x] KYC capture flow — `KYCCoordinator` orchestrates face → DL front/back → vehicle/trailer/plate → review → submit; 6 UIKit capture screens + Use/Retake preview + read-only DL extraction; Vision face-quality gate + DataScanner DL OCR (KYC-01..04)
+- [x] GPS EXIF injection at capture via `AVCapturePhoto.fileDataRepresentation()` → `CGImageDestination` (never `UIImage`); `GeoContext` <30s/<100m freshness gate — `KYCGPSUploadPayloadIntegrationTests` proves GPS survives into the upload chunk payload (KYC-04 / SC-1)
+- [x] Resumable chunked upload pipeline — `KYCUploader` actor: 512KB-default chunks, disk-persisted `chunksAcked` resume cursor, 5-attempt jittered backoff, per-chunk idempotency keys (no duplicate commits), `BGProcessingTaskRequest` background continuation (UPL-01..05)
+- [x] Encrypted on-disk `KYCSessionStore` (`NSFileProtectionComplete`) survives backgrounding and logout (D-02); 4-state KYC status UI (Pending/Under Review/Verified/Rejected) with controlled-vocabulary rejection copy; Profile-tab status entry point (KYC-05, KYC-06)
+- [ ] 4 physical-device HUMAN-UAT items pending (`05-HUMAN-UAT.md`): SC-2 force-quit resume UX, SC-4 background-upload completion, D-08 Profile entry, D-12 hard gate — run `/gsd-verify-work 5` after on-device testing
+
 ### Active
 
 <!-- Milestone 1 ("Foundation") scope. Hypotheses until shipped + validated on real users. -->
@@ -63,9 +71,7 @@ Native iOS client (iPhone + iPad, iOS 17+) for Validation Ledger — a verified-
 - [ ] App Attest productionization (DEV-04)
 - [ ] Physical-device CI runs SecureEnclave + Keychain biometric + App Attest paths on every merge (CI-03)
 
-**Phase 5 target (KYC Capture + Upload)**
-- [ ] KYC capture flow with GPS EXIF injection (KYC-01..06)
-- [ ] Resumable chunked upload pipeline (UPL-01..05)
+**Phase 5 target (KYC Capture + Upload)** — ✅ validated 2026-05-17 (see "Validated in Phase 5" above); 4 device HUMAN-UAT items remain in `05-HUMAN-UAT.md`
 
 **Pre-Phase-3 required fixes — resolved in Phase 3 plan 03-02 (2026-04-22):**
 - [x] **CR-02 (Phase 2 review)**: `SecureEnclaveKeyStore.generateKey(slot:)` idempotent guard landed
@@ -188,4 +194,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-22 after Phase 3 (OTP Auth + Role Shell + Session) completion*
+*Last updated: 2026-05-17 after Phase 5 (KYC Capture & Upload Pipeline) completion*
