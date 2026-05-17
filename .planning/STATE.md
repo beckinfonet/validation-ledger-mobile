@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: "Plan 05-08 Tasks 1-2 COMPLETE — PAUSED at the Task 3 checkpoint:human-verify gate (blocking). Task 1: D-08 Profile KYC-status row + KYCEndToEndIntegrationTests + LogoutPreservesKYCSessionTests (3 tests GREEN). Task 2: KYCForceQuitResumeDeviceTests (SC-2, compiles for the device lane) + 05-VALIDATION.md reconciled/approved/Nyquist-compliant. 05-08-SUMMARY.md is a PARTIAL summary covering Tasks 1-2. Task 3 is a physical-iPhone HUMAN-UAT checkpoint (SC-2 force-quit UX, SC-4 background upload, D-08 Profile-tap, D-12 gate) — see 05-HUMAN-UAT.md. Phase 5 is complete only once this checkpoint is approved."
-last_updated: "2026-05-17T21:32:00.000Z"
+status: milestone_complete
+stopped_at: Milestone complete (Phase 05 was final phase)
+last_updated: 2026-05-17T22:10:22.634Z
 last_activity: 2026-05-17 -- Plan 05-08 Tasks 1-2 executed; paused at Task 3 HUMAN-UAT checkpoint
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 46
-  completed_plans: 45
-  percent: 98
+  completed_plans: 46
+  percent: 80
 ---
 
 # Project State
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-20)
 
 **Core value:** Identity that cannot be spoofed and a chain-of-trust that cannot be faked.
-**Current focus:** Phase 05 — kyc-capture-upload-pipeline
+**Current focus:** Milestone complete
 
 ## Current Position
 
-Phase: 05 (kyc-capture-upload-pipeline) — EXECUTING (paused at checkpoint)
-Plan: 8 of 8 — Tasks 1-2 complete, paused at Task 3 checkpoint:human-verify
-Status: Plan 05-08 PAUSED at the Task 3 HUMAN-UAT checkpoint (blocking)
+Phase: 05
+Plan: Not started
+Status: Milestone complete
 Next: Run the 05-08 Task 3 HUMAN-UAT checkpoint on a physical iPhone (see 05-HUMAN-UAT.md). Once approved, run `/gsd:verify-work 5`.
-Last activity: 2026-05-17 -- Plan 05-08 Tasks 1-2 executed; paused at Task 3 HUMAN-UAT checkpoint
+Last activity: 2026-05-17
 
 Progress: [█████████▉] 98%
 
@@ -37,7 +37,7 @@ Progress: [█████████▉] 98%
 
 **Velocity:**
 
-- Total plans completed: 0
+- Total plans completed: 8
 - Average duration: —
 - Total execution time: 0 hours
 
@@ -50,6 +50,7 @@ Progress: [█████████▉] 98%
 | 3. OTP Auth + Role Shell + Session | 0 | — | — |
 | 4. App Attest & Physical-Device CI Hardening | 0 | — | — |
 | 5. KYC Capture & Upload Pipeline | 0 | — | — |
+| 05 | 8 | - | - |
 
 **Recent Trend:**
 

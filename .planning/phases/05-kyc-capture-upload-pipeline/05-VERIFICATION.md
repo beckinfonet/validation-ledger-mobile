@@ -2,19 +2,12 @@
 phase: 05-kyc-capture-upload-pipeline
 verified: 2026-05-17T14:00:00Z
 status: human_needed
-score: 4/5
+score: 5/5
 overrides_applied: 0
-gaps:
+gaps: []
+gaps_resolved:
   - truth: "A unit test round-trips a known GPS value through the pipeline and asserts it reaches the upload payload"
-    status: partial
-    reason: "GPSMetadataInjectorTests proves the injector round-trips GPS in JPEG EXIF bytes (5 tests). FaceCaptureViewModel wires GPS-injected bytes into KYCSession.artifactData. KYCUploader reads artifactData and sends as chunked POSTs. KYCEndToEndIntegrationTests exercises the full init→chunk→commit pipeline but seeds SYNTHETIC (non-GPS-injected) bytes — it does not assert that GPS-tagged bytes are what the uploader sends. No single test chains: GPS injection → sessionStore persistence → upload payload chunk body. The literal SC-1 wording 'asserts it reaches the upload payload' is not satisfied by the isolated injector test alone."
-    artifacts:
-      - path: "validationLedgerTests/KYC/GPSMetadataInjectorTests.swift"
-        issue: "Proves EXIF GPS round-trip in isolation; does not assert GPS bytes reach the upload pipeline"
-      - path: "validationLedgerTests/KYC/KYCEndToEndIntegrationTests.swift"
-        issue: "Full pipeline test uses KYCUploaderTestSupport.artifactData() (synthetic bytes), not GPS-injected bytes"
-    missing:
-      - "A test that: (1) injects a known CLLocation into JPEG bytes via GPSMetadataInjector, (2) persists those bytes to a KYCSessionStore, (3) runs KYCUploader.upload(), (4) captures the chunk POSTs via MockURLProtocol, and (5) base64-decodes the chunkData field and reads back the GPS EXIF dictionary asserting lat/lon round-trips within epsilon. This satisfies the literal SC-1 criterion."
+    resolved: "2026-05-17 — KYCGPSUploadPayloadIntegrationTests added (commit 300a976). Chains GPSMetadataInjector.injectGPS (known CLLocation 41.8781/-87.6298) → temp KYCSessionStore persistence → KYCUploader.upload(.face) via MockURLProtocol → base64-decode + reassemble chunk_data bodies → assert the reassembled wire payload is byte-identical to the GPS-tagged JPEG AND readGPSDictionary recovers lat/lon within epsilon 0.0001. Test runs GREEN on iPhone 16e; KYCEndToEndIntegrationTests no regression."
 human_verification:
   - test: "SC-2 — force-quit mid-6MB-upload resumes from the last committed chunk (real process lifecycle UX)"
     expected: "After force-quitting the app during a 6MB upload and relaunching, the progress bar restores to the prior chunksAcked/totalChunks (NOT 0%), and the artifact eventually commits without re-uploading already-acked chunks."
@@ -36,7 +29,7 @@ human_verification:
 
 **Verified:** 2026-05-17T14:00:00Z
 **Status:** human_needed
-**Re-verification:** No — initial verification
+**Re-verification:** SC-1 gap closed 2026-05-17 — `KYCGPSUploadPayloadIntegrationTests` added (commit `300a976`), test GREEN. All 5 automated success criteria now verified; 4 physical-device UAT items remain (tracked in `05-HUMAN-UAT.md`).
 
 ---
 
@@ -46,13 +39,13 @@ human_verification:
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | A user in any role can complete the full KYC capture flow (face → DL front → DL back → truck → trailer → plate → review → submit), and each captured artifact has EXIF GPS metadata attached from a fresh (<30s, <100m accuracy) CLLocation — verified by a unit test that round-trips a known GPS value through the pipeline and asserts it reaches the upload payload | PARTIAL | KYCCoordinator wires all 6 steps (verified in code). FaceCaptureViewModel + VehicleCaptureViewModel inject GPS via GPSMetadataInjector.uploadData(from:location:) (never UIImage). GeoContextTests proves <30s/<100m gate. GPSMetadataInjectorTests (5 tests) proves injector round-trips GPS in JPEG EXIF bytes. BUT: no test chains GPS injection → sessionStore → upload chunk payload bytes. The SC-1 literal test criterion "asserts it reaches the upload payload" is not fully met — see gaps. |
+| 1 | A user in any role can complete the full KYC capture flow (face → DL front → DL back → truck → trailer → plate → review → submit), and each captured artifact has EXIF GPS metadata attached from a fresh (<30s, <100m accuracy) CLLocation — verified by a unit test that round-trips a known GPS value through the pipeline and asserts it reaches the upload payload | VERIFIED | KYCCoordinator wires all 6 steps (verified in code). FaceCaptureViewModel + VehicleCaptureViewModel inject GPS via GPSMetadataInjector.uploadData(from:location:) (never UIImage). GeoContextTests proves <30s/<100m gate. GPSMetadataInjectorTests (5 tests) proves injector round-trips GPS in JPEG EXIF bytes. **SC-1 chained test added (commit `300a976`):** `KYCGPSUploadPayloadIntegrationTests` injects a known CLLocation → persists to KYCSessionStore → runs KYCUploader.upload via MockURLProtocol → reassembles the chunk_data wire payload → asserts it is byte-identical to the GPS-tagged JPEG and readGPSDictionary recovers lat/lon within epsilon. Test GREEN. The literal SC-1 criterion "asserts it reaches the upload payload" is now satisfied. |
 | 2 | Killing the app mid-upload and relaunching resumes from the last committed chunk (not restart from zero) — verified by a physical-device test that force-quits during a 6MB upload and confirms chunksAcked/totalChunks restores correctly | VERIFIED (device lane) | KYCUploaderResumeTests (2 tests): chunksAcked==2 resume sends only chunks 2-3, no init. KYCForceQuitResumeDeviceTests (339 lines, XCTestCase): reconstructs KYCUploader+KYCSessionStore from same directory (device-faithful force-quit model), asserts first chunk after resume = index 5 (not 0), asserts committed with correct cursor. Compiles for ci-device.yml lane. Physical-device UX confirmation is correctly routed to HUMAN-UAT per instruction. |
 | 3 | The KYC status screen renders Pending / Under Review / Verified / Rejected states with backend-provided rejection-reason copy (controlled vocabulary) — verified by driving all four states through mock fixtures | VERIFIED | KYCStatusViewModelTests: @Test drives all 4 fixtures (kyc-status-pending/under-review/verified/rejected.json) and asserts correct State enum mapping. Second @Test asserts rejected artifacts carry non-empty reasonCopy from RejectionReasonCode. Localizable.strings has finalized action-oriented copy for all rejection codes. RejectionReasonCode enum + enum cases verified. |
 | 4 | Uploads continue in the background via BGProcessingTaskRequest keeping the foreground chunk loop alive across a background transition — verified by backgrounding the app mid-upload and confirming the upload completes | VERIFIED (scheduling logic) / HUMAN-UAT (UX) | BackgroundUploadSchedulingTests: FakeBGTaskScheduling proves scheduleUploadContinuation submits exactly one BGProcessingTaskRequest when hasPendingUploads=true, and none when false. KYCUploadScheduler + BGTaskScheduling protocol seam wired. SceneDelegate.sceneDidEnterBackground calls scheduleUploadContinuation; AppDelegate.kycUploadScheduler.registerHandler() called before didFinishLaunchingWithOptions returns. End-to-end completion under real OS suspension is correctly routed to HUMAN-UAT. |
 | 5 | Exponential backoff with jitter caps retries at 5 attempts on 5xx / network errors; server-side idempotency keys prevent duplicate chunk commits — verified by a stress test that injects transient failures and asserts no duplicate chunks land | VERIFIED | KYCUploaderRetryTests: test asserts recorder.attempts(forChunk:0) == 5 explicitly (not 4, not 6). The loop code (attempt starts at 0, increments post-failure, guard < 5 throws) produces exactly 5 sends confirmed by test. Non-retryable 400 throws immediately (1 attempt). KYCUploaderIdempotencyTests: 3 tests — stable key reuse across retries, no duplicate successful ack per chunk (SC-5), key stable across resume. Per-chunk key = "<uploadID>.chunk.<index>" set via APIEndpoint.headers seam. |
 
-**Score:** 4/5 (SC-1 partial due to GPS-in-upload-payload test gap)
+**Score:** 5/5 — all automated success criteria verified (SC-1 closed by `KYCGPSUploadPayloadIntegrationTests`, commit `300a976`)
 
 ---
 
@@ -100,7 +93,8 @@ Confirmed present at 3 sites: `KYCStatusViewModel.swift:139`, `KYCStatusViewMode
 | `validationLedgerTests/KYC/KYCEndToEndIntegrationTests.swift` | Full pipeline integration test | VERIFIED | 240 lines; @Suite(.serialized); 6-artifact init→chunk→commit→submit→status; resume test |
 | `validationLedgerTests/KYC/KYCUploaderRetryTests.swift` | 5-attempt cap test | VERIFIED | @Test asserts attempts(forChunk:0) == 5 explicitly |
 | `validationLedgerTests/KYC/KYCUploaderIdempotencyTests.swift` | SC-5 no-duplicate-commit test | VERIFIED | 3 tests: key reuse, no duplicate ack, key stable across resume |
-| `validationLedgerTests/KYC/GPSMetadataInjectorTests.swift` | SC-1 GPS round-trip tests | PARTIAL | 5 tests prove injector round-trips GPS; no test chains to upload payload bytes |
+| `validationLedgerTests/KYC/GPSMetadataInjectorTests.swift` | SC-1 GPS round-trip tests | VERIFIED | 5 tests prove injector round-trips GPS in EXIF bytes (isolation) |
+| `validationLedgerTests/KYC/KYCGPSUploadPayloadIntegrationTests.swift` | SC-1 chained GPS→upload-payload proof | VERIFIED | Added commit `300a976`; injects known CLLocation → KYCSessionStore → KYCUploader.upload via MockURLProtocol → reassembles chunk_data → asserts byte-identical payload + lat/lon round-trip. Test GREEN on iPhone 16e |
 | `validationLedger/App/Info.plist` | BGTask identifier registration | VERIFIED | BGTaskSchedulerPermittedIdentifiers: com.maldin.validationLedger.kyc-upload + UIBackgroundModes: processing |
 | `validationLedgerTests/Networking/Fixtures/kyc-status-{pending,under-review,verified,rejected}.json` | 4 KYC-status fixtures | VERIFIED | All 4 present; rejection codes are snake_case (dl_front_glare, face_not_centered) |
 | `validationLedger/Core/Identity/KYC/RejectionReasonCode.swift` | Controlled vocabulary enum | VERIFIED | enum with all cases; finalized NSLocalizedString copy per case |
@@ -156,7 +150,7 @@ No explicit probe scripts declared in PLAN.md files. No `scripts/*/tests/probe-*
 | KYC-01 | 05-05, 05-06, 05-07, 05-08 | KYCCoordinator orchestrates face→DL front→DL back→vehicle→review→submit | SATISFIED | KYCCoordinator.swift 599 lines; all 6 steps wired; KYCCoordinatorTests GREEN; hard gate (.kyc AppPhase) |
 | KYC-02 | 05-03, 05-05 | Live face capture with Vision face quality gate (liveness deferred) | SATISFIED | FaceQualityGate + FaceQualityGateTests GREEN; manual shutter enabled by quality gate; liveness explicitly deferred per spec |
 | KYC-03 | 05-05 | DL capture via DataScannerViewController + client-side format check | SATISFIED | DLFrontScanViewController + DLFrontExtractionViewController + DLFieldFormatValidator wired; DLExtractionFormatTests GREEN; DLExtractionScannerDeviceTests compiles |
-| KYC-04 | 05-03, 05-05 | GPS attached at capture via AVCapturePhoto/CGImageDestination, never UIImage | SATISFIED (code) / PARTIAL (SC-1 test) | GPSMetadataInjector implemented correctly; FaceCaptureViewModel + VehicleCaptureViewModel wired to GPS injector; SC-1 test gap (see gaps) |
+| KYC-04 | 05-03, 05-05 | GPS attached at capture via AVCapturePhoto/CGImageDestination, never UIImage | SATISFIED | GPSMetadataInjector implemented correctly; FaceCaptureViewModel + VehicleCaptureViewModel wired to GPS injector; SC-1 chained test `KYCGPSUploadPayloadIntegrationTests` proves GPS reaches the upload payload (commit `300a976`, GREEN) |
 | KYC-05 | 05-02, 05-06 | KYC status renders 4 states with controlled-vocabulary rejection copy | SATISFIED | KYCStatusViewModel 4-state enum; RejectionReasonCode enum; finalized Localizable.strings; KYCStatusViewModelTests 2 tests GREEN |
 | KYC-06 | 05-02 | In-progress KYC survives backgrounding via encrypted on-disk persistence | SATISFIED | KYCSessionStore NSFileProtectionComplete; KYCSessionStoreTests GREEN; LogoutPreservesKYCSessionTests GREEN (D-02 / A4) |
 | UPL-01 | 05-04 | KYCUploader chunked upload — 512KB default, backend-overridable | SATISFIED | KYCUploader.defaultChunkSize = 512*1024; backendChunkSizeOverrideIsHonoured test GREEN; 5 KYCUploaderTests GREEN |
@@ -227,18 +221,9 @@ The following items require physical-device testing. These are correctly routed 
 
 ### Gaps Summary
 
-**One gap blocks full SC-1 verification:**
+**No open gaps. The SC-1 gap was closed during this verification cycle:**
 
-SC-1 requires "a unit test that round-trips a known GPS value through the pipeline and asserts it reaches the upload payload." What exists is a 2-part test chain: (1) `GPSMetadataInjectorTests` proves the injector produces JPEG bytes with readable EXIF GPS, and (2) `KYCEndToEndIntegrationTests` proves the full upload pipeline with synthetic bytes. No single test chains GPS-injected bytes through the session store into the upload chunk payload body. The literal SC-1 criterion is partially satisfied.
-
-**Recommendation:** Add one test to `GPSMetadataInjectorTests` or a new `KYCGPSUploadRoundTripTests`:
-1. Inject a known CLLocation into JPEG bytes via `GPSMetadataInjector.injectGPS`
-2. Persist those bytes to a temp KYCSessionStore
-3. Run `KYCUploader.upload()` backed by MockURLProtocol that captures the chunk request body
-4. Base64-decode the `chunk_data` field from the captured request
-5. Assert `GPSMetadataInjector.readGPSDictionary(from: decodedChunkData) != nil` and lat/lon round-trip within epsilon
-
-This closes SC-1 fully without requiring device hardware.
+SC-1 originally scored PARTIAL — no single test chained GPS-injected bytes through the session store into the upload chunk payload body. This was closed by `validationLedgerTests/KYC/KYCGPSUploadPayloadIntegrationTests.swift` (commit `300a976`), which: (1) injects a known CLLocation (41.8781/-87.6298) into JPEG bytes via `GPSMetadataInjector.injectGPS`, (2) persists them to a temp `KYCSessionStore`, (3) runs `KYCUploader.upload(.face)` via `MockURLProtocol`, (4) base64-decodes + reassembles the `chunk_data` request bodies in `chunk_index` order, and (5) asserts the reassembled wire payload is byte-identical to the GPS-tagged JPEG and `readGPSDictionary` recovers lat/lon within epsilon 0.0001. The test runs GREEN on iPhone 16e with no regression to `KYCEndToEndIntegrationTests`. All 5 automated success criteria are now verified — score 5/5.
 
 **Code review items (WARNING, not BLOCKER):**
 

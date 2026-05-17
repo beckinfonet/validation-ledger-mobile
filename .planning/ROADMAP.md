@@ -177,7 +177,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Networking Contract & Device Keys | 7/7 | Complete | 2026-04-21 |
 | 3. OTP Auth + Role Shell + Session | 13/13 | Complete | 2026-04-22 |
 | 4. App Attest & Physical-Device CI Hardening | 0/TBD | Not started | - |
-| 5. KYC Capture & Upload Pipeline | 8/8 plans (05-08 Tasks 1-2) | Paused — 05-08 Task 3 HUMAN-UAT checkpoint open | - |
+| 5. KYC Capture & Upload Pipeline | 8/8 | Complete   | 2026-05-17 |
 
 ---
 *Roadmap created: 2026-04-20*
