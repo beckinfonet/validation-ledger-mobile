@@ -292,7 +292,12 @@ class VehicleCaptureViewController: UIViewController {
     }
 
     private func presentPreview() {
-        let preview = CapturePreviewViewController(artifactLabel: viewModel.instructionText)
+        let preview = CapturePreviewViewController(
+            artifactLabel: viewModel.instructionText,
+            // Render-only still from the capture VM — display path only, never
+            // the upload byte source (Pitfall 6).
+            previewImage: viewModel.capturedPreviewImage
+        )
         preview.onUse = { [weak self] in
             self?.dismiss(animated: true) {
                 self?.viewModel.confirmCapture()

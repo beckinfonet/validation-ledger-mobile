@@ -20,6 +20,7 @@
 import AVFoundation
 import CoreLocation
 import Foundation
+import UIKit
 
 /// Drives the face-capture screen: the live quality-gate stream, the D-04
 /// steady-hold auto-fire, the capture-time GPS injection, and persistence of the
@@ -48,6 +49,14 @@ final class FaceCaptureViewModel {
     private(set) var state: State = .adjusting(nil) {
         didSet { onStateChange?(state) }
     }
+
+    /// A render-only `UIImage` of the just-captured shot, for the D-07
+    /// Use/Retake preview screen. Decoded from the `AVCapturePhoto` purely to
+    /// be SHOWN — this is NOT the upload byte source. The upload `Data` is
+    /// produced separately via `GPSMetadataInjector.uploadData(from:location:)`
+    /// straight from the `AVCapturePhoto` (Pitfall 6 — the GPS-EXIF trust
+    /// boundary), and never passes through this UIKit decode.
+    private(set) var capturedPreviewImage: UIImage?
 
     // MARK: - Callbacks (UIKit-first — no Combine)
 
@@ -160,10 +169,12 @@ final class FaceCaptureViewModel {
         cameraSession.stop()
     }
 
-    /// Reset the screen for a Retake (D-07) — clears the steady-hold run.
+    /// Reset the screen for a Retake (D-07) — clears the steady-hold run and
+    /// the stale render-only preview image.
     func resetForRetake() {
         steadyHold.reset()
         captureInFlight = false
+        capturedPreviewImage = nil
         state = .adjusting(nil)
     }
 
@@ -284,7 +295,25 @@ final class FaceCaptureViewModel {
         }
 
         persist(uploadData)
+
+        // Render-only preview image for the D-07 Use/Retake screen. Decoded
+        // from the photo's own file representation so EXIF orientation is
+        // honoured and the still is shown right-side-up. This is a SEPARATE,
+        // display-only path — `uploadData` above already carries the upload
+        // bytes straight from the `AVCapturePhoto` (Pitfall 6); this decode
+        // never feeds the upload.
+        capturedPreviewImage = previewImage(from: photo)
+
         state = .captured
+    }
+
+    /// Decode a render-only `UIImage` from the captured photo for the D-07
+    /// preview. Uses `fileDataRepresentation()` so the EXIF orientation tag is
+    /// applied — the still is shown upright, not rotated. Display-only; never
+    /// the upload byte source (Pitfall 6).
+    private func previewImage(from photo: AVCapturePhoto) -> UIImage? {
+        guard let data = photo.fileDataRepresentation() else { return nil }
+        return UIImage(data: data)
     }
 
     /// Write the captured face bytes into the on-disk KYC session so plan 04's
