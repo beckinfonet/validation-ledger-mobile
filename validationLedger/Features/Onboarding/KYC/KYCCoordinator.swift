@@ -232,16 +232,20 @@ final class KYCCoordinator {
         }
     }
 
-    /// Record an artifact capture-confirm: advance the flow sequencer and kick
-    /// the pipelined upload (D-01). Returns the step now current.
+    /// Advance the pure flow sequencer one step (KYC-01 flow-state bookkeeping).
+    ///
+    /// Issue 2b (debug session `kyc-upload-capture-bugs`): this NO LONGER kicks
+    /// the pipelined upload. The old `confirmCapture()` kicked
+    /// `sequencer.current.artifact` — but the sequencer lags the on-screen step
+    /// by one (the face screen is pushed via `onGetStarted` with no advance), so
+    /// across the 6 capture-confirms only 4 artifacts were ever kicked (trailer
+    /// and plate never were). The fix: each forward-chain `onConfirm` closure now
+    /// kicks the statically-known artifact DIRECTLY via `kickUpload(for:)` — the
+    /// exact pattern the retake path (`reopenCapture`) already uses correctly.
+    /// This method only advances the sequencer for `reachedReview` bookkeeping.
     @discardableResult
-    private func confirmCapture() -> KYCFlowStep? {
-        let completed = sequencer.current
-        let now = sequencer.advance()
-        if let artifact = completed.artifact {
-            kickUpload(for: artifact)
-        }
-        return now
+    private func advanceFlowStep() -> KYCFlowStep? {
+        sequencer.advance()
     }
 
     // MARK: - Navigation (KYC-01 push chain — D-07 advances per Use/Retake confirm)
@@ -264,7 +268,10 @@ final class KYCCoordinator {
         let vc = FaceCaptureViewController(viewModel: viewModel)
         installSignOutItem(on: vc)
         viewModel.onCaptureConfirmed = onConfirm ?? { [weak self] in
-            self?.confirmCapture()
+            // Issue 2b — kick the known artifact directly (not via the lagging
+            // sequencer.current). The face screen captures `.face`.
+            self?.advanceFlowStep()
+            self?.kickUpload(for: .face)
             self?.pushDLFrontScan()
         }
         nav.pushViewController(vc, animated: true)
@@ -301,7 +308,10 @@ final class KYCCoordinator {
         let vc = DLFrontExtractionViewController(extraction: extraction)
         installSignOutItem(on: vc)
         vc.onConfirmed = onConfirmed ?? { [weak self] in
-            self?.confirmCapture()
+            // Issue 2b — the DL-front PHOTO artifact (`.dlFront`) was captured on
+            // the scanner screen; kick it directly on the extraction-confirm.
+            self?.advanceFlowStep()
+            self?.kickUpload(for: .dlFront)
             self?.pushDLBack()
         }
         vc.onRescanRequested = { [weak self] in
@@ -326,7 +336,9 @@ final class KYCCoordinator {
         let vc = DLBackCaptureViewController(viewModel: viewModel)
         installSignOutItem(on: vc)
         viewModel.onCaptureConfirmed = onConfirm ?? { [weak self] in
-            self?.confirmCapture()
+            // Issue 2b — kick `.dlBack` directly.
+            self?.advanceFlowStep()
+            self?.kickUpload(for: .dlBack)
             self?.pushTruck()
         }
         nav.pushViewController(vc, animated: true)
@@ -335,7 +347,9 @@ final class KYCCoordinator {
     /// Step 5 — truck photo (KYC-04).
     private func pushTruck() {
         let vc = makeVehicleCapture(artifact: .truck) { [weak self] in
-            self?.confirmCapture()
+            // Issue 2b — kick `.truck` directly.
+            self?.advanceFlowStep()
+            self?.kickUpload(for: .truck)
             self?.pushTrailer()
         }
         nav.pushViewController(vc, animated: true)
@@ -344,7 +358,10 @@ final class KYCCoordinator {
     /// Step 6 — trailer photo (KYC-04).
     private func pushTrailer() {
         let vc = makeVehicleCapture(artifact: .trailer) { [weak self] in
-            self?.confirmCapture()
+            // Issue 2b — kick `.trailer` directly. The OLD sequencer-routed kick
+            // never reached this artifact at all (the off-by-one).
+            self?.advanceFlowStep()
+            self?.kickUpload(for: .trailer)
             self?.pushPlate()
         }
         nav.pushViewController(vc, animated: true)
@@ -353,7 +370,10 @@ final class KYCCoordinator {
     /// Step 7 — license-plate photo (KYC-04).
     private func pushPlate() {
         let vc = makeVehicleCapture(artifact: .plate) { [weak self] in
-            self?.confirmCapture()
+            // Issue 2b — kick `.plate` directly. The OLD sequencer-routed kick
+            // never reached this artifact at all (the off-by-one).
+            self?.advanceFlowStep()
+            self?.kickUpload(for: .plate)
             self?.pushReview()
         }
         nav.pushViewController(vc, animated: true)
