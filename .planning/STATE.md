@@ -4,13 +4,13 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Completed 05-01-PLAN.md
-last_updated: "2026-05-17T05:34:12.369Z"
+last_updated: "2026-05-17T05:49:40.711Z"
 last_activity: 2026-05-17
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 46
-  completed_plans: 39
+  completed_plans: 40
   percent: 80
 ---
 
@@ -26,12 +26,12 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 ## Current Position
 
 Phase: 05 (kyc-capture-upload-pipeline) — EXECUTING
-Plan: 2 of 8
+Plan: 3 of 8
 Status: Ready to execute
 Next: Phase 5 — KYC Capture & Upload Pipeline (no plans yet — start with `/gsd-discuss-phase 5` or `/gsd-plan-phase 5`)
 Last activity: 2026-05-17
 
-Progress: [█████████░] 85%
+Progress: [█████████░] 87%
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Progress: [█████████░] 85%
 
 *Updated after each plan completion*
 | Phase 05 P01 | 33min | 3 tasks | 25 files |
+| Phase 05 P02 | 11min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,8 @@ Recent decisions affecting current work:
 - Roadmap: App Attest (DEV-04) and physical-device CI (CI-03) split into Phase 4 (not bundled into Phase 3) so Apple App Attest rate-limits during testing don't block the Phase 3 visible-win demo
 - Roadmap: Infrastructure tax budgeted at 30% of M1 engineering time per PITFALLS P20 — explicit so it's not discovered at week 2
 - [Phase ?]: Phase 5 Wave 0: APIEndpoint.headers per-request seam landed once so plans 05-02..08 build against a fixed networking contract
+- [Phase ?]: Phase 5 Plan 02: KYCSessionStore uses NSFileProtectionComplete file-level encryption; simulator downgrades to CompleteUntilFirstUserAuthentication (documented), strict .complete verified on device CI
+- [Phase ?]: Phase 5 Plan 02: the on-disk KYC session store is deliberately excluded from LogoutService teardown (D-02) so an in-progress KYC survives a logout
 
 ### Pending Todos
 
@@ -92,7 +95,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-17T05:34:12.362Z
+Last session: 2026-05-17T05:49:20.874Z
 Stopped at: Completed 05-01-PLAN.md
 Resume file: None
 Next command: `/gsd-plan-phase 5` (Phase 5 — KYC Capture & Upload Pipeline; consider `/gsd-discuss-phase 5` first)

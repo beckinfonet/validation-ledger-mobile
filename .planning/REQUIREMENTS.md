@@ -95,13 +95,13 @@ Infrastructure that must exist before feature work — the "8 conventions" surfa
 - [ ] **KYC-02**: Live face capture uses Vision framework for face detection + on-screen framing guides. **Liveness detection is deferred from M1** (per §12 Open Q1 decision) — M1 captures a face image that meets basic Vision quality gates (detected, centered, in focus) without liveness checking.
 - [ ] **KYC-03**: DL capture uses `VisionKit.DataScannerViewController` for optical text extraction; extracted fields validated client-side (format check only; backend is authoritative).
 - [ ] **KYC-04**: Vehicle capture takes truck, trailer, and license plate as separate photos. GPS metadata attached at capture time via `CLLocationManager.location` — before any `UIImage` conversion that would strip EXIF.
-- [ ] **KYC-05**: KYC status UI displays Pending / Under Review / Verified / Rejected with backend-provided rejection reasons rendered using controlled vocabulary (copy finalized in M1 even if states are M2+ authoritative).
-- [ ] **KYC-06**: In-progress KYC survives app backgrounding / network blips via persistence in `Core/Storage` (encrypted on-disk). Resuming the flow continues from the last completed step.
+- [x] **KYC-05**: KYC status UI displays Pending / Under Review / Verified / Rejected with backend-provided rejection reasons rendered using controlled vocabulary (copy finalized in M1 even if states are M2+ authoritative).
+- [x] **KYC-06**: In-progress KYC survives app backgrounding / network blips via persistence in `Core/Storage` (encrypted on-disk). Resuming the flow continues from the last completed step.
 
 ### Upload Pipeline (UPL)
 
 - [ ] **UPL-01**: `Core/Identity/KYCUploader` uploads KYC artifacts via the chunked contract defined in NET-01. Chunk size default 512 KB, configurable.
-- [ ] **UPL-02**: Resumable uploads persist chunk state to disk. If the app is killed mid-upload, resuming continues from the last committed chunk.
+- [x] **UPL-02**: Resumable uploads persist chunk state to disk. If the app is killed mid-upload, resuming continues from the last committed chunk.
 - [ ] **UPL-03**: Exponential backoff with jitter on retryable failures (5xx, network errors). Max 5 attempts before surfacing failure to the user.
 - [ ] **UPL-04**: Upload progress is reported accurately — `Progress` object updates every chunk commit, not every byte. UI surfaces progress as a determinate `UIProgressView`.
 - [x] **UPL-05**: Upload runs inside a `BGProcessingTaskRequest` when the app backgrounds, so in-flight uploads finish before iOS suspends the app.
@@ -234,10 +234,10 @@ Every v1 requirement is mapped to exactly one roadmap phase. Status updated as p
 | KYC-02 | Phase 5 | Pending |
 | KYC-03 | Phase 5 | Pending |
 | KYC-04 | Phase 5 | Pending |
-| KYC-05 | Phase 5 | Pending |
-| KYC-06 | Phase 5 | Pending |
+| KYC-05 | Phase 5 | Complete |
+| KYC-06 | Phase 5 | Complete |
 | UPL-01 | Phase 5 | Pending |
-| UPL-02 | Phase 5 | Pending |
+| UPL-02 | Phase 5 | Complete |
 | UPL-03 | Phase 5 | Pending |
 | UPL-04 | Phase 5 | Pending |
 | UPL-05 | Phase 5 | Complete |
