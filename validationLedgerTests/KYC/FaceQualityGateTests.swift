@@ -3,8 +3,11 @@
 // GREEN suite (plan 05-03). RED scaffold landed in Wave 0 / plan 05-01.
 //
 // The TESTABLE core of the face quality gate is two pure pieces:
-//   1. `FaceQualityGate.evaluate(faceBoundingBox:brightness:)` — the per-frame
-//      decision (noFace / adjust(reason) / pass).
+//   1. `evaluate(faceBoundingBox:brightness:)` — the per-frame decision
+//      (noFace / adjust(reason) / pass). It is a `static` member of the
+//      `FaceQualityGate` protocol family; the tests reach it through the
+//      concrete `VisionFaceQualityGate` conformer (Swift does not permit a
+//      static member call on a bare protocol metatype).
 //   2. `SteadyHoldTracker` — given a stream of signals + timestamps, reports
 //      `readyToFire` only after `.pass` has held continuously for the dwell (D-04).
 // Neither needs a camera — the live `VNDetectFaceRectanglesRequest` /
@@ -25,7 +28,7 @@ struct FaceQualityGateTests {
     func centeredLargeWellLitFacePasses() {
         // Centered on (0.5, 0.5), width 0.45 > 0.35 threshold.
         let box = CGRect(x: 0.275, y: 0.30, width: 0.45, height: 0.40)
-        let signal = FaceQualityGate.evaluate(faceBoundingBox: box, brightness: 0.6)
+        let signal = VisionFaceQualityGate.evaluate(faceBoundingBox: box, brightness: 0.6)
         #expect(signal == .pass)
     }
 
@@ -33,7 +36,7 @@ struct FaceQualityGateTests {
 
     @Test("No face observation yields a noFace signal")
     func noObservationYieldsNoFace() {
-        let signal = FaceQualityGate.evaluate(faceBoundingBox: nil, brightness: 0.6)
+        let signal = VisionFaceQualityGate.evaluate(faceBoundingBox: nil, brightness: 0.6)
         #expect(signal == .noFace)
     }
 
@@ -43,7 +46,7 @@ struct FaceQualityGateTests {
     func offCenterFaceYieldsAdjustNotCentered() {
         // midX ≈ 0.15 — far outside the 0.12 centering tolerance.
         let box = CGRect(x: 0.0, y: 0.30, width: 0.40, height: 0.40)
-        let signal = FaceQualityGate.evaluate(faceBoundingBox: box, brightness: 0.6)
+        let signal = VisionFaceQualityGate.evaluate(faceBoundingBox: box, brightness: 0.6)
         #expect(signal == .adjust(.notCentered))
     }
 
@@ -51,7 +54,7 @@ struct FaceQualityGateTests {
     func tooSmallFaceYieldsAdjustTooSmall() {
         // Centered but width 0.20 < 0.35 threshold.
         let box = CGRect(x: 0.40, y: 0.40, width: 0.20, height: 0.20)
-        let signal = FaceQualityGate.evaluate(faceBoundingBox: box, brightness: 0.6)
+        let signal = VisionFaceQualityGate.evaluate(faceBoundingBox: box, brightness: 0.6)
         #expect(signal == .adjust(.tooSmall))
     }
 
@@ -59,7 +62,7 @@ struct FaceQualityGateTests {
     func lowLightFaceYieldsAdjustTooDark() {
         // Centered + large, but brightness 0.05 is below the low-light floor.
         let box = CGRect(x: 0.275, y: 0.30, width: 0.45, height: 0.40)
-        let signal = FaceQualityGate.evaluate(faceBoundingBox: box, brightness: 0.05)
+        let signal = VisionFaceQualityGate.evaluate(faceBoundingBox: box, brightness: 0.05)
         #expect(signal == .adjust(.tooDark))
     }
 
@@ -68,7 +71,7 @@ struct FaceQualityGateTests {
         // brightness == nil — the gate cannot assess light, so it must not
         // fail on darkness; a centered+large face still passes.
         let box = CGRect(x: 0.275, y: 0.30, width: 0.45, height: 0.40)
-        let signal = FaceQualityGate.evaluate(faceBoundingBox: box, brightness: nil)
+        let signal = VisionFaceQualityGate.evaluate(faceBoundingBox: box, brightness: nil)
         #expect(signal == .pass)
     }
 
