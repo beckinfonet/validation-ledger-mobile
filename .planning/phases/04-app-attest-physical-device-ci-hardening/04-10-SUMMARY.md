@@ -3,8 +3,8 @@ phase: 04-app-attest-physical-device-ci-hardening
 plan: 10
 subsystem: ci-pipeline
 tags: [ci, device-ci, branch-protection, flakiness, release-guard]
-status: checkpoint_pending
-requirements_completed: []  # CI-03 + DEV-04 pending HUMAN-UAT close
+status: complete
+requirements_completed: [CI-03, DEV-04]
 dependency_graph:
   requires:
     - ".github/workflows/ci-device.yml (Phase 1 baseline)"
@@ -35,12 +35,13 @@ key_files:
     - "docs/ci.md"
 decisions: []
 metrics:
-  duration: "~20min (tasks 1-3)"
-  completed_date: "pending HUMAN-UAT (Task 5)"
+  duration: "~20min (tasks 1-3); Task 5 closed by the 2026-05-16 close-out quick task"
+  completed_date: "2026-05-16"
   commits:
     - "cd7aab8 ci(04-10): upgrade device CI — full security surface + single-retry + flaky notify"
     - "d2e44e9 ci(04-10): add flaky-pass Slack reporter + wire Release-strings guard into sim CI"
     - "7c08aa9 docs(04-10): document Phase 4 device pipeline + branch-protection runbook"
+    - "72fa3ee ci: Phase 4 close-out (PR #1 squash) — keychain unlock, NSFaceIDUsageDescription, doc-PR-safe gate"
 ---
 
 # Phase 4 Plan 10: CI pipeline (CI-03 + D-15 + D-16) Summary — PRELIMINARY (checkpoint_pending)
@@ -49,9 +50,15 @@ CI-03 device-pipeline-as-required-status-check: full security surface + single-r
 
 ## Status
 
-**PRELIMINARY** — Tasks 1-3 complete and committed on `main`. Task 4 (originally listed as Task 5 in the orchestrator prompt's scope count) is a HUMAN-UAT checkpoint that can only be performed by the repo admin via github.com → Settings → Branches, and only AFTER the updated `ci-device.yml` has run at least once on `main` so the new job name `device-security-surface` appears in the required-status-check dropdown.
+**COMPLETE** — Tasks 1-3 landed in the original execution (commits `cd7aab8` / `d2e44e9` /
+`7c08aa9`). Task 5 (the branch-protection HUMAN-UAT checkpoint) was closed by the
+2026-05-16 Phase 4 close-out quick task — see
+`.planning/quick/260516-phase-4-closeout/SUMMARY.md` for the full record.
 
-Finalize this SUMMARY after the admin confirms the configuration and posts the test-PR verification evidence.
+The close-out also found that the CI delivered by Tasks 1-3 had **never actually passed**:
+simulator CI always failed at SwiftLint (hiding latent breakage) and device CI had never
+run a green build. CI-03 is only genuinely satisfied now that both pipelines are green and
+the merge gate is live. See "Close-Out Addendum" below.
 
 ## What Landed (Tasks 1-3)
 
@@ -117,25 +124,58 @@ Commits confirmed in `git log`:
 - FOUND: `d2e44e9` — flaky reporter + sim-CI Release guard
 - FOUND: `7c08aa9` — docs/ci.md Phase 4 runbook
 
-## HUMAN-UAT Checkpoint (Task 5 — OPEN)
+## HUMAN-UAT Checkpoint (Task 5 — CLOSED 2026-05-16)
 
-**What the repo admin must do (once these commits are pushed to GitHub and `device-security-surface` has run at least once on `main`):**
+Branch protection on `main` was configured via the GitHub API (`gh api -X PUT
+.../branches/main/protection`) — not the Settings UI. The API accepts a check context
+string directly, so the historical "Pitfall 4 dropdown dance" does not apply.
 
-1. Navigate to **github.com/&lt;org&gt;/&lt;repo&gt;/settings/branches** → edit the `main` rule (or create one).
-2. Check **"Require status checks to pass before merging"**.
-3. Add `device-security-surface` to the required-checks list (the name from `ci-device.yml`).
-4. Keep `CI (Simulator) / test` (or equivalent simulator job name) in the required list.
-5. Enable **"Require branches to be up to date before merging"** if not already.
-6. Save.
-7. Open a test PR that deliberately fails `validationLedgerDeviceTests` (e.g., add a transient `#expect(false)` to `AppAttestRoundTripTests`), confirm `device-security-surface` goes red, confirm merge is blocked ("Required check failing"), remove the failure, confirm merge re-enables, close the test PR without merging, delete the branch.
-8. Record confirmation (screenshot or text) in this SUMMARY when the HUMAN-UAT finalizes.
+- Required status checks: `device-security-surface` + `test`; `strict: true` (require
+  branches to be up to date before merging).
+- `enforce_admins: false` — admins can override for break-glass; the residual risk
+  accepted in D-16 / threat `T-CI-03-01`.
 
-**Resume signal:** `approved` — configuration complete + gate verified → orchestrator finalizes this SUMMARY, updates STATE.md + ROADMAP.md, and closes Wave 5.
-**Alt:** `deferred: &lt;reason&gt;` — admin permission unavailable; document owner and follow-up date.
+**Gate verified:**
+
+- **Block** — test PR #2 (`test/gate-verify-device-fail`) added a deliberate
+  `#expect(Bool(false))` to a device test; `device-security-surface` went red and the PR's
+  `mergeStateStatus` became `BLOCKED`. PR closed without merging; branch deleted.
+- **Green** — PR #1 merged into `main` with `device-security-surface` + `test` both green
+  and the strict check satisfied (squash commit `72fa3ee`).
+- **Skip** — a non-security PR (the Phase 4 close-out PR) reports `device-security-surface`
+  as `skipped`; GitHub counts a skipped required check as passing, so the PR is not blocked.
+
+## Close-Out Addendum (2026-05-16 quick task)
+
+The CI delivered by Tasks 1-3 was structurally correct but had never run green. The
+close-out quick task (`.planning/quick/260516-phase-4-closeout/`) brought it online — only
+then was CI-03 genuinely satisfied:
+
+- **Simulator CI** — 9 root-cause fixes. It had always failed at SwiftLint, masking a
+  stack of latent breakage (real lint violations, an Xcode-version pin for Swift 6.2
+  concurrency settings, a missing device-test scheme reference, a missing import, the
+  device target's actor-isolation setting, a stale simulator destination + test, and
+  coverage-gate exclusions for device-only files).
+- **Device CI codesigning** — the self-hosted LaunchAgent runner could not codesign the
+  XCTest injection dylibs (`errSecInternalComponent`). Fixed with an in-workflow
+  `security unlock-keychain` + `set-key-partition-list` step reading a new
+  `KEYCHAIN_PASSWORD` repo secret.
+- **NSFaceIDUsageDescription** — the device tests ran on real hardware for the first time
+  and the app crashed: `Info.plist` lacked the Face ID usage-description key that any
+  on-device `LAContext` biometric access requires. Added the key + a simulator-side guard
+  test (`BiometricServiceTests.infoPlistHasFaceIDUsageDescription`).
+- **Doc-PR-safe gate** — `ci-device.yml` was restructured so the required
+  `device-security-surface` check is reported on every PR (a fast `changes` job skips the
+  device job on non-security PRs). A trigger-level `paths:` filter would instead have left
+  non-security PRs stuck on an un-reported required check.
 
 ## Future Work
 
-- Close CI-03 + DEV-04 in REQUIREMENTS.md traceability table after HUMAN-UAT `approved`.
+- ~~Close CI-03 + DEV-04 in REQUIREMENTS.md~~ — DONE 2026-05-16: the requirement-list
+  checkboxes for CI-03 + DEV-04 are flipped to `[x]` with validation notes. The
+  REQUIREMENTS.md *traceability table* (bottom of file) is uniformly `Pending` for all
+  ~38 requirements — it was never maintained; fixing it is a separate cleanup, not part
+  of this close-out.
 - Create `docs/ops-incidents.md` on first break-glass event (admin override of branch protection).
 - Validate `scripts/report-flaky-passes.sh` against a real xcresult containing a retry — the JSON-format grep may need refinement once we see production xcresult retry markers (expected first retry occurrence will be logged as evidence for format confirmation).
 - If the Release-strings guard step proves too slow on every simulator PR, reroute to a dedicated workflow gated on `paths: validationLedger/Core/Attestation/**`.

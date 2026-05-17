@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: active
-stopped_at: "IN-PROGRESS quick task — Phase 4 close-out (bring device CI online + gate main). Branch ci/phase-4-device-ci-online, PR #1, 10 commits pushed, working tree clean. Simulator CI is now fully GREEN (9 root-cause fixes — it had never passed). Device CI BLOCKED on self-hosted-runner codesign (errSecInternalComponent). RESUME via .planning/quick/260516-phase-4-closeout/SUMMARY.md — it has the full handoff: the host keychain fix the user must run, then re-run device CI, then branch protection + Part D closeout. NOTE: STATE.md progress block below is stale (says 27/27 / phase 3; actual: Phase 4 complete on disk, 38/38 plans) — reconcile during Part D."
-last_updated: "2026-05-16T22:30:00.000Z"
-last_activity: 2026-05-16 -- Phase 4 close-out quick task in progress: simulator CI green; device CI blocked on runner codesign. Handoff: .planning/quick/260516-phase-4-closeout/SUMMARY.md
+stopped_at: "Phase 4 COMPLETE — close-out quick task done. Simulator + device CI both green; main gated by branch protection (device-security-surface + test, strict, admin-overridable). PR #1 merged (squash 72fa3ee). Phase 4 marked [x] in ROADMAP. Next: Phase 5 (KYC Capture & Upload Pipeline) — not yet planned."
+last_updated: "2026-05-17T00:35:00.000Z"
+last_activity: 2026-05-16 -- Phase 4 close-out complete: device CI online, main gated, PR #1 merged. Quick-task record: .planning/quick/260516-phase-4-closeout/SUMMARY.md
 progress:
   total_phases: 5
-  completed_phases: 3
-  total_plans: 27
-  completed_plans: 27
+  completed_phases: 4
+  total_plans: 38
+  completed_plans: 38
   percent: 100
 ---
 
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-20)
 
 **Core value:** Identity that cannot be spoofed and a chain-of-trust that cannot be faked.
-**Current focus:** Phase 1 — Foundational Conventions & Scaffolding
+**Current focus:** Phase 5 — KYC Capture & Upload Pipeline (not yet planned)
 
 ## Current Position
 
-Phase: 4 of 5 (App Attest & Physical-Device CI Hardening) — Wave 4 complete, Wave 5 pending
-Wave: 4 of 5 complete (04-07, 04-08, 04-09, 04-11 all merged to main with SUMMARYs) · Wave 5 = plan 04-10 pending
-Plan: 10 of 11 complete (04-01..04-09 + 04-11); plan 04-10 pending (Wave 5 CI pipeline)
-Status: ACTIVE — unblocked after quota reset + successful device test
-Last activity: 2026-04-22 18:45 -- Wave 4 merged; 04-08 checkpoint closed partial; ready for Wave 5 executor
+Phase: 4 of 5 COMPLETE (App Attest & Physical-Device CI Hardening) — all 11 plans done
+Plan: 38 of 38 plans complete across Phases 1-4 (every plan has a SUMMARY)
+Status: Phase 4 closed out 2026-05-16 — device CI online, `main` gated by branch protection, PR #1 merged (squash 72fa3ee)
+Next: Phase 5 — KYC Capture & Upload Pipeline (no plans yet — start with `/gsd-discuss-phase 5` or `/gsd-plan-phase 5`)
+Last activity: 2026-05-16 -- Phase 4 close-out quick task complete
 
-Progress: Phase 1 [██████████] 100% · Phase 2 [██████████] 100% · Phase 3 [██████████] 100% · Phase 4 [█████████░] ~91% · Milestone M1 [█████████░] 93%
+Progress: Phase 1 [██████████] 100% · Phase 2 [██████████] 100% · Phase 3 [██████████] 100% · Phase 4 [██████████] 100% · Phase 5 [░░░░░░░░░░] 0% · Milestone M1 [████████░░] 80%
 
 ## Performance Metrics
 
@@ -90,7 +90,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-04-22
-Stopped at: Phase 4 context gathered — 16 decisions across 4 areas (App Attest key lifecycle + challenge/assertion protocol + graceful-skip contract + device CI coverage & merge policy). CONTEXT.md + DISCUSSION-LOG.md written. ADR 0004 extends to ADR 0005 for three-key /device/register payload. Device CI full-security-surface plan retires 3 of 4 Phase 3 HUMAN-UAT items.
-Resume file: .planning/phases/04-app-attest-physical-device-ci-hardening/04-CONTEXT.md
-Next command: `/gsd-plan-phase 4`
+Last session: 2026-05-16
+Stopped at: Phase 4 close-out complete — simulator + device CI both green, `main` gated by branch protection (device-security-surface + test, strict), PR #1 merged (squash 72fa3ee). Quick-task record: .planning/quick/260516-phase-4-closeout/SUMMARY.md.
+Resume file: —
+Next command: `/gsd-plan-phase 5` (Phase 5 — KYC Capture & Upload Pipeline; consider `/gsd-discuss-phase 5` first)

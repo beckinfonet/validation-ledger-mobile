@@ -102,16 +102,20 @@ changed. GitHub counts a skipped required check as passing — so the required c
 always satisfied, whether the device tests ran or were skipped. A trigger-level `paths:`
 filter would instead leave the check un-reported and the PR stuck "waiting for status".
 
-**HUMAN-UAT checklist (Plan 04-10 Task 5):**
+**HUMAN-UAT checklist (Plan 04-10 Task 5) — closed 2026-05-16:**
 
-- [ ] Branch-protection rule for `main` requires `device-security-surface` + `test`, strict.
-- [ ] Verified on a test PR touching `validationLedgerDeviceTests/`: a deliberate device-test
-      failure turns `device-security-surface` red and the PR's merge is blocked.
-- [ ] Fix the deliberate failure → `device-security-surface` green → merge re-enables.
-- [ ] Verified a non-security PR: `device-security-surface` reports `skipped` and does not
-      block the merge.
-- [ ] Test PR(s) closed without merging; test branch(es) deleted.
-- [ ] Verification evidence recorded in `.planning/phases/04-app-attest-physical-device-ci-hardening/04-10-SUMMARY.md`.
+- [x] Branch-protection rule for `main` requires `device-security-surface` + `test`, strict
+      (configured via `gh api`; `enforce_admins: false` — admin-overridable per D-16).
+- [x] Block verified — test PR #2 (`test/gate-verify-device-fail`): a deliberate
+      `#expect(Bool(false))` in a device test turned `device-security-surface` red and the
+      PR's `mergeStateStatus` went `BLOCKED`. PR closed without merging; branch deleted.
+- [x] Green path verified — PR #1 merged into `main` with `device-security-surface` + `test`
+      both green and the strict (up-to-date) check satisfied.
+- [ ] Skip path — a non-security PR (this Phase 4 close-out PR) reports
+      `device-security-surface` as `skipped` and is not blocked by it. (Ticked in a
+      follow-up commit once observed on this PR.)
+- [x] Verification evidence recorded in
+      `.planning/phases/04-app-attest-physical-device-ci-hardening/04-10-SUMMARY.md`.
 
 **Break-glass:** If `main` ends up blocked with no valid path forward (e.g., a device-runner outage), admins can temporarily un-tick the required-status-check in Settings, merge, then re-tick. Record these events in the PR description + an incident note in `docs/ops-incidents.md` (create the file if needed). D-16 explicitly accepts this admin-override residual risk for a solo-dev org.
 
