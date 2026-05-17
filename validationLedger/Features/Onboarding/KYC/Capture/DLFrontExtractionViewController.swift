@@ -10,9 +10,21 @@
 //
 // === D-05 FORMAT GATE ===
 // On appear, `DLFieldFormatValidator` runs over the extracted fields. On a
-// format failure the screen auto-prompts a rescan with the UI-SPEC "That scan
-// didn't come through clearly…" copy. "Looks good" advances; "Rescan" returns to
-// the scanner.
+// format failure the screen shows the inline "That scan didn't come through
+// clearly…" notice and DISABLES the "Looks good" CTA — the user must tap the
+// always-present "Rescan" button to return to the scanner. "Looks good"
+// advances.
+//
+// === ISSUE 1 — NO AUTO-RESCAN (debug session `kyc-upload-capture-bugs`) ===
+// The format gate USED to auto-pop back to the scanner on a failure. That
+// created an infinite scanner<->extraction loop: the auto-pop re-entered the
+// DataScanner screen, whose `viewWillAppear` re-armed the scan, the still-framed
+// license was instantly re-recognized, a new extraction was pushed, the gate
+// failed again, and it auto-popped again. The fix RETAINS the format gate but
+// makes the rescan USER-INITIATED — `runFormatGate()` no longer calls
+// `onRescanRequested`; it only surfaces the inline notice + disables the CTA.
+// Returning to the scanner now happens solely on an explicit "Rescan" tap, so
+// the loop cannot run. See `.planning/debug/resolved/kyc-upload-capture-bugs.md`.
 
 import UIKit
 
@@ -158,8 +170,15 @@ final class DLFrontExtractionViewController: UIViewController {
     // MARK: - D-05 format gate
 
     /// Run `DLFieldFormatValidator` over the extracted fields. On a failure the
-    /// inline notice is shown, the confirm CTA is disabled, and a rescan is
-    /// auto-prompted (D-05). Runs at most once per VC instance.
+    /// inline notice is shown and the confirm CTA is disabled (D-05). Runs at
+    /// most once per VC instance.
+    ///
+    /// Issue 1 (debug session `kyc-upload-capture-bugs`): this NO LONGER
+    /// auto-prompts a rescan. An auto-pop back to the scanner re-armed the
+    /// DataScanner, which instantly re-recognized the still-framed license and
+    /// re-pushed this screen — an infinite scanner<->extraction loop. The gate
+    /// is retained; the rescan is now strictly user-initiated via the
+    /// always-present "Rescan" button (`rescanTapped`).
     private func runFormatGate() {
         guard !didRunFormatGate else { return }
         didRunFormatGate = true
@@ -172,10 +191,10 @@ final class DLFrontExtractionViewController: UIViewController {
             formatErrorLabel.isHidden = true
             confirmButton.isEnabled = true
         } else {
+            // Surface the failure inline and disable the confirm CTA — but do
+            // NOT auto-pop. The user taps "Rescan" to return to the scanner.
             formatErrorLabel.isHidden = false
             confirmButton.isEnabled = false
-            // D-05 — auto-prompt the rescan on a format failure.
-            onRescanRequested?()
         }
     }
 
