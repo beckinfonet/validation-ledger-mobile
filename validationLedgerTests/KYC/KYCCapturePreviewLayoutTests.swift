@@ -1,35 +1,40 @@
 // validationLedgerTests/KYC/KYCCapturePreviewLayoutTests.swift
 // Requirement: KYC-02 / KYC-04 — the camera preview host must always resolve
-// to a NON-ZERO height. Regression lock for debug session
-// `front-camera-preview-black` (rounds 1–3).
+// to a NON-ZERO height AND its backing layer must be the camera preview layer.
+// Regression lock for debug session `front-camera-preview-black` (rounds 1–4).
 //
-// THE BUG (round 3, decisive on-device evidence): round 2 (873becd) pinned a
-// rigid 3:4 aspect-ratio constraint on `previewContainer`. Inside the capture
-// VCs' vertical `.fill` `UIStackView` — which is pinned to the safe area on
-// BOTH ends, so its height is fully determined — that rigid aspect constraint
-// is unsatisfiable. UIKit force-breaks it ("Will attempt to recover by breaking
-// constraint kyc-face-preview.height == 1.33333*kyc-face-preview.width") and
-// the plain `UIView` (no intrinsic content size, no other height constraint)
-// collapses to height 0 → `previewLayer.frame = previewContainer.bounds` copies
-// a 0×0 rect → solid-black preview.
+// THE BUG (rounds 1–3): the capture VCs hosted the camera by adding an
+// `AVCaptureVideoPreviewLayer` as a SUBLAYER of a plain `UIView` and re-syncing
+// `previewLayer.frame = container.bounds` every layout pass. Round 2's rigid
+// 3:4 aspect constraint force-broke inside the both-ends-pinned `.fill` stack
+// and the plain `UIView` collapsed to height 0 → 0×0 preview → solid black.
 //
-// THE FIX (round 3): no rigid/aspect height. The preview hugs vertically at the
-// lowest priority while the labels (and shutter button) hug firmly, so the
-// `.fill` stack expands the preview into all leftover vertical space — a
-// satisfiable layout with nothing to break.
+// THE FIX:
+//   - Round 3: no rigid/aspect height. The preview hugs vertically at the
+//     lowest priority while the labels (and shutter button) hug firmly, so the
+//     `.fill` stack expands the preview into all leftover vertical space — a
+//     satisfiable layout with nothing to break. (Retained.)
+//   - Round 4 (STRUCTURAL): the preview host is now `CameraPreviewView`, a
+//     `UIView` subclass whose BACKING layer IS the `AVCaptureVideoPreviewLayer`
+//     (`layerClass` override). UIKit keeps a view's backing layer exactly
+//     `bounds`-sized — there is no `previewLayer.frame` to sync and no 0×0
+//     race. The manual add-as-sublayer pattern is gone.
 //
 // This test reconstructs the EXACT stack composition that
 // `FaceCaptureViewController.viewDidLoad` / `VehicleCaptureViewController.viewDidLoad`
 // build (same arranged subviews, same `.fill` distribution, same both-ends-
-// pinned safe-area constraints, same hugging priorities) and asserts the
-// preview host resolves to a non-zero height. Live camera frames are a device-
-// only surface (RESEARCH Pitfall 1); the Auto Layout collapse is fully
+// pinned safe-area constraints, same hugging priorities, same `CameraPreviewView`
+// host) and asserts (a) the preview host resolves to a non-zero height and
+// (b) the host's backing layer is the camera preview layer and tracks the
+// view's bounds with zero manual sync. Live camera frames are a device-only
+// surface (RESEARCH Pitfall 1); the layout + backing-layer wiring are fully
 // reproducible on the simulator, which is what this locks.
 //
 // If a future change reintroduces a rigid height, drops the hugging-priority
-// fix, or restores the aspect constraint, the preview host collapses to 0 and
-// these tests fail.
+// fix, restores the aspect constraint, or reverts the `layerClass` host, these
+// tests fail.
 
+import AVFoundation
 import Testing
 import UIKit
 @testable import validationLedger
@@ -39,12 +44,12 @@ import UIKit
 struct KYCCapturePreviewLayoutTests {
 
     /// Builds the face-capture stack EXACTLY as `FaceCaptureViewController`
-    /// does: instruction label + preview container + cue label in a vertical
+    /// does: instruction label + `CameraPreviewView` + cue label in a vertical
     /// `.fill` `UIStackView` pinned to the safe area on all four edges, with the
     /// round-3 hugging-priority fix applied. Returns the host view and the
-    /// preview container so the caller can size the host and inspect the
-    /// resolved bounds.
-    private func makeFaceCaptureLayout() -> (host: UIView, preview: UIView) {
+    /// `CameraPreviewView` so the caller can size the host and inspect the
+    /// resolved bounds + the backing layer.
+    private func makeFaceCaptureLayout() -> (host: UIView, preview: CameraPreviewView) {
         let host = UIView()
 
         let instructionLabel = UILabel()
@@ -59,8 +64,7 @@ struct KYCCapturePreviewLayoutTests {
         cueLabel.text = "Center your face"
         cueLabel.setContentHuggingPriority(.required, for: .vertical)
 
-        let preview = UIView()
-        preview.backgroundColor = .black
+        let preview = CameraPreviewView()
         preview.translatesAutoresizingMaskIntoConstraints = false
         preview.accessibilityIdentifier = "kyc-face-preview"
         preview.setContentHuggingPriority(.init(1), for: .vertical)
@@ -103,8 +107,8 @@ struct KYCCapturePreviewLayoutTests {
     }
 
     /// Builds the vehicle-capture stack EXACTLY as `VehicleCaptureViewController`
-    /// does: instruction label + preview container + cue label + shutter button.
-    private func makeVehicleCaptureLayout() -> (host: UIView, preview: UIView) {
+    /// does: instruction label + `CameraPreviewView` + cue label + shutter button.
+    private func makeVehicleCaptureLayout() -> (host: UIView, preview: CameraPreviewView) {
         let host = UIView()
 
         let instructionLabel = UILabel()
@@ -123,8 +127,7 @@ struct KYCCapturePreviewLayoutTests {
         shutterConfig.title = "Take photo"
         let shutterButton = UIButton(configuration: shutterConfig)
 
-        let preview = UIView()
-        preview.backgroundColor = .black
+        let preview = CameraPreviewView()
         preview.translatesAutoresizingMaskIntoConstraints = false
         preview.accessibilityIdentifier = "kyc-vehicle-preview"
         preview.setContentHuggingPriority(.init(1), for: .vertical)
@@ -170,7 +173,11 @@ struct KYCCapturePreviewLayoutTests {
     }
 
     /// Resolves the layout at a fixed size and returns the preview's bounds.
-    private func resolvedPreviewBounds(host: UIView, preview: UIView, size: CGSize) -> CGRect {
+    private func resolvedPreviewBounds(
+        host: UIView,
+        preview: CameraPreviewView,
+        size: CGSize
+    ) -> CGRect {
         host.frame = CGRect(origin: .zero, size: size)
         host.setNeedsLayout()
         host.layoutIfNeeded()
@@ -218,5 +225,39 @@ struct KYCCapturePreviewLayoutTests {
         #expect(bounds.height > 0, "vehicle preview host collapsed to 0 height at full device size — black-preview regression")
         #expect(bounds.width > 0)
         #expect(bounds.height > 240)
+    }
+
+    // MARK: - Round-4 structural fix: the backing layer IS the preview layer
+
+    @Test("CameraPreviewView's backing layer is an AVCaptureVideoPreviewLayer")
+    func cameraPreviewViewBackingLayerIsThePreviewLayer() {
+        // The round-4 structural fix: `CameraPreviewView.layerClass` makes the
+        // view's BACKING layer the preview layer. If a future change reverts to
+        // a plain `UIView` + manual sublayer, this fails.
+        #expect(CameraPreviewView.layerClass == AVCaptureVideoPreviewLayer.self)
+        let view = CameraPreviewView()
+        #expect(view.layer is AVCaptureVideoPreviewLayer)
+        #expect(view.previewLayer === view.layer)
+    }
+
+    @Test("Face capture: the preview layer tracks the host bounds with zero manual sync")
+    func faceCapturePreviewLayerTracksBoundsWithoutManualSync() {
+        // Because the preview layer is the backing layer, it is ALWAYS exactly
+        // the view's bounds — no `viewDidLayoutSubviews` frame-sync needed. This
+        // is the property that permanently removes the 0×0 race (round 4).
+        let (host, preview) = makeFaceCaptureLayout()
+        _ = resolvedPreviewBounds(host: host, preview: preview, size: CGSize(width: 393, height: 852))
+        #expect(preview.previewLayer.bounds == preview.bounds,
+                "preview layer bounds drifted from the host bounds — manual-sync race reintroduced")
+        #expect(preview.previewLayer.bounds.height > 240)
+    }
+
+    @Test("Vehicle capture: the preview layer tracks the host bounds with zero manual sync")
+    func vehicleCapturePreviewLayerTracksBoundsWithoutManualSync() {
+        let (host, preview) = makeVehicleCaptureLayout()
+        _ = resolvedPreviewBounds(host: host, preview: preview, size: CGSize(width: 393, height: 852))
+        #expect(preview.previewLayer.bounds == preview.bounds,
+                "preview layer bounds drifted from the host bounds — manual-sync race reintroduced")
+        #expect(preview.previewLayer.bounds.height > 240)
     }
 }

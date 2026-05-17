@@ -82,6 +82,14 @@ final class VehicleCaptureViewModel {
         cameraSession.previewLayer
     }
 
+    /// The live `AVCaptureSession` for the VC's `CameraPreviewView` backing
+    /// layer (debug session `front-camera-preview-black`, round 4). Read off
+    /// the session's own preview layer so there is exactly ONE session instance
+    /// (the one `start()`/`stop()`/`capture()` act on). Render-only.
+    var captureSession: AVCaptureSession? {
+        cameraSession.previewLayer.session
+    }
+
     /// The instruction header copy for this artifact (UI-SPEC capture cues).
     var instructionText: String {
         switch artifactType {

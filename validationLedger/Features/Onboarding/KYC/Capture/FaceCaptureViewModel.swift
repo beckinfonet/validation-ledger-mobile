@@ -97,6 +97,17 @@ final class FaceCaptureViewModel {
         cameraSession.previewLayer
     }
 
+    /// The live `AVCaptureSession` for the VC's `CameraPreviewView` backing
+    /// layer (debug session `front-camera-preview-black`, round 4). The VC
+    /// hosts the preview via a `layerClass`-override view whose backing layer
+    /// IS an `AVCaptureVideoPreviewLayer` — this exposes the session to wire
+    /// into it, replacing the fragile manual add-as-sublayer pattern. Read off
+    /// the session's own preview layer so there is exactly ONE session instance
+    /// (the one `start()`/`stop()`/`capturePhoto()` act on). Render-only.
+    var captureSession: AVCaptureSession? {
+        cameraSession.previewLayer.session
+    }
+
     // MARK: - Lifecycle
 
     /// Start the camera + the quality-gate signal stream. On the simulator

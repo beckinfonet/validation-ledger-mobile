@@ -12,6 +12,14 @@
 // `adjustsFontForContentSizeCategory = true`. The shutter button presents a 44pt
 // touch-target floor (UI-SPEC). iPad: Auto Layout against the safe area; the
 // preview `videoRotationAngle` is updated on `viewWillTransition` (Pitfall 7).
+//
+// === PREVIEW HOSTING (debug session `front-camera-preview-black`, round 4) ===
+// The camera preview is hosted by a `CameraPreviewView` — a `UIView` subclass
+// whose BACKING layer IS the `AVCaptureVideoPreviewLayer` (`layerClass` override).
+// UIKit keeps a view's backing layer exactly `bounds`-sized, so there is NO
+// manual `previewLayer.frame` sync and NO 0×0 race — the fragile add-as-sublayer
+// pattern of rounds 1–3 is gone. The preview view is the slack-absorbing
+// arranged subview of the `.fill` stack (round-3 hugging-priority fix retained).
 
 import AVFoundation
 import OSLog
@@ -28,17 +36,19 @@ class VehicleCaptureViewController: UIViewController {
 
     // MARK: - UI components
 
-    /// Hosts the live camera preview. Render-only (Pitfall 6).
+    /// Hosts the live camera preview. Its backing layer IS the
+    /// `AVCaptureVideoPreviewLayer` (`CameraPreviewView.layerClass`), so the
+    /// preview is always exactly this view's `bounds` with zero manual frame
+    /// sync — the round-4 structural fix for the black-preview bug. Render-only
+    /// (Pitfall 6).
     ///
-    /// Layout (debug session `front-camera-preview-black`, round 3): a plain
-    /// `UIView` with NO intrinsic content size in a vertical `.fill`
-    /// `UIStackView` pinned to the safe area on BOTH ends. Its vertical
-    /// content-hugging and compression-resistance priorities are set below the
-    /// labels'/shutter button's so the `.fill` stack stretches THIS view into
-    /// the leftover vertical space. See `viewDidLoad`.
-    private let previewContainer: UIView = {
-        let view = UIView()
-        view.backgroundColor = .black
+    /// Layout (round 3, retained): a vertical `.fill` `UIStackView` pinned to the
+    /// safe area on BOTH ends. The preview hugs vertically at the lowest priority
+    /// while the labels and shutter button hug firmly, so the `.fill` stack
+    /// stretches the preview into the leftover vertical space — it cannot
+    /// collapse to 0.
+    private let previewView: CameraPreviewView = {
+        let view = CameraPreviewView()
         view.translatesAutoresizingMaskIntoConstraints = false
         view.accessibilityIdentifier = "kyc-vehicle-preview"
         // Hug at the lowest possible priority so the `.fill` stack always
@@ -82,7 +92,11 @@ class VehicleCaptureViewController: UIViewController {
         return button
     }()
 
-    private lazy var previewLayer: AVCaptureVideoPreviewLayer = viewModel.previewLayer
+    /// The camera preview layer — the backing layer of `previewView`.
+    private var previewLayer: AVCaptureVideoPreviewLayer { previewView.previewLayer }
+
+    /// Guards the one-shot `final_state` diagnostic so it logs once per appear.
+    private var didLogFinalState = false
 
     // MARK: - Init
 
@@ -112,7 +126,7 @@ class VehicleCaptureViewController: UIViewController {
         cueLabel.setContentHuggingPriority(.required, for: .vertical)
 
         let stack = UIStackView(arrangedSubviews: [
-            instructionLabel, previewContainer, cueLabel, shutterButton,
+            instructionLabel, previewView, cueLabel, shutterButton,
         ])
         stack.axis = .vertical
         stack.spacing = DS.Spacing.md
@@ -140,27 +154,14 @@ class VehicleCaptureViewController: UIViewController {
             ),
             // 44pt touch-target floor (UI-SPEC).
             shutterButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44),
-            // ROOT-CAUSE FIX — round 3 (debug session `front-camera-preview-black`).
-            //
-            // Round 2 (873becd) pinned a rigid 3:4 aspect ratio on
-            // `previewContainer`. Inside this both-ends-pinned `.fill` stack of
-            // intrinsic-height siblings that constraint is UNSATISFIABLE —
-            // UIKit force-breaks it and the plain UIView collapses to height 0
-            // again → solid-black preview.
-            //
-            // The fix: NO rigid/aspect height. `videoGravity = .resizeAspectFill`
-            // fills whatever frame the container gets. The preview hugs
-            // vertically at the lowest priority (set on `previewContainer`)
-            // while the labels hug at `.required` and the shutter button keeps
-            // its `>= 44` floor — so the `.fill` stack expands the preview into
-            // all leftover vertical space. The remainder is always > 0 and no
-            // conflicting constraint is left for UIKit to break.
-            //
-            // Defense-in-depth: a minimum-height floor at priority 250, too low
-            // to fight the encapsulated-layout height (so no breakable conflict)
-            // yet guarding against a future layout change collapsing it.
+            // ROUND-3 layout fix (retained). The `.fill` stack expands the
+            // preview view into the leftover vertical space because the preview
+            // hugs at the lowest priority while the labels hug at `.required`
+            // and the shutter button keeps its `>= 44` floor. Defense-in-depth:
+            // a min-height floor at priority 250 — too low to reintroduce a
+            // breakable conflict, yet guards against a future layout shrink.
             {
-                let minHeight = previewContainer.heightAnchor.constraint(
+                let minHeight = previewView.heightAnchor.constraint(
                     greaterThanOrEqualToConstant: 240
                 )
                 minHeight.priority = .init(250)
@@ -168,9 +169,12 @@ class VehicleCaptureViewController: UIViewController {
             }(),
         ])
 
-        previewLayer.frame = previewContainer.bounds
-        previewContainer.layer.addSublayer(previewLayer)
-        kycCameraLog.info("kyc_camera event=vehicle_vc.viewDidLoad preview_layer_added_to=previewContainer videoGravity=\(String(describing: self.previewLayer.videoGravity), privacy: .public)")
+        // ROUND-4 structural fix. The preview layer is `previewView`'s BACKING
+        // layer — UIKit keeps it exactly `bounds`-sized, so there is no
+        // `previewLayer.frame` to sync and no 0×0 race. Wire the session in.
+        previewView.session = viewModel.captureSession
+        previewView.videoGravity = .resizeAspectFill
+        kycCameraLog.info("kyc_camera event=vehicle_vc.viewDidLoad preview_host=CameraPreviewView(layerClass) videoGravity=\(String(describing: self.previewLayer.videoGravity), privacy: .public) sessionWired=\(self.previewLayer.session != nil, privacy: .public)")
 
         shutterButton.addTarget(self, action: #selector(shutterTapped), for: .touchUpInside)
 
@@ -182,8 +186,10 @@ class VehicleCaptureViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        kycCameraLog.info("kyc_camera event=vehicle_vc.viewWillAppear previewContainer.bounds=\(NSCoder.string(for: self.previewContainer.bounds), privacy: .public)")
+        didLogFinalState = false
+        kycCameraLog.info("kyc_camera event=vehicle_vc.viewWillAppear previewView.bounds=\(NSCoder.string(for: self.previewView.bounds), privacy: .public)")
         viewModel.start()
+        scheduleFinalStateSnapshot()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -193,10 +199,11 @@ class VehicleCaptureViewController: UIViewController {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        previewLayer.frame = previewContainer.bounds
+        // No `previewLayer.frame` sync — the preview layer IS the backing layer
+        // of `previewView` and is always exactly `previewView.bounds` (round 4).
         updatePreviewRotation()
         let connection = previewLayer.connection
-        kycCameraLog.info("kyc_camera event=vehicle_vc.viewDidLayoutSubviews previewContainer.bounds=\(NSCoder.string(for: self.previewContainer.bounds), privacy: .public) previewLayer.frame=\(NSCoder.string(for: self.previewLayer.frame), privacy: .public) inHierarchy=\(self.previewLayer.superlayer != nil, privacy: .public) connectionExists=\(connection != nil, privacy: .public) connectionActive=\(connection?.isActive ?? false, privacy: .public) connectionEnabled=\(connection?.isEnabled ?? false, privacy: .public)")
+        kycCameraLog.info("kyc_camera event=vehicle_vc.viewDidLayoutSubviews previewView.bounds=\(NSCoder.string(for: self.previewView.bounds), privacy: .public) previewLayer.bounds=\(NSCoder.string(for: self.previewLayer.bounds), privacy: .public) inHierarchy=\(self.previewLayer.superlayer != nil, privacy: .public) connectionExists=\(connection != nil, privacy: .public) connectionActive=\(connection?.isActive ?? false, privacy: .public) connectionEnabled=\(connection?.isEnabled ?? false, privacy: .public)")
     }
 
     /// iPad rotation (RESEARCH Pitfall 7).
@@ -208,6 +215,34 @@ class VehicleCaptureViewController: UIViewController {
         coordinator.animate(alongsideTransition: { [weak self] _ in
             self?.updatePreviewRotation()
         })
+    }
+
+    // MARK: - Round-4 definitive diagnostic
+
+    /// Schedule the one-shot `kyc_camera event=final_state` snapshot ~2s after
+    /// the camera-session startup is kicked — the post-settle TRUTH that
+    /// disambiguates layout-still-broken vs camera-still-broken for the
+    /// black-preview bug (debug session `front-camera-preview-black`, round 4).
+    private func scheduleFinalStateSnapshot() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            guard let self, !self.didLogFinalState else { return }
+            self.didLogFinalState = true
+            let connection = self.previewLayer.connection
+            kycCameraLog.info("""
+            kyc_camera event=final_state \
+            view.bounds=\(NSCoder.string(for: self.view.bounds), privacy: .public) \
+            view.window=\(self.view.window != nil, privacy: .public) \
+            navController=\(self.navigationController != nil, privacy: .public) \
+            previewView.bounds=\(NSCoder.string(for: self.previewView.bounds), privacy: .public) \
+            previewLayer.bounds=\(NSCoder.string(for: self.previewLayer.bounds), privacy: .public) \
+            previewLayer.superlayer=\(self.previewLayer.superlayer != nil, privacy: .public) \
+            sessionWired=\(self.previewLayer.session != nil, privacy: .public) \
+            sessionRunning=\(self.previewLayer.session?.isRunning ?? false, privacy: .public) \
+            connectionExists=\(connection != nil, privacy: .public) \
+            connectionActive=\(connection?.isActive ?? false, privacy: .public) \
+            connectionEnabled=\(connection?.isEnabled ?? false, privacy: .public)
+            """)
+        }
     }
 
     // MARK: - State → UI

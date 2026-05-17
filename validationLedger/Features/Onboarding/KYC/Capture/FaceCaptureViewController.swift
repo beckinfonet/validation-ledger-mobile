@@ -9,12 +9,22 @@
 // `adjustsFontForContentSizeCategory = true`.
 //
 // === D-04 AUTO-FIRE ===
-// The VC hosts the `CameraSession` preview layer behind an oval framing guide.
-// The `FaceCaptureViewModel` consumes the Vision `FaceQualityGate` stream; when
-// it reports the steady-hold pass the photo auto-fires — there is no shutter
+// The VC hosts the `CameraSession` preview behind an oval framing guide. The
+// `FaceCaptureViewModel` consumes the Vision `FaceQualityGate` stream; when it
+// reports the steady-hold pass the photo auto-fires — there is no shutter
 // button. The guide stroke is `.white` (reduced alpha) while gates fail and
 // `.systemGreen` when all pass; the live inline cue is driven by the gate's
 // adjust reason (no alert).
+//
+// === PREVIEW HOSTING (debug session `front-camera-preview-black`, round 4) ===
+// The camera preview is hosted by a `CameraPreviewView` — a `UIView` subclass
+// whose BACKING layer IS the `AVCaptureVideoPreviewLayer` (`layerClass` override).
+// UIKit keeps a view's backing layer exactly `bounds`-sized at all times, so
+// there is NO manual `previewLayer.frame` sync and NO 0×0 race window — the
+// fragile "add the layer as a sublayer and re-sync `.frame` in
+// `viewDidLayoutSubviews`" pattern (rounds 1–3) is gone. The preview view is the
+// slack-absorbing arranged subview of the `.fill` stack (round-3 hugging-priority
+// fix retained). The oval guide is a sibling overlay layer.
 //
 // === iPad (RESEARCH Pitfall 7) ===
 // The capture chrome is laid out with Auto Layout against the safe area; the
@@ -33,18 +43,17 @@ final class FaceCaptureViewController: UIViewController {
 
     // MARK: - UI components
 
-    /// Hosts the live camera preview. Distinct from the upload path — render only.
+    /// Hosts the live camera preview. Its backing layer IS the
+    /// `AVCaptureVideoPreviewLayer` (`CameraPreviewView.layerClass`), so the
+    /// preview is always exactly this view's `bounds` with zero manual frame
+    /// sync — the round-4 structural fix for the black-preview bug.
     ///
-    /// Layout (debug session `front-camera-preview-black`, round 3): this is a
-    /// plain `UIView` with NO intrinsic content size, placed in a vertical
-    /// `.fill` `UIStackView` that is pinned to the safe area on BOTH ends. For
-    /// the `.fill` stack to stretch THIS view (rather than a label) into the
-    /// leftover vertical space, its vertical content-hugging AND compression-
-    /// resistance priorities are set below the labels' defaults — making the
-    /// preview the slack-absorbing arranged subview. See `viewDidLoad`.
-    private let previewContainer: UIView = {
-        let view = UIView()
-        view.backgroundColor = .black
+    /// Layout (round 3, retained): a vertical `.fill` `UIStackView` pinned to the
+    /// safe area on BOTH ends. The preview hugs vertically at the lowest priority
+    /// while the labels hug at `.required`, so the `.fill` stack stretches the
+    /// preview into all leftover vertical space — it cannot collapse to 0.
+    private let previewView: CameraPreviewView = {
+        let view = CameraPreviewView()
         view.translatesAutoresizingMaskIntoConstraints = false
         view.accessibilityIdentifier = "kyc-face-preview"
         // The labels keep the UIView default vertical hugging (250); the
@@ -56,7 +65,9 @@ final class FaceCaptureViewController: UIViewController {
     }()
 
     /// The oval framing guide drawn over the preview. White (reduced alpha)
-    /// while gates fail; `.systemGreen` when the gate passes (UI-SPEC).
+    /// while gates fail; `.systemGreen` when the gate passes (UI-SPEC). Hosted on
+    /// the `previewView`'s layer as a sibling sublayer of the backing preview
+    /// layer — it is sized to `previewView.bounds` in `viewDidLayoutSubviews`.
     private let ovalGuideLayer: CAShapeLayer = {
         let layer = CAShapeLayer()
         layer.fillColor = UIColor.clear.cgColor
@@ -89,8 +100,11 @@ final class FaceCaptureViewController: UIViewController {
         return label
     }()
 
-    /// The camera preview layer, hosted in `previewContainer`.
-    private lazy var previewLayer: AVCaptureVideoPreviewLayer = viewModel.previewLayer
+    /// The camera preview layer — the backing layer of `previewView`.
+    private var previewLayer: AVCaptureVideoPreviewLayer { previewView.previewLayer }
+
+    /// Guards the one-shot `final_state` diagnostic so it logs once per appear.
+    private var didLogFinalState = false
 
     // MARK: - Init
 
@@ -120,11 +134,11 @@ final class FaceCaptureViewController: UIViewController {
 
         // The labels hug their intrinsic vertical content firmly so the `.fill`
         // stack never steals their height — they stay label-sized and the
-        // preview container absorbs the slack (see `previewContainer` above).
+        // preview view absorbs the slack (see `previewView` above).
         instructionLabel.setContentHuggingPriority(.required, for: .vertical)
         cueLabel.setContentHuggingPriority(.required, for: .vertical)
 
-        let stack = UIStackView(arrangedSubviews: [instructionLabel, previewContainer, cueLabel])
+        let stack = UIStackView(arrangedSubviews: [instructionLabel, previewView, cueLabel])
         stack.axis = .vertical
         stack.spacing = DS.Spacing.md
         stack.alignment = .fill
@@ -149,32 +163,15 @@ final class FaceCaptureViewController: UIViewController {
                 equalTo: view.safeAreaLayoutGuide.bottomAnchor,
                 constant: -DS.Spacing.xl
             ),
-            // ROOT-CAUSE FIX — round 3 (debug session `front-camera-preview-black`).
-            //
-            // Round 2 (873becd) pinned a rigid 3:4 aspect ratio on
-            // `previewContainer`. On-device that constraint is UNSATISFIABLE:
-            // the stack is pinned to the safe area on BOTH ends, so its height
-            // is fully determined and the leftover space for the preview is
-            // fixed — a rigid `height == 1.333 * width` exceeds it, UIKit
-            // force-breaks the aspect constraint, and the plain UIView (no
-            // intrinsic size, no other height constraint) collapses to 0 AGAIN.
-            //
-            // The fix: NO rigid/aspect height. `videoGravity = .resizeAspectFill`
-            // already fills whatever frame the container gets, so an aspect
-            // ratio is not needed for correct video. Instead the preview hugs
-            // vertically at the lowest priority (set on `previewContainer`) and
-            // the labels hug at `.required` — so the `.fill` stack is FORCED to
-            // expand the preview into all remaining vertical space. The stack
-            // height is positive and the labels take only intrinsic height, so
-            // the remainder handed to the preview is always > 0 and there is no
-            // conflicting constraint left for UIKit to break.
-            //
-            // Defense-in-depth: a minimum-height floor at priority 250 — low
-            // enough that it can never fight the encapsulated-layout height
-            // (so it cannot reintroduce a breakable conflict), but it guards
-            // against any future layout change shrinking the preview to nothing.
+            // ROUND-3 layout fix (retained). The `.fill` stack expands the
+            // preview view into all leftover vertical space because the preview
+            // hugs at the lowest priority while the labels hug at `.required`.
+            // Defense-in-depth: a min-height floor at priority 250 — too low to
+            // fight the encapsulated-layout height (so it can never reintroduce
+            // a breakable conflict) yet it guards against a future layout change
+            // shrinking the preview to nothing.
             {
-                let minHeight = previewContainer.heightAnchor.constraint(
+                let minHeight = previewView.heightAnchor.constraint(
                     greaterThanOrEqualToConstant: 240
                 )
                 minHeight.priority = .init(250)
@@ -182,10 +179,14 @@ final class FaceCaptureViewController: UIViewController {
             }(),
         ])
 
-        previewLayer.frame = previewContainer.bounds
-        previewContainer.layer.addSublayer(previewLayer)
-        previewContainer.layer.addSublayer(ovalGuideLayer)
-        kycCameraLog.info("kyc_camera event=face_vc.viewDidLoad preview_layer_added_to=previewContainer videoGravity=\(String(describing: self.previewLayer.videoGravity), privacy: .public)")
+        // ROUND-4 structural fix. The preview layer is `previewView`'s BACKING
+        // layer — UIKit keeps it exactly `bounds`-sized, so there is no
+        // `previewLayer.frame` to sync and no 0×0 race. Wire the session into
+        // it; the oval guide is a sibling sublayer sized in `viewDidLayoutSubviews`.
+        previewView.session = viewModel.captureSession
+        previewView.videoGravity = .resizeAspectFill
+        previewView.layer.addSublayer(ovalGuideLayer)
+        kycCameraLog.info("kyc_camera event=face_vc.viewDidLoad preview_host=CameraPreviewView(layerClass) videoGravity=\(String(describing: self.previewLayer.videoGravity), privacy: .public) sessionWired=\(self.previewLayer.session != nil, privacy: .public)")
 
         viewModel.onStateChange = { [weak self] state in
             self?.handle(state: state)
@@ -195,8 +196,10 @@ final class FaceCaptureViewController: UIViewController {
 
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        kycCameraLog.info("kyc_camera event=face_vc.viewWillAppear previewContainer.bounds=\(NSCoder.string(for: self.previewContainer.bounds), privacy: .public)")
+        didLogFinalState = false
+        kycCameraLog.info("kyc_camera event=face_vc.viewWillAppear previewView.bounds=\(NSCoder.string(for: self.previewView.bounds), privacy: .public)")
         viewModel.start()
+        scheduleFinalStateSnapshot()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
@@ -206,12 +209,14 @@ final class FaceCaptureViewController: UIViewController {
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
-        previewLayer.frame = previewContainer.bounds
-        ovalGuideLayer.frame = previewContainer.bounds
+        // No `previewLayer.frame` sync — the preview layer IS the backing layer
+        // of `previewView` and is always exactly `previewView.bounds` (round 4).
+        // Only the oval-guide overlay (a sibling sublayer) needs explicit sizing.
+        ovalGuideLayer.frame = previewView.bounds
         updateOvalPath()
         updatePreviewRotation()
         let connection = previewLayer.connection
-        kycCameraLog.info("kyc_camera event=face_vc.viewDidLayoutSubviews previewContainer.bounds=\(NSCoder.string(for: self.previewContainer.bounds), privacy: .public) previewLayer.frame=\(NSCoder.string(for: self.previewLayer.frame), privacy: .public) inHierarchy=\(self.previewLayer.superlayer != nil, privacy: .public) connectionExists=\(connection != nil, privacy: .public) connectionActive=\(connection?.isActive ?? false, privacy: .public) connectionEnabled=\(connection?.isEnabled ?? false, privacy: .public)")
+        kycCameraLog.info("kyc_camera event=face_vc.viewDidLayoutSubviews previewView.bounds=\(NSCoder.string(for: self.previewView.bounds), privacy: .public) previewLayer.bounds=\(NSCoder.string(for: self.previewLayer.bounds), privacy: .public) inHierarchy=\(self.previewLayer.superlayer != nil, privacy: .public) connectionExists=\(connection != nil, privacy: .public) connectionActive=\(connection?.isActive ?? false, privacy: .public) connectionEnabled=\(connection?.isEnabled ?? false, privacy: .public)")
     }
 
     /// iPad rotation (RESEARCH Pitfall 7) — update the preview connection's
@@ -225,6 +230,40 @@ final class FaceCaptureViewController: UIViewController {
         coordinator.animate(alongsideTransition: { [weak self] _ in
             self?.updatePreviewRotation()
         })
+    }
+
+    // MARK: - Round-4 definitive diagnostic
+
+    /// Schedule the one-shot `kyc_camera event=final_state` snapshot ~2s after
+    /// the camera-session startup is kicked. By then every layout pass has
+    /// settled and `startAuthorizedSession` has run to completion — this single
+    /// line is the post-settle TRUTH that disambiguates the two remaining
+    /// hypotheses for the black-preview bug (debug session
+    /// `front-camera-preview-black`, round 4):
+    ///   - layout-still-broken: `view.bounds` / `previewView.bounds` height ≈ 0
+    ///   - camera-still-broken: real non-zero sizes but no frames reach the layer
+    /// It removes the round-3 ambiguity of "did the tester's console capture
+    /// catch every layout pass".
+    private func scheduleFinalStateSnapshot() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+            guard let self, !self.didLogFinalState else { return }
+            self.didLogFinalState = true
+            let connection = self.previewLayer.connection
+            kycCameraLog.info("""
+            kyc_camera event=final_state \
+            view.bounds=\(NSCoder.string(for: self.view.bounds), privacy: .public) \
+            view.window=\(self.view.window != nil, privacy: .public) \
+            navController=\(self.navigationController != nil, privacy: .public) \
+            previewView.bounds=\(NSCoder.string(for: self.previewView.bounds), privacy: .public) \
+            previewLayer.bounds=\(NSCoder.string(for: self.previewLayer.bounds), privacy: .public) \
+            previewLayer.superlayer=\(self.previewLayer.superlayer != nil, privacy: .public) \
+            sessionWired=\(self.previewLayer.session != nil, privacy: .public) \
+            sessionRunning=\(self.previewLayer.session?.isRunning ?? false, privacy: .public) \
+            connectionExists=\(connection != nil, privacy: .public) \
+            connectionActive=\(connection?.isActive ?? false, privacy: .public) \
+            connectionEnabled=\(connection?.isEnabled ?? false, privacy: .public)
+            """)
+        }
     }
 
     // MARK: - State → UI
@@ -294,7 +333,7 @@ final class FaceCaptureViewController: UIViewController {
     }
 
     private func updateOvalPath() {
-        let bounds = previewContainer.bounds
+        let bounds = previewView.bounds
         guard bounds.width > 0, bounds.height > 0 else { return }
         let inset = DS.Spacing.lg
         let ovalRect = bounds.insetBy(dx: inset, dy: inset)
