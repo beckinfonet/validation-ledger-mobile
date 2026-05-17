@@ -142,7 +142,7 @@ Plans:
   4. Uploads continue in the background via `BGProcessingTaskRequest` keeping the foreground chunk loop alive across a background transition (ratified UPL-05 model — Pitfall 2 option 1; the file-based background `URLSession` is a deliberate M2 follow-up) — verified by backgrounding the app mid-upload and confirming the upload completes.
   5. Exponential backoff with jitter caps retries at 5 attempts on 5xx / network errors; server-side idempotency keys prevent duplicate chunk commits — verified by a stress test that injects transient failures and asserts no duplicate chunks land.
 
-**Plans:** 6/8 plans executed
+**Plans:** 7/8 plans executed
 Plans:
 **Wave 1**
 
@@ -157,7 +157,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 05-06-PLAN.md — Wave 3: Review + Status screens — 6-thumbnail gated Submit + 4-state KYC status UI with rejection-reason copy + targeted re-capture
+- [x] 05-06-PLAN.md — Wave 3: Review + Status screens — 6-thumbnail gated Submit + 4-state KYC status UI with rejection-reason copy + targeted re-capture
 - [x] 05-07-PLAN.md — Wave 3: app wiring — .kyc AppPhase hard gate + cold-boot kycStatus routing + KYCCoordinator retention + BGProcessingTaskRequest scheduling
 
 **Wave 4** *(blocked on Wave 3 completion)*
