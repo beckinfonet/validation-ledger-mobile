@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 05-04-PLAN.md
-last_updated: "2026-05-17T06:53:50.417Z"
+stopped_at: Completed 05-07-PLAN.md
+last_updated: "2026-05-17T07:14:12.576Z"
 last_activity: 2026-05-17
 progress:
   total_phases: 5
   completed_phases: 4
   total_plans: 46
-  completed_plans: 43
+  completed_plans: 44
   percent: 80
 ---
 
@@ -26,12 +26,12 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 ## Current Position
 
 Phase: 05 (kyc-capture-upload-pipeline) — EXECUTING
-Plan: 6 of 8
+Plan: 7 of 8
 Status: Ready to execute
 Next: Phase 5 — KYC Capture & Upload Pipeline (no plans yet — start with `/gsd-discuss-phase 5` or `/gsd-plan-phase 5`)
 Last activity: 2026-05-17
 
-Progress: [█████████░] 93%
+Progress: [██████████] 96%
 
 ## Performance Metrics
 
@@ -62,6 +62,7 @@ Progress: [█████████░] 93%
 | Phase 05 P03 | 24min | 3 tasks | 7 files |
 | Phase 05 P04 | 22min | 2 tasks | 8 files |
 | Phase 05 P05 | 22min | 4 tasks | 18 files |
+| Phase 05 P07 | 15min | 2 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,9 @@ Recent decisions affecting current work:
 - [Phase ?]: Phase 5 Plan 05: KYCCoordinator drives live nav but step ordering + the D-01 pipelined-upload-kick rule live in a pure value type KYCFlowSequencer the simulator suite exercises directly (RESEARCH Pitfall 1 — live AVFoundation/Vision produce no simulator frames)
 - [Phase ?]: Phase 5 Plan 05: GPSMetadataInjector is invoked in the capture ViewModel (FaceCaptureViewModel/VehicleCaptureViewModel), not the ViewController — the VC hosts the preview layer, the VM owns the capture-to-upload-Data pipeline (threat T-05-05-02)
 - [Phase ?]: Phase 5 Plan 05: physical-device camera/DataScanner verification is approved-pending and consolidated into plan 05-08's HUMAN-UAT checkpoint — the simulator cannot exercise live camera/scanner surfaces
+- [Phase ?]: Phase 5 Plan 07: the .kyc(Role) AppPhase is a hard gate enforced at AppCoordinator routing — a non-verified kycStatus constructs only KYCCoordinator (D-12 / T-05-07-01)
+- [Phase ?]: Phase 5 Plan 07: SessionRestoreService reads the cached Keychain kycStatus optimistically on cold boot — absent/non-verified fails CLOSED to the .needsKYC KYC gate, never open to the role shell (D-13 / T-05-07-02)
+- [Phase ?]: Phase 5 Plan 07: the UPL-05 BGProcessingTask handler captures the scene AppContainer's kycUploader via an AppDelegate-owned scheduler's live-uploader slot — it never constructs a new AppContainer (T-05-07-06)
 
 ### Pending Todos
 
@@ -106,7 +110,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-17T06:53:32.270Z
-Stopped at: Completed 05-04-PLAN.md
+Last session: 2026-05-17T07:14:12.569Z
+Stopped at: Completed 05-07-PLAN.md
 Resume file: None
 Next command: `/gsd-plan-phase 5` (Phase 5 — KYC Capture & Upload Pipeline; consider `/gsd-discuss-phase 5` first)
