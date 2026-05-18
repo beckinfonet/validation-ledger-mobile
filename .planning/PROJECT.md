@@ -71,7 +71,7 @@ Native iOS client (iPhone + iPad, iOS 17+) for Validation Ledger — a verified-
 - [ ] App Attest productionization (DEV-04)
 - [ ] Physical-device CI runs SecureEnclave + Keychain biometric + App Attest paths on every merge (CI-03)
 
-**Phase 5 target (KYC Capture + Upload)** — ✅ validated 2026-05-17 (see "Validated in Phase 5" above); 4 device HUMAN-UAT items remain in `05-HUMAN-UAT.md`
+**Phase 5 target (KYC Capture + Upload)** — ✅ validated 2026-05-17 (see "Validated in Phase 5" above). Device-UAT automation gap-closure completed 2026-05-18 (plans 05-11/12/13): 4 of the 5 device-UAT items are now automated as device XCUITests on the `ci-device.yml` lane (verified 4/4 on hardware); 2 genuinely-manual items remain in `05-HUMAN-UAT.md` (SC-4 background upload, Test-10 camera-fault injection)
 
 **Pre-Phase-3 required fixes — resolved in Phase 3 plan 03-02 (2026-04-22):**
 - [x] **CR-02 (Phase 2 review)**: `SecureEnclaveKeyStore.generateKey(slot:)` idempotent guard landed
@@ -194,4 +194,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-17 after Phase 5 (KYC Capture & Upload Pipeline) completion*
+*Last updated: 2026-05-18 after Phase 5 device-UAT automation gap-closure (plans 05-11/12/13)*
