@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: milestone_complete
-stopped_at: Milestone complete (Phase 05 was final phase)
-last_updated: 2026-05-18T18:06:28.041Z
-last_activity: 2026-05-18 -- Phase 05 execution started
+status: completed
+stopped_at: Phase 6 context gathered
+last_updated: "2026-05-18T20:13:43.555Z"
+last_activity: 2026-05-18
 progress:
-  total_phases: 5
-  completed_phases: 4
+  total_phases: 6
+  completed_phases: 5
   total_plans: 51
   completed_plans: 51
-  percent: 80
+  percent: 83
 ---
 
 # Project State
@@ -72,6 +72,10 @@ Progress: [█████████▉] 98%
 
 ## Accumulated Context
 
+### Roadmap Evolution
+
+- Phase 6 added: Close gap: DEV-04 App Attest at first login + trustTier consumer + Phase 4 verification (from v1.0 milestone audit)
+
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
@@ -125,7 +129,7 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-17 (resumed)
-Stopped at: Plan 05-08 Tasks 1-2 COMPLETE — PAUSED at the Task 3 `checkpoint:human-verify` gate (blocking). Task 1 (commit 84e4ece): D-08 Profile KYC-status row + KYCEndToEndIntegrationTests + LogoutPreservesKYCSessionTests — 3 simulator tests GREEN. Task 2 (commit 99f8c5a): KYCForceQuitResumeDeviceTests (SC-2 device test, compiles for the ci-device.yml lane) + 05-VALIDATION.md reconciled/approved/Nyquist-compliant. 05-08-SUMMARY.md is a PARTIAL summary covering Tasks 1-2. Task 3 is a physical-iPhone HUMAN-UAT checkpoint — see 05-HUMAN-UAT.md.
-Resume file: .planning/phases/05-kyc-capture-upload-pipeline/05-HUMAN-UAT.md (the Task 3 checkpoint checklist)
+Last session: 2026-05-18T20:13:43.547Z
+Stopped at: Phase 6 context gathered
+Resume file: .planning/phases/06-close-gap-dev-04-app-attest-at-first-login-trusttier-consume/06-CONTEXT.md
 Next command: Run the 05-08 Task 3 HUMAN-UAT checkpoint on a physical iPhone (SC-2 force-quit resume, SC-4 background upload, D-08 Profile entry, D-12 gate). Type "approved" to close the checkpoint and complete Phase 5, then run `/gsd:verify-work 5`.
