@@ -50,6 +50,17 @@ D-08 Profile entry UX and the D-12 hard gate.
   Confirm a non-verified account cannot reach the role shell — after OTP-verify
   it lands in the KYC flow, not the role tab bar.
 
+- [ ] **5. Test 10 — camera runtime-error / lifecycle resilience on device.**
+  After an ungraceful force-quit mid-capture and relaunch, confirm the capture
+  screen's shutter is responsive within ~5 s — a recoverable "The camera needs
+  a moment. Try the photo again." cue appears with the shutter enabled (no
+  permanent dead shutter). Then confirm the session self-heals: backgrounding
+  and foregrounding the app mid-capture restores a working capture session.
+  `CameraSessionLifecycleTests` proves the VM-layer shutter re-arm in the
+  simulator; the live `AVFoundation` `runtimeErrorNotification` /
+  `wasInterrupted` / background-foreground observers only fire on real
+  hardware. Added by the 05-10 gap-closure verification (2026-05-18).
+
 ### Resume signal
 
 Type **"approved"** to close the checkpoint and complete Phase 5, or describe
@@ -78,3 +89,11 @@ Once approved, run `/gsd:verify-work 5`.
   the plan 05-06 Task 3 device cycle (3 GSD debug sessions, ~19 device-only
   defects fixed). They are recorded as PASSED in `05-VALIDATION.md`. Only the
   05-08 Task 3 items above remain open.
+
+- **UAT gap closure (2026-05-18).** `05-UAT.md` Tests 9 and 10 (the two
+  diagnosed gaps) are now **closed at the code/automated level** by plans
+  05-09 (`GET /kyc/status` device-mock route) and 05-10 (timeout-bounded
+  `capturePhoto()` + `AVCaptureSession` runtime-error/lifecycle observers).
+  Both new test suites pass in the CI-matching serial run (367 tests, 0
+  failures). Item 5 above is the device-only confirmation of the 05-10
+  live-`AVFoundation` behavior.
