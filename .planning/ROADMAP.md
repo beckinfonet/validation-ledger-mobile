@@ -189,14 +189,14 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. OTP Auth + Role Shell + Session | 13/13 | Complete | 2026-04-22 |
 | 4. App Attest & Physical-Device CI Hardening | 0/TBD | Not started | - |
 | 5. KYC Capture & Upload Pipeline | 13/13 | Complete   | 2026-05-18 |
-| 6. Close gap: DEV-04 App Attest + trustTier + Phase 4 verification | 3/4 | In Progress|  |
+| 6. Close gap: DEV-04 App Attest + trustTier + Phase 4 verification | 4/4 | Complete   | 2026-05-18 |
 
 ### Phase 6: Close gap: DEV-04 App Attest at first login + trustTier consumer + Phase 4 verification
 
 **Goal:** Close the two Phase 4 gaps the v1.0 milestone audit found: (1) wire `AttestationService` into the first-login `/device/register` path so App Attest fires at first OTP verify — `OTPViewModel.swift:202-211` currently hardcodes `attestationStatus: .unsupported` (DEV-04 / Phase 4 SC-1 unmet); (2) capture the discarded `/device/register` response and write `AppSession.trustTier` from the login path (closes the cross-phase wiring break + Phase 4 `deferred-items.md` #2); (3) produce a real `04-VERIFICATION.md` for the previously-unverified Phase 4. Source of scope: `.planning/v1.0-MILESTONE-AUDIT.md`.
 **Requirements**: DEV-04, CI-03
 **Depends on:** Phase 5
-**Plans:** 3/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
 **Wave 1**
@@ -213,7 +213,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 06-04-PLAN.md — Wave 4: retroactive `04-VERIFICATION.md` (full Phase 4 re-verification — 3 SC + DEV-04 + CI-03) + tick roadmap `04-10` checkbox (D6-11/D6-12)
+- [x] 06-04-PLAN.md — Wave 4: retroactive `04-VERIFICATION.md` (full Phase 4 re-verification — 3 SC + DEV-04 + CI-03) + tick roadmap `04-10` checkbox (D6-11/D6-12)
 
 ---
 *Roadmap created: 2026-04-20*
