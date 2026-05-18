@@ -50,14 +50,24 @@ enum MockOTPRoleFixtureRegistry {
             return (resp, body)
         }
 
-        // OTP verify → returns sessionToken + role + userID
+        // OTP verify → returns sessionToken + role + userID + kycStatus.
+        // Phase 5 D-12: OTPViewModel routes a verified user whose
+        // `kyc_status == "verified"` straight to the role shell; any other value
+        // (or an absent field) routes into the `.kyc` hard gate and fails CLOSED
+        // (T-05-07-02). RoleShellSmokeTests + LimitedTrustBannerTests drive the
+        // OTP flow expecting to land on the role tab bar, so the mock verify
+        // response MUST carry `"kyc_status": "verified"` — a returning verified
+        // user. Pre-Phase-5 this fixture omitted the field; the D-12 gate then
+        // diverted all 5 smoke tests to the KYC gate (caught by the post-merge
+        // gate during Plan 05-11 execution).
         MockURLProtocol.register { req in
             guard req.url?.path == "/auth/otp/verify" else { return nil }
             let body = Data("""
             {
                 "session_token": "ui-test-token",
                 "role": "\(role.rawValue)",
-                "user_id": "ui-test-user-\(role.rawValue)"
+                "user_id": "ui-test-user-\(role.rawValue)",
+                "kyc_status": "verified"
             }
             """.utf8)
             let resp = HTTPURLResponse(
