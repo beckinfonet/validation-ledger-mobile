@@ -10,6 +10,7 @@
 // invariant that 04-01 creates.
 
 import Testing
+import Foundation
 @testable import validationLedger
 
 @Suite("KeychainScope — D-03: attestation keys preserved across logout")
@@ -25,6 +26,30 @@ struct KeychainScopeTests {
     func testLastHeartbeatAtNotInSessionScope() {
         #expect(KeychainScope.session.contains(.lastHeartbeatAt) == false,
                 "D-03 requires lastHeartbeatAt to survive logout so next heartbeat is contiguous")
+    }
+
+    @Test("D6-02 — device.trustTier is NOT in .session scope")
+    func testTrustTierNotInSessionScope() {
+        #expect(KeychainScope.session.contains(.trustTier) == false,
+                "D6-02 requires device.trustTier to survive logout; adding it to .session breaks the invariant")
+    }
+
+    @Test("D6-02 — device.trustTier survives deleteAll(under: .session)")
+    func testTrustTierSurvivesSessionWipe() throws {
+        // Unique service per test run isolates keychain state from concurrent suites.
+        let store = KeychainStore(service: "vl.test.trustTierSurvivesWipe.\(UUID().uuidString)")
+        try store.set(Data("token".utf8), for: .sessionToken, accessibility: .afterFirstUnlockThisDeviceOnly)
+        try store.set(Data(TrustTier.hardwareAttested.rawValue.utf8), for: .trustTier, accessibility: .afterFirstUnlockThisDeviceOnly)
+        defer { try? store.delete(.trustTier) }
+
+        try store.deleteAll(under: .session)
+
+        // sessionToken is gone:
+        #expect(throws: KeychainError.self) { _ = try store.get(.sessionToken) }
+        // device.trustTier survives (D6-02 preserve-across-logout):
+        let trustData = try store.get(.trustTier)
+        #expect(String(data: trustData, encoding: .utf8) == TrustTier.hardwareAttested.rawValue,
+                "D6-02: deleteAll(under: .session) MUST preserve device.trustTier across logout")
     }
 
     @Test("Regression — existing session members still in .session scope")
