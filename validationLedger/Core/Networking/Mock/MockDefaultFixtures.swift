@@ -96,6 +96,9 @@ public enum MockDefaultFixtures {
         case ("POST", "/kyc/submit"):
             return make200(body: kycSubmitResponseJSON(), url: request.url)
 
+        case ("GET", "/kyc/status"):
+            return make200(body: kycStatusResponseJSON(), url: request.url)
+
         default:
             return nil  // Fall through to MockURLProtocol built-in 404.
         }
@@ -169,6 +172,17 @@ public enum MockDefaultFixtures {
     /// plan-06 Status screen render its under-review state organically.
     private static func kycSubmitResponseJSON() -> Data {
         Data(#"{"overall_status":"under_review"}"#.utf8)
+    }
+
+    /// `GET /kyc/status` → `KYCStatusEndpoint.Response` (overallStatus,
+    /// artifacts). `under_review` matches `kycSubmitResponseJSON()`'s
+    /// post-submit status, so the status screen reached straight after Submit
+    /// shows a consistent verdict. `artifacts` is an empty array because the
+    /// device mock cannot inspect the request body to know which artifact IDs
+    /// to echo — and the under-review verdict copy needs no per-artifact
+    /// rejection detail. An empty array decodes cleanly into `[Artifact]`.
+    private static func kycStatusResponseJSON() -> Data {
+        Data(#"{"overall_status":"under_review","artifacts":[]}"#.utf8)
     }
 
     // MARK: - HTTPURLResponse builders
