@@ -61,6 +61,24 @@ final class KYCForceQuitResumeUITests: XCTestCase {
         app.descendants(matching: .any)["kyc-status-heading"]
     }
 
+    /// Wait until an element is present AND hittable before tapping it. On the
+    /// physical-device CI runner `waitForExistence` can return `true` while the
+    /// element is still animating in — a nav-bar push or a sheet present that has
+    /// not settled — and tapping that early fails with "Tap failed with (null)".
+    /// Gating the tap on `isHittable` removes that device-only flake (observed on
+    /// the first device CI run of this suite: avatar tap failed at t≈9 s,
+    /// iteration 1, then passed on the retry).
+    private func waitForHittable(_ element: XCUIElement,
+                                 timeout: TimeInterval,
+                                 _ message: String,
+                                 file: StaticString = #filePath,
+                                 line: UInt = #line) {
+        let hittable = NSPredicate(format: "exists == true AND isHittable == true")
+        let expectation = XCTNSPredicateExpectation(predicate: hittable, object: element)
+        XCTAssertEqual(XCTWaiter().wait(for: [expectation], timeout: timeout), .completed,
+                       message, file: file, line: line)
+    }
+
     // MARK: - Tests
 
     /// SC-2 (process-lifecycle portion of HUMAN-UAT item 1): a real `terminate()`
@@ -104,15 +122,19 @@ final class KYCForceQuitResumeUITests: XCTestCase {
         // `kyc-status-heading`; the SC-2-observable signal here is that the screen
         // opens at all after the kill — a crash or a wedged session would prevent
         // the role shell + status screen from rendering.
+        // Gate each tap on `isHittable`, not just `exists` — on the device runner
+        // the nav-bar avatar and the presented Profile sheet's rows land in the
+        // accessibility tree a beat before they are hittable, and tapping early
+        // fails with "Tap failed with (null)".
         let avatar = app.navigationBars.buttons["nav-avatar"]
-        XCTAssertTrue(avatar.waitForExistence(timeout: 5),
-                      "SC-2: the role-shell avatar must be reachable after relaunch")
+        waitForHittable(avatar, timeout: 10,
+                        "SC-2: the role-shell avatar must be reachable after relaunch")
         avatar.tap()
 
         let statusRow = app.buttons["profile-kyc-status"]
-        XCTAssertTrue(statusRow.waitForExistence(timeout: 5),
-                      "SC-2: the Profile 'Verification status' row must be "
-                      + "reachable after the force-quit + relaunch")
+        waitForHittable(statusRow, timeout: 10,
+                        "SC-2: the Profile 'Verification status' row must be "
+                        + "reachable after the force-quit + relaunch")
         statusRow.tap()
 
         let statusHeading = statusHeadingQuery(app)
