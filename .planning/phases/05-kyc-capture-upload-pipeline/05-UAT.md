@@ -1,9 +1,9 @@
 ---
-status: partial
+status: diagnosed
 phase: 05-kyc-capture-upload-pipeline
 source: [05-01-SUMMARY.md, 05-02-SUMMARY.md, 05-03-SUMMARY.md, 05-04-SUMMARY.md, 05-05-SUMMARY.md, 05-06-SUMMARY.md, 05-07-SUMMARY.md, 05-08-SUMMARY.md]
 started: 2026-05-17T22:28:03Z
-updated: 2026-05-18T06:03:47Z
+updated: 2026-05-18T06:11:36Z
 ---
 
 ## Current Test
@@ -88,17 +88,32 @@ blocked: 1
   reason: "User reported: I see \"Couldn't load status. We couldn't load your verification status. Pull down to try again\" message."
   severity: major
   test: 9
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "MockDefaultFixtures.dispatchHandler — the DEBUG-only device-mock route registry — has no (GET, /kyc/status) case. The request falls through the dispatch switch default branch, MockURLProtocol synthesizes a 404, APIClient.request() throws NetworkError.httpError(404), and KYCStatusViewModel.fetchStatus() catches it and sets state = .error — rendered as the 'Couldn't load status' screen. Missing mock route, not a decoding or app-code bug. Same omission class as the resolved kyc-upload-capture-bugs fix, which added the /kyc/upload/* + /kyc/submit routes but overlooked GET /kyc/status. Simulator KYCStatusViewModelTests stay green because they self-register their own MockURLProtocol handler and never exercise MockDefaultFixtures."
+  artifacts:
+    - path: "validationLedger/Core/Networking/Mock/MockDefaultFixtures.swift"
+      issue: "dispatchHandler (method, path) switch is missing a (GET, /kyc/status) case; no kycStatusResponseJSON() body builder exists"
+  missing:
+    - "Add a (GET, /kyc/status) case to MockDefaultFixtures.dispatchHandler returning a make200 response"
+    - "Add a kycStatusResponseJSON() builder mirroring KYCStatusEndpoint.Response — overall_status under_review, empty artifacts array"
+    - "Keep the new mock route #if DEBUG-gated like the rest of the file"
+  debug_session: ".planning/debug/kyc-status-screen-load-error.md"
+  note: "Fixing this also unblocks Test 12 (Profile 'Verification status' row), currently blocked solely by this gap."
 
 - truth: "After force-quitting mid-upload and relaunching, the KYC flow resumes cleanly — the upload continues from its prior chunk count and the user can keep capturing / advance the flow"
   status: failed
   reason: "User reported: 'it survives, but gets stuck at camera open state. Pressing shutter button wont do anything.' The KYC session persists across the force-quit, but on relaunch the app lands on a camera-open capture screen (vehicle capture VC) that is stuck — the shutter button is unresponsive. Console during the cycle showed FigCaptureSourceRemote err=-17281 (capture source remote connection died); the AVCaptureSession appears not to re-establish a working capture connection after relaunch even though viewDidLayoutSubviews logs report connectionActive=true."
   severity: blocker
   test: 10
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "Two compounding AVCaptureSession lifecycle defects exposed by an ungraceful force-quit. (1) AVFoundationCameraSession.capturePhoto() bridges the still capture through withCheckedThrowingContinuation, resumed only inside photoOutput(_:didFinishProcessingPhoto:error:); when the capture source is dead that delegate never fires, so the await hangs forever — there is no timeout in the capture path. VehicleCaptureViewModel.capture() has already set captureInFlight = true and state = .capturing (shutter disabled), and its !captureInFlight guard makes every later shutter tap a silent no-op. (2) AVFoundationCameraSession registers zero AVCaptureSessionRuntimeError / interruption observers and binds session start/stop only to VC view lifecycle; a force-quit skips viewWillDisappear/deinit so the prior session is never stopRunning()-ed, the mediaserverd capture-source XPC connection is torn down abruptly (FigCaptureSourceRemote err=-17281), and the relaunched session can fail to re-establish a live source while AVCaptureConnection.isActive still reads true. The mid-upload framing is a red herring — KYCUploader never touches the camera; the trigger is the ungraceful force-quit."
+  artifacts:
+    - path: "validationLedger/Core/Identity/Capture/CameraSession.swift"
+      issue: "capturePhoto() has no timeout on the continuation await; class registers no AVCaptureSessionRuntimeError/interruption observers; session lifecycle has no app-lifecycle integration"
+    - path: "validationLedger/Features/Onboarding/KYC/Capture/VehicleCaptureViewModel.swift"
+      issue: "capture()/performCapture() — the captureInFlight guard plus .capturing state strand the shutter when capturePhoto() hangs"
+    - path: "validationLedger/Features/Onboarding/KYC/Capture/FaceCaptureViewModel.swift"
+      issue: "identical capturePhoto() await plus captureInFlight guard — vulnerable to the same wedge"
+  missing:
+    - "Bound capturePhoto() with a timeout so a dead capture source throws a CameraSessionError instead of hanging; the VM .failed path then shows recoverable copy and re-arms the shutter (captureInFlight = false)"
+    - "Observe AVCaptureSessionRuntimeErrorNotification plus interruption notifications in AVFoundationCameraSession and tear down/rebuild the session on a runtime error"
+    - "Drive session stop/start off the app lifecycle (stop on sceneDidEnterBackground, restart on foreground) so a force-quit cannot strand a half-torn-down session"
+  debug_session: ".planning/debug/kyc-force-quit-camera-stuck.md"
