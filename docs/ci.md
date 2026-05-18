@@ -131,15 +131,22 @@ Every simulator CI run also invokes `scripts/verify-release-no-sim-bypass.sh`, w
 
 **Requirement:** Phase 5 device-UAT automation (plans 05-11/05-12/05-13).
 
-The `device-security-surface` job's `xcodebuild test` step now passes a second
-`-only-testing` flag — `-only-testing:validationLedgerUITests` — alongside the
+The `device-security-surface` job's `xcodebuild test` step passes four additional
+`-only-testing` flags — one per Phase 5 KYC XCUITest **class** — alongside the
 existing `-only-testing:validationLedgerDeviceTests`. xcodebuild accepts multiple
-`-only-testing` flags, so both suites run on the device destination in one step.
+`-only-testing` flags, so the in-process device suite and the four XCUITest classes
+all run on the device destination in one step.
+
+The scope is deliberately class-level, **not** the whole `validationLedgerUITests`
+target: that target also holds `RoleShellSmokeTests` and `LimitedTrustBannerTests`,
+which are simulator-tuned (mock-OTP launch path, 5 s `waitForExistence` caps) and run
+on the **simulator** lane. They fail on real hardware, so the device lane names only
+the four KYC classes explicitly.
 
 `validationLedgerUITests` is the XCUITest target (a separate driver process — it can
 `terminate()`/`launch()`/`press(.home)` the app and tap live UIKit, which an
-in-process XCTest cannot). It now automates four of the five Phase 5 device-UAT items
-on the self-hosted device runner:
+in-process XCTest cannot). The four KYC classes automate four of the five Phase 5
+device-UAT items on the self-hosted device runner:
 
 1. `KYCForceQuitResumeUITests.swift` — SC-2: real `terminate()` + relaunch under the
    `midUpload` seed; asserts the resumed KYC state is non-error / non-zeroed.
