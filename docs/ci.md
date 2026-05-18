@@ -127,6 +127,38 @@ Every simulator CI run also invokes `scripts/verify-release-no-sim-bypass.sh`, w
 
 `validationLedgerTests/Attestation/BackendDrivenReattestationTest` exercises the `clearPersistedKeyId() → regenerate` flow against a mocked `attestationInvalid` response. For full integration coverage (server-error-interceptor wired to attestation service), see Plan 09 + the attestation-rotation runbook at `docs/attestation-rotation.md`.
 
+## Phase 5 Device XCUITest Lane
+
+**Requirement:** Phase 5 device-UAT automation (plans 05-11/05-12/05-13).
+
+The `device-security-surface` job's `xcodebuild test` step now passes a second
+`-only-testing` flag — `-only-testing:validationLedgerUITests` — alongside the
+existing `-only-testing:validationLedgerDeviceTests`. xcodebuild accepts multiple
+`-only-testing` flags, so both suites run on the device destination in one step.
+
+`validationLedgerUITests` is the XCUITest target (a separate driver process — it can
+`terminate()`/`launch()`/`press(.home)` the app and tap live UIKit, which an
+in-process XCTest cannot). It now automates four of the five Phase 5 device-UAT items
+on the self-hosted device runner:
+
+1. `KYCForceQuitResumeUITests.swift` — SC-2: real `terminate()` + relaunch under the
+   `midUpload` seed; asserts the resumed KYC state is non-error / non-zeroed.
+2. `KYCProfileEntryUITests.swift` — D-08: live Profile avatar → "Verification status"
+   row tap-through into `KYCStatusViewController`.
+3. `KYCHardGateUITests.swift` — D-12: a seeded non-verified account lands on the KYC
+   hard gate; asserts no role tab bar was constructed.
+4. `KYCCaptureLifecycleUITests.swift` — Test-10 background/foreground: `press(.home)`
+   then `activate()` on a live capture screen; asserts the shutter is still hittable.
+
+Only SC-4 (`BGProcessingTaskRequest` background-upload completion) and the Test-10
+deliberate `AVCaptureSessionRuntimeError` injection remain permanent human-UAT items —
+see `.planning/phases/05-kyc-capture-upload-pipeline/05-HUMAN-UAT.md`.
+
+The `changes`-job `PATTERN` regex now also includes `validationLedgerUITests/`, so a PR
+touching the XCUITest suite itself triggers the device lane. The job `timeout-minutes`
+was raised 25 → 35 to absorb the four XCUITests' added cold-launch + live-UI runtime;
+note that a locked runner iPhone still surfaces as a ~timeout "cancelled" run.
+
 ## Known Trade-off
 
 Self-hosted runner occupies the dev MacBook for ~5–15 min per run (25-min ceiling in Phase 4 with the App Attest round-trip). Re-evaluate at M2 boundary (see `.planning/STATE.md` Blockers/Concerns). Migration path: dedicated Mac mini or MacStadium when a second engineer joins or when device CI starts blocking merges in practice.
