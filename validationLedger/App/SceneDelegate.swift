@@ -200,6 +200,61 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
         #endif
 
+        // Phase 5 Plan 11 (SC-2 / D-08 / D-12 / Test-10): the `-KYCTestSeedForUITest`
+        // launch-argument seam. The plan 05-12 device XCUITests must arrive at
+        // three specific KYC states deterministically; an XCUITest driver runs in
+        // a separate process and can only cross into the app via launch arguments.
+        //
+        // Sequence on `-KYCTestSeedForUITest <mode>` detection:
+        //   1. Force `.mock` NetworkConfig so MockURLProtocol intercepts the
+        //      `GET /kyc/status` + KYC upload routes (the plan 05-09 mock fixtures
+        //      already serve these).
+        //   2. Set `AppContainer.kycTestSeed` to the matching `KYCUITestSeed` case.
+        //   3. Construct ONE throwaway `AppContainer` to TRIGGER the DEBUG seeding
+        //      side-effect: `AppContainer.init` reads `kycTestSeed` and seeds the
+        //      Keychain `session`-scope state (and, for `.midUpload`, the on-disk
+        //      `KYCSessionStore`). This mirrors the `-MockOTPRoleForUITest`
+        //      throwaway-`scrubContainer` discipline above — `AppContainer` owns
+        //      the `KeychainStore` + `KYCSessionStore`, so the seam runs in init.
+        //
+        // DELIBERATE difference from `-MockOTPRoleForUITest`: this block does NOT
+        // call `presentRoot` and does NOT `return` early. It only SEEDS state,
+        // then falls through to the existing `SessionRestoreProbe.probe` switch
+        // below so the seeded Keychain state drives the REAL routing decision:
+        //   nonVerified → probe `.needsKYC` → presentRoot(.kyc(role))
+        //   underReview / midUpload → probe `.restored` → presentRoot(.role(role))
+        // (`-MockOTPRoleForUITest` returns early because it drives the auth flow
+        // from scratch; this seam instead exercises the genuine restore path.)
+        //
+        // Entire block is `#if DEBUG` — Release compiles it to zero bytes
+        // (threat T-05-11-01).
+        #if DEBUG
+        if let idx = ProcessInfo.processInfo.arguments.firstIndex(of: "-KYCTestSeedForUITest"),
+           idx + 1 < ProcessInfo.processInfo.arguments.count {
+            let mode = ProcessInfo.processInfo.arguments[idx + 1]
+            let seed: AppContainer.KYCUITestSeed?
+            switch mode {
+            case "nonVerified": seed = .nonVerified
+            case "underReview": seed = .underReview
+            case "midUpload":   seed = .midUpload
+            default:            seed = nil
+            }
+            if let seed {
+                // 1. Force .mock so MockURLProtocol serves the KYC routes.
+                self.currentNetworkConfigOverride = .mock
+                // 2. Set the seed the AppContainer init-time block consumes.
+                AppContainer.kycTestSeed = seed
+                // 3. Throwaway container TRIGGERS the DEBUG seeding side-effect
+                //    BEFORE the probe runs (mirrors -MockOTPRoleForUITest's
+                //    scrubContainer). We discard it; presentRoot below builds a
+                //    fresh, fully-wired container for the probed phase per ADR 0002.
+                _ = AppContainer(env: .current, networkConfig: .mock)
+                // NO presentRoot, NO return — fall through to the probe switch so
+                // the seeded Keychain state drives the genuine routing decision.
+            }
+        }
+        #endif
+
         // Phase 3 D-04/D-05 (Blocker 6): probe the session via the lightweight
         // SessionRestoreProbe helper BEFORE first paint. The probe constructs ONLY
         // KeychainStore + DefaultSessionRestoreService (no SessionLockService, no

@@ -247,6 +247,53 @@ public final class KYCSessionStore: @unchecked Sendable {
         }
     }
 
+    // MARK: - DEBUG XCUITest seam (Phase 5 Plan 11 — SC-2)
+
+    #if DEBUG
+    /// DEBUG-only XCUITest seam (SC-2): seed a partway-through ("mid-upload")
+    /// face-artifact upload onto the encrypted on-disk session so the plan 05-12
+    /// device test can verify the SC-2 force-quit-and-resume UX deterministically.
+    ///
+    /// The seeded state models a `.face` artifact part-way through a 12-chunk
+    /// upload: `chunksAcked == 5` of `totalChunks == 12`, `committed == false` —
+    /// a strictly partial upload (`1 <= chunksAcked <= totalChunks - 1`), exactly
+    /// the "force-quit mid-upload" cursor a real interrupted upload would leave.
+    ///
+    /// This method goes through the locked `withSession(_:)` read-modify-write
+    /// API — it never bypasses the `NSLock` or writes the JSON file directly, so
+    /// it cannot lose-update against a concurrent capture / uploader writer.
+    ///
+    /// PII discipline (threat T-05-11-03): every seeded value — `uploadID`,
+    /// `sha256`, and any artifact bytes — is a synthetic non-secret placeholder.
+    /// No real DL number, phone number, name, MC/DOT number, email, or coordinate
+    /// is used. This helper compiles to ZERO bytes in a Release build (the whole
+    /// method is inside `#if DEBUG`).
+    public func seedMidUploadStateForUITest() throws {
+        // 512 KB chunks, 12 chunks total — a `totalBytes` that splits into exactly
+        // 12 chunks (11 full + 1 partial trailing chunk: `12 * chunkSize - 1`).
+        let chunkSize = 512 * 1024
+        let totalChunks = 12
+        let totalBytes = totalChunks * chunkSize - 1
+        // Fixed 64-hex-char synthetic SHA-256 placeholder — NOT a real digest.
+        let syntheticSHA256 = String(repeating: "ab", count: 32)
+        let seededState = ArtifactUploadState(
+            artifactType: .face,
+            uploadID: "uitest-seed-upload-id",
+            totalChunks: totalChunks,
+            totalBytes: totalBytes,
+            chunkSize: chunkSize,
+            chunksAcked: 5,
+            sha256: syntheticSHA256,
+            committed: false,
+            artifactID: nil,
+            localDataAvailable: true
+        )
+        try withSession { session in
+            session.uploadStates[KYCUploadInitEndpoint.ArtifactType.face.rawValue] = seededState
+        }
+    }
+    #endif
+
     // MARK: - Private
 
     /// Load → mutate the single `ArtifactUploadState` → persist, all under one

@@ -73,6 +73,38 @@ final class AppContainer {
     // default `.softwareOnly`. Release builds compile zero bytes for this
     // path (T-03-12-01 / T-APP-ATTEST-11 mitigation analog).
     static var uiTestTrustTierOverride: TrustTier?
+
+    // Phase 5 Plan 11 (SC-2 / D-08 / D-12 / Test-10): KYC test-seed seam.
+    //
+    // The plan 05-12 device XCUITests must arrive at three specific KYC states
+    // deterministically — an XCUITest driver runs in a separate process and
+    // cannot reach internal app state; the only crossing point is a launch
+    // argument parsed at scene-connect. SceneDelegate's `-KYCTestSeedForUITest`
+    // parsing block sets this static BEFORE constructing the AppContainer for
+    // `presentRoot`; `AppContainer.init` reads it (in a `#if DEBUG` block) and
+    // seeds the matching Keychain `session`-scope state (and, for `.midUpload`,
+    // the on-disk `KYCSessionStore`) so the real `SessionRestoreProbe` routes
+    // the seeded session to the expected phase.
+    //
+    // Threat T-05-11-01 / T-05-11-02: the enum, the static, and the init-time
+    // consumption are ALL inside `#if DEBUG` — a Release build compiles them to
+    // zero bytes. No Release code path reads a launch argument to seed a
+    // verified / under-review session.
+    enum KYCUITestSeed {
+        /// A valid session whose cached `kycStatus` is non-verified — the probe
+        /// resolves `.needsKYC`, routing to the `.kyc` hard gate (D-12).
+        case nonVerified
+        /// A valid verified session — the probe resolves `.restored`, routing to
+        /// the role shell. The "Under Review" KYC status the 05-12 device test
+        /// then verifies is served by the `GET /kyc/status` mock route, not the
+        /// cached Keychain status (see the init-time consumption block).
+        case underReview
+        /// Same Keychain state as `.underReview` PLUS a mid-upload artifact
+        /// seeded onto the on-disk `KYCSessionStore` (SC-2 force-quit-resume).
+        case midUpload
+    }
+
+    static var kycTestSeed: KYCUITestSeed?
     #endif
 
     let env: Environment
@@ -468,6 +500,93 @@ final class AppContainer {
             category: "identity.kyc.bgtask"
         )
         self.kycUploadScheduler = kycUploadScheduler ?? KYCUploadScheduler(logger: bgLogger)
+
+        // Phase 5 Plan 11 (SC-2 / D-08 / D-12 / Test-10): KYC test-seed consumption.
+        //
+        // When `SceneDelegate`'s `-KYCTestSeedForUITest` parsing block set
+        // `AppContainer.kycTestSeed` (DEBUG-only), seed the Keychain `session`-
+        // scope state the real `SessionRestoreProbe` reads so the seeded session
+        // routes to the expected phase. The seeded credential values are FIXED
+        // synthetic placeholders (threat T-05-11-02/03) — never a real token,
+        // phone, DL number, or coordinate.
+        //
+        // Routing the seam through `AppContainer.init` (rather than a free
+        // function) mirrors the `-MockOTPRoleForUITest` discipline: that path
+        // also drives its Keychain wipe by constructing a throwaway container,
+        // because `AppContainer` owns the `KeychainStore` + `KYCSessionStore`.
+        // SceneDelegate constructs one throwaway container to trigger this block
+        // BEFORE the probe runs, then falls through to the probe switch.
+        //
+        // The whole block is `#if DEBUG` — a Release build compiles it to zero
+        // bytes; there is no Release path that reads a launch argument to seed a
+        // verified / under-review session (threat T-05-11-01).
+        #if DEBUG
+        if let seed = AppContainer.kycTestSeed {
+            // Synthetic, non-secret placeholders — never a real session token.
+            let seededToken = Data("uitest-seed-token".utf8)
+            let seededRole = Data(Role.shipper.rawValue.utf8)
+            do {
+                try keychainStore.set(
+                    seededToken,
+                    for: .sessionToken,
+                    accessibility: .afterFirstUnlockThisDeviceOnly
+                )
+                try keychainStore.set(
+                    seededRole,
+                    for: .sessionRole,
+                    accessibility: .afterFirstUnlockThisDeviceOnly
+                )
+                switch seed {
+                case .nonVerified:
+                    // A non-verified cached status fails CLOSED to the `.kyc`
+                    // hard gate — the probe resolves `.needsKYC` (D-12).
+                    try keychainStore.set(
+                        Data("pending".utf8),
+                        for: .kycStatus,
+                        accessibility: .afterFirstUnlockThisDeviceOnly
+                    )
+                case .underReview, .midUpload:
+                    // The `must_haves` truth + 05-12 contract require these two
+                    // modes to REACH THE ROLE SHELL. `SessionRestoreProbe` (the
+                    // shipped, threat-modeled fail-closed D-13 gate, T-05-07-02)
+                    // routes a restored session to the role shell ONLY on an
+                    // exact cached `kycStatus == "verified"` — any other value,
+                    // including `"under_review"`, fails CLOSED to `.needsKYC`.
+                    //
+                    // Deviation (Rule 1/3): seed the cached status as `"verified"`
+                    // so the probe resolves `.restored` and the seeded session
+                    // lands on the role shell as the plan requires. The
+                    // "Under Review" status the 05-12 device test then verifies
+                    // is sourced from the `GET /kyc/status` MOCK route (which the
+                    // test points at an `under_review` fixture) — not from this
+                    // cached Keychain string. Seeding `"under_review"` here
+                    // verbatim would defeat the plan's own stated goal (the app
+                    // would route to the `.kyc` gate, never the role shell).
+                    // Modifying the probe's fail-closed routing is out of scope
+                    // (a shipped threat-modeled gate — Rule 4).
+                    try keychainStore.set(
+                        Data("verified".utf8),
+                        for: .kycStatus,
+                        accessibility: .afterFirstUnlockThisDeviceOnly
+                    )
+                }
+                if case .midUpload = seed {
+                    // SC-2: seed a partial face-artifact upload on the encrypted
+                    // on-disk session via the Task 1 DEBUG helper.
+                    try kycStore.seedMidUploadStateForUITest()
+                }
+                logger.info(
+                    event: .init("kyc_uitest_seed_applied"),
+                    fields: [:]
+                )
+            } catch {
+                logger.error(
+                    event: .init("kyc_uitest_seed_failed"),
+                    fields: [:]
+                )
+            }
+        }
+        #endif
 
         logger.info(event: .init("app_container_init"), fields: [.event: env.name])
     }
