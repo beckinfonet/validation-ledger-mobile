@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: milestone_complete
-stopped_at: Milestone complete (Phase 05 was final phase)
-last_updated: 2026-05-17T22:10:22.634Z
-last_activity: 2026-05-17 -- Plan 05-08 Tasks 1-2 executed; paused at Task 3 HUMAN-UAT checkpoint
+status: executing
+stopped_at: "Plan 05-08 Tasks 1-2 COMPLETE — PAUSED at the Task 3 `checkpoint:human-verify` gate (blocking). Task 1 (commit 84e4ece): D-08 Profile KYC-status row + KYCEndToEndIntegrationTests + LogoutPreservesKYCSessionTests — 3 simulator tests GREEN. Task 2 (commit 99f8c5a): KYCForceQuitResumeDeviceTests (SC-2 device test, compiles for the ci-device.yml lane) + 05-VALIDATION.md reconciled/approved/Nyquist-compliant. 05-08-SUMMARY.md is a PARTIAL summary covering Tasks 1-2. Task 3 is a physical-iPhone HUMAN-UAT checkpoint — see 05-HUMAN-UAT.md."
+last_updated: "2026-05-18T06:25:13.097Z"
+last_activity: 2026-05-18 -- Phase 05 execution started
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 46
+  total_plans: 48
   completed_plans: 46
   percent: 80
 ---
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-20)
 
 **Core value:** Identity that cannot be spoofed and a chain-of-trust that cannot be faked.
-**Current focus:** Milestone complete
+**Current focus:** Phase 05 — kyc-capture-upload-pipeline
 
 ## Current Position
 
-Phase: 05
-Plan: Not started
-Status: Milestone complete
+Phase: 05 (kyc-capture-upload-pipeline) — EXECUTING
+Plan: 1 of 10
+Status: Executing Phase 05
 Next: Run the 05-08 Task 3 HUMAN-UAT checkpoint on a physical iPhone (see 05-HUMAN-UAT.md). Once approved, run `/gsd:verify-work 5`.
-Last activity: 2026-05-17
+Last activity: 2026-05-18 -- Phase 05 execution started
 
 Progress: [█████████▉] 98%
 

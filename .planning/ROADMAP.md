@@ -142,7 +142,7 @@ Plans:
   4. Uploads continue in the background via `BGProcessingTaskRequest` keeping the foreground chunk loop alive across a background transition (ratified UPL-05 model — Pitfall 2 option 1; the file-based background `URLSession` is a deliberate M2 follow-up) — verified by backgrounding the app mid-upload and confirming the upload completes.
   5. Exponential backoff with jitter caps retries at 5 attempts on 5xx / network errors; server-side idempotency keys prevent duplicate chunk commits — verified by a stress test that injects transient failures and asserts no duplicate chunks land.
 
-**Plans:** 10 plans complete (8 phase plans + 2 UAT gap-closure)
+**Plans:** 10/10 plans complete
 Plans:
 **Wave 1**
 
@@ -166,8 +166,8 @@ Plans:
 
 **UAT Gap Closure** *(closes 05-UAT.md diagnosed gaps — independent of the Wave 1-4 plans)*
 
-- [ ] 05-09-PLAN.md — Wave 1 (gap-closure): MockDefaultFixtures GET /kyc/status route + kycStatusResponseJSON() builder — closes Test 9 (status screen errors), unblocks Test 12
-- [ ] 05-10-PLAN.md — Wave 1 (gap-closure): timeout-bounded capturePhoto() + AVCaptureSession runtime-error/interruption observers + app-lifecycle session control — closes Test 10 (force-quit shutter wedge)
+- [x] 05-09-PLAN.md — Wave 1 (gap-closure): MockDefaultFixtures GET /kyc/status route + kycStatusResponseJSON() builder — closes Test 9 (status screen errors), unblocks Test 12
+- [x] 05-10-PLAN.md — Wave 1 (gap-closure): timeout-bounded capturePhoto() + AVCaptureSession runtime-error/interruption observers + app-lifecycle session control — closes Test 10 (force-quit shutter wedge)
 
 **UI hint**: yes
 
@@ -182,7 +182,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Networking Contract & Device Keys | 7/7 | Complete | 2026-04-21 |
 | 3. OTP Auth + Role Shell + Session | 13/13 | Complete | 2026-04-22 |
 | 4. App Attest & Physical-Device CI Hardening | 0/TBD | Not started | - |
-| 5. KYC Capture & Upload Pipeline | 8/10 | Gap closure | 2026-05-17 |
+| 5. KYC Capture & Upload Pipeline | 10/10 | Complete   | 2026-05-18 |
 
 ---
 *Roadmap created: 2026-04-20*
