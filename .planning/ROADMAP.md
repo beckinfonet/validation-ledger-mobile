@@ -142,7 +142,7 @@ Plans:
   4. Uploads continue in the background via `BGProcessingTaskRequest` keeping the foreground chunk loop alive across a background transition (ratified UPL-05 model — Pitfall 2 option 1; the file-based background `URLSession` is a deliberate M2 follow-up) — verified by backgrounding the app mid-upload and confirming the upload completes.
   5. Exponential backoff with jitter caps retries at 5 attempts on 5xx / network errors; server-side idempotency keys prevent duplicate chunk commits — verified by a stress test that injects transient failures and asserts no duplicate chunks land.
 
-**Plans:** 13 plans (10 feature + 2 UAT gap-closure + 3 device-UAT automation gap-closure — 05-10 was already counted; 13 total)
+**Plans:** 11/13 plans executed
 Plans:
 **Wave 1**
 
@@ -171,7 +171,7 @@ Plans:
 
 **Device-UAT Automation Gap Closure** *(automates 4 of the 5 physical-device HUMAN-UAT items as device XCUITests — closes the 05-VERIFICATION.md `human_verification` gap; planned 2026-05-18)*
 
-- [ ] 05-11-PLAN.md — Wave 1 (gap-closure): app-side `#if DEBUG` launch-argument test seams — `-KYCTestSeedForUITest` (nonVerified / underReview / midUpload) in SceneDelegate + AppContainer `kycTestSeed` seam + KYCSessionStore mid-upload seeding helper
+- [x] 05-11-PLAN.md — Wave 1 (gap-closure): app-side `#if DEBUG` launch-argument test seams — `-KYCTestSeedForUITest` (nonVerified / underReview / midUpload) in SceneDelegate + AppContainer `kycTestSeed` seam + KYCSessionStore mid-upload seeding helper
 - [ ] 05-12-PLAN.md — Wave 2 (gap-closure): four device XCUITests in `validationLedgerUITests/` — SC-2 force-quit resume (`terminate()`+`launch()`), D-08 Profile tap-through, D-12 hard gate, Test-10 background/foreground capture-session restore
 - [ ] 05-13-PLAN.md — Wave 3 (gap-closure): wire `validationLedgerUITests` into `ci-device.yml` device lane + scheme check + update 05-HUMAN-UAT.md / 05-VERIFICATION.md so only SC-4 + the Test-10 runtime-error injection remain human-UAT (5 items → 2)
 
@@ -188,7 +188,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Networking Contract & Device Keys | 7/7 | Complete | 2026-04-21 |
 | 3. OTP Auth + Role Shell + Session | 13/13 | Complete | 2026-04-22 |
 | 4. App Attest & Physical-Device CI Hardening | 0/TBD | Not started | - |
-| 5. KYC Capture & Upload Pipeline | 10/13 | Device-UAT automation gap-closure (05-11..13) planned | - |
+| 5. KYC Capture & Upload Pipeline | 11/13 | In Progress|  |
 
 ---
 *Roadmap created: 2026-04-20*
