@@ -53,6 +53,13 @@ Native iOS client (iPhone + iPad, iOS 17+) for Validation Ledger — a verified-
 - [x] Encrypted on-disk `KYCSessionStore` (`NSFileProtectionComplete`) survives backgrounding and logout (D-02); 4-state KYC status UI (Pending/Under Review/Verified/Rejected) with controlled-vocabulary rejection copy; Profile-tab status entry point (KYC-05, KYC-06)
 - [ ] 4 physical-device HUMAN-UAT items pending (`05-HUMAN-UAT.md`): SC-2 force-quit resume UX, SC-4 background-upload completion, D-08 Profile entry, D-12 hard gate — run `/gsd-verify-work 5` after on-device testing
 
+**Validated in Phase 6: Close gap — DEV-04 App Attest at first login + trustTier consumer + Phase 4 verification (2026-05-18)**
+
+- [x] App Attest fires at first login (DEV-04 / Phase 4 SC-1) — `OTPViewModel.verify()` STEP 5 orchestrates `generateKeyIfNeeded() → GET /device/challenge → attestKey() → POST /device/register`; the hardcoded `attestationStatus: .unsupported` is gone. Graceful-skip, degrade-and-continue, and `challengeExpired` refetch-and-retry-once postures all implemented (D6-04..D6-07)
+- [x] trustTier producer→Keychain→consumer wiring — `OTPViewModel` captures the `/device/register` response and persists `trustTier` via `AttestedKeyStore.writeTrustTier`; `AppContainer` seeds `AppSession.trustTier` from the `device.trustTier` Keychain item; observable banner re-render (D6-10); `uiTestTrustTierOverride` test seam deleted (D6-03). Closes the cross-phase wiring break the milestone audit found
+- [x] Retroactive `04-VERIFICATION.md` (CI-03 verification half) — full Phase 4 re-verification (3 SC + DEV-04 + CI-03, score 3/3); closes Critical Gap #1 from the v1.0 milestone audit
+- [ ] 3 physical-device HUMAN-UAT items pending (`06-HUMAN-UAT.md`): banner mid-session re-render, Profile-entry KYC "Continue" CTA, 5 carried Phase 4 banner UAT items — run `/gsd-verify-work 6` after on-device testing
+
 ### Active
 
 <!-- Milestone 1 ("Foundation") scope. Hypotheses until shipped + validated on real users. -->
@@ -67,9 +74,9 @@ Native iOS client (iPhone + iPad, iOS 17+) for Validation Ledger — a verified-
 
 ### Active
 
-**Phase 4 target (Attestation + Device CI Hardening)**
-- [ ] App Attest productionization (DEV-04)
-- [ ] Physical-device CI runs SecureEnclave + Keychain biometric + App Attest paths on every merge (CI-03)
+**Phase 4 target (Attestation + Device CI Hardening)** — ✅ DEV-04 + CI-03 closed via the Phase 6 gap-closure 2026-05-18 (see "Validated in Phase 6" above)
+- [x] App Attest productionization (DEV-04) — wired into the first-login path in Phase 6 (`OTPViewModel` STEP 5)
+- [x] Physical-device CI runs SecureEnclave + Keychain biometric + App Attest paths on every merge (CI-03) — pipeline shipped in Phase 4; the missing retroactive `04-VERIFICATION.md` was produced in Phase 6
 
 **Phase 5 target (KYC Capture + Upload)** — ✅ validated 2026-05-17 (see "Validated in Phase 5" above). Device-UAT automation gap-closure completed 2026-05-18 (plans 05-11/12/13): 4 of the 5 device-UAT items are now automated as device XCUITests on the `ci-device.yml` lane (verified 4/4 on hardware); 2 genuinely-manual items remain in `05-HUMAN-UAT.md` (SC-4 background upload, Test-10 camera-fault injection)
 
@@ -194,4 +201,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-18 after Phase 5 device-UAT automation gap-closure (plans 05-11/12/13)*
+*Last updated: 2026-05-18 after Phase 6 — DEV-04 App Attest first-login wiring + trustTier consumer + retroactive 04-VERIFICATION.md (plans 06-01..04)*
