@@ -47,6 +47,12 @@ public enum CameraSessionError: Error, Sendable {
     case configurationFailed
     /// A still-photo capture failed.
     case captureFailed(Error)
+    /// A still-photo capture did not complete within the timeout — the capture
+    /// source is presumed dead (e.g. after an ungraceful force-quit tore down
+    /// the `mediaserverd` connection). The caller should surface a RECOVERABLE
+    /// error and may rebuild the session. Distinct from `captureFailed`: the
+    /// delegate never fired at all, rather than firing with an error.
+    case captureTimedOut
 }
 
 /// Which camera the session is bound to.
@@ -199,6 +205,18 @@ public final class AVFoundationCameraSession: NSObject, CameraSession,
     /// `capturePhoto()` async result — the `LocationProvider` continuation pattern.
     private var captureContinuation: CheckedContinuation<AVCapturePhoto, Error>?
 
+    /// The timeout task racing the delegate callback for `capturePhoto()`. When
+    /// the delegate resumes the continuation first it cancels this task so the
+    /// timeout cannot fire afterwards; when the timeout fires first it resumes
+    /// the continuation itself. `nil` while no capture is in flight.
+    private var captureTimeoutTask: Task<Void, Never>?
+
+    /// How long `capturePhoto()` waits for the photo-output delegate before it
+    /// declares the capture source dead. Long enough that a slow-but-healthy
+    /// capture is never mis-flagged; short enough that the user is not left
+    /// staring at a dead shutter after an ungraceful force-quit (Test 10 gap).
+    private static let captureTimeout: Duration = .seconds(5)
+
     public override init() {
         super.init()
     }
@@ -323,11 +341,46 @@ public final class AVFoundationCameraSession: NSObject, CameraSession,
         guard Self.isCameraAvailable else {
             throw CameraSessionError.cameraUnavailable
         }
+        // Bridge the single delegate callback into an async result, BOUNDED by a
+        // timeout. `photoOutput(_:didFinishProcessingPhoto:error:)` resumes the
+        // continuation on a healthy capture; the timeout task resumes it with
+        // `.captureTimedOut` when the delegate never fires (a dead capture
+        // source — after an ungraceful force-quit the `mediaserverd` connection
+        // is gone and the delegate is never invoked, so an unbounded await would
+        // hang the capture flow forever; Test 10 gap).
+        //
+        // Exactly-once resume: both the delegate and the timeout route through
+        // `resolveCapture(...)`, which check-and-clears `captureContinuation`
+        // under `@MainActor` isolation. Whichever fires first wins; the loser
+        // sees a `nil` continuation and is a no-op.
         return try await withCheckedThrowingContinuation { continuation in
             self.captureContinuation = continuation
+            self.captureTimeoutTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: Self.captureTimeout)
+                guard let self, !Task.isCancelled else { return }
+                guard self.captureContinuation != nil else { return }
+                kycCameraLog.error("kyc_camera event=capture.timed_out timeout_s=\(Self.captureTimeout.components.seconds, privacy: .public) — capture source presumed dead")
+                self.resolveCapture(.failure(CameraSessionError.captureTimedOut))
+            }
             let settings = AVCapturePhotoSettings()
             photoOutput.capturePhoto(with: settings, delegate: self)
         }
+    }
+
+    /// Resume the in-flight `capturePhoto()` continuation EXACTLY ONCE.
+    ///
+    /// Both the photo-output delegate and the timeout task call this. The
+    /// check-and-clear of `captureContinuation` is atomic with respect to the
+    /// other caller because both run on the `@MainActor` — so a delegate
+    /// callback that lands after the timeout already fired (and a timeout that
+    /// fires after the delegate already resumed) both see a `nil` continuation
+    /// and do nothing. Also cancels the timeout task so it cannot fire later.
+    private func resolveCapture(_ result: Result<AVCapturePhoto, Error>) {
+        guard let continuation = captureContinuation else { return }
+        captureContinuation = nil
+        captureTimeoutTask?.cancel()
+        captureTimeoutTask = nil
+        continuation.resume(with: result)
     }
 
     public var previewLayer: AVCaptureVideoPreviewLayer { _previewLayer }
@@ -341,14 +394,14 @@ public final class AVFoundationCameraSession: NSObject, CameraSession,
     ) {
         Task { @MainActor [weak self] in
             guard let self else { return }
+            // Route through the exactly-once resolver: if the timeout already
+            // fired (a slow delegate after a 5s+ stall) this is a no-op, and the
+            // resolver cancels the timeout task when the delegate wins the race.
             if let error {
-                self.captureContinuation?.resume(
-                    throwing: CameraSessionError.captureFailed(error)
-                )
+                self.resolveCapture(.failure(CameraSessionError.captureFailed(error)))
             } else {
-                self.captureContinuation?.resume(returning: photo)
+                self.resolveCapture(.success(photo))
             }
-            self.captureContinuation = nil
         }
     }
 

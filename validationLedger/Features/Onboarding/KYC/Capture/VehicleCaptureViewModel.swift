@@ -31,6 +31,11 @@ final class VehicleCaptureViewModel {
         case capturing
         /// Capture is blocked because the GPS fix is stale/unavailable (Pitfall 5).
         case locationUnavailable
+        /// A still-photo capture timed out — the capture source is presumed
+        /// dead (e.g. after an ungraceful force-quit). RECOVERABLE: the shutter
+        /// stays ARMED so the user can retry, exactly like `.locationUnavailable`
+        /// (Test 10 gap — the camera self-heals on the next attempt).
+        case captureUnavailable
         /// The shot is captured — the preview screen is presented.
         case captured
         /// A non-recoverable capture failure.
@@ -216,6 +221,17 @@ final class VehicleCaptureViewModel {
         let photo: AVCapturePhoto
         do {
             photo = try await cameraSession.capturePhoto()
+        } catch CameraSessionError.captureTimedOut {
+            // The capture source is presumed dead (Test 10 gap — an ungraceful
+            // force-quit tore down the `mediaserverd` connection). This is
+            // RECOVERABLE: re-arm the shutter (`captureInFlight = false`) and
+            // land in `.captureUnavailable` — a shutter-ENABLED state — so the
+            // user can simply tap again instead of facing a dead shutter.
+            logger.warn(event: LogEvent("kyc_vehicle_capture_timed_out"),
+                        fields: [.event: artifactType.rawValue])
+            captureInFlight = false
+            state = .captureUnavailable
+            return
         } catch {
             logger.error(event: LogEvent("kyc_vehicle_capture_failed"),
                          fields: [.event: artifactType.rawValue])

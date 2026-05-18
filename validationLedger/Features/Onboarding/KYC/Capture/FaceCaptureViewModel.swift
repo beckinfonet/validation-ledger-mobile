@@ -48,6 +48,11 @@ final class FaceCaptureViewModel {
         case capturing
         /// Capture is blocked because the GPS fix is stale/unavailable (Pitfall 5).
         case locationUnavailable
+        /// A still-photo capture timed out — the capture source is presumed
+        /// dead (e.g. after an ungraceful force-quit). RECOVERABLE: the shutter
+        /// stays ARMED so the user can retry, exactly like `.locationUnavailable`
+        /// (Test 10 gap — the camera self-heals on the next attempt).
+        case captureUnavailable
         /// The shot is captured — the preview screen is presented.
         case captured
         /// A non-recoverable capture failure.
@@ -291,6 +296,18 @@ final class FaceCaptureViewModel {
         let photo: AVCapturePhoto
         do {
             photo = try await cameraSession.capturePhoto()
+        } catch CameraSessionError.captureTimedOut {
+            // The capture source is presumed dead (Test 10 gap — an ungraceful
+            // force-quit tore down the `mediaserverd` connection). RECOVERABLE:
+            // re-arm the shutter (`captureInFlight = false`), reset the
+            // steady-hold de-bounce so the gate re-evaluates cleanly, and land
+            // in `.captureUnavailable` — a shutter-recoverable state — instead
+            // of the dead-shutter `.failed`.
+            logger.warn(event: LogEvent("kyc_face_capture_timed_out"), fields: [:])
+            captureInFlight = false
+            steadyHold.reset()
+            state = .captureUnavailable
+            return
         } catch {
             logger.error(event: LogEvent("kyc_face_capture_failed"), fields: [:])
             captureInFlight = false
@@ -338,6 +355,17 @@ final class FaceCaptureViewModel {
         guard let data = photo.fileDataRepresentation() else { return nil }
         return UIImage(data: data)
     }
+
+    #if DEBUG
+    /// Test-only seam (Test 10 gap simulator suite). Drives the VM into
+    /// `.readyToCapture` so `capture()` — which is guarded on that state — can
+    /// fire WITHOUT a live Vision frame stream (`isCameraAvailable` is false on
+    /// the simulator, so `observeGateSignals()` never runs there). DEBUG-only:
+    /// it never compiles into a Release build, exactly like the DevMenu seams.
+    func forceReadyToCaptureForTest() {
+        state = .readyToCapture
+    }
+    #endif
 
     /// Write the captured face bytes into the on-disk KYC session so plan 04's
     /// `KYCUploader` can pick them up for the pipelined upload (D-01).
