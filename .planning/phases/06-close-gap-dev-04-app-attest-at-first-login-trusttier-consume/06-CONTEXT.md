@@ -103,11 +103,18 @@ The first-login sequence inserts before `/device/register`:
   Phase 4 SC-2 ("registration proceeds with a logged warning... no user-facing
   error").
 
-- **D6-06:** Phase 4 **D-08 still applies, unchanged**: if `/device/register`
-  itself returns the `challengeExpired` server error code, refetch a fresh
-  challenge and retry the register **once**. `challengeExpired` is a
-  deterministic "your challenge is stale, get a new one" signal — distinct from
-  the generic transient failure in D6-05, which degrades immediately.
+- **D6-06:** Phase 4 **D-08 applies**: if `/device/register` itself returns the
+  `challengeExpired` server error code, refetch a fresh challenge and retry the
+  register **once**. `challengeExpired` is a deterministic "your challenge is
+  stale, get a new one" signal — distinct from the generic transient failure in
+  D6-05, which degrades immediately.
+
+  > **Resolved 2026-05-18 (post-research):** research found NO existing
+  > `challengeExpired` production handling — `AttestationErrorResponseInterceptor`
+  > covers `attestationInvalid` / `nonceExpired` / `keyCompromised` only. D6-06 is
+  > therefore genuinely **new code** in the first-login path (challengeExpired
+  > detection + challenge refetch + register retry-once), unit-tested with an
+  > injected fixture — NOT "unchanged" wiring. The decision stands: build it.
 
 - **D6-07:** PII discipline (Phase 4 04-PATTERNS.md Pattern A) holds: raw
   `attestationObject` / `attestedKeyId` / challenge bytes and `NSError.userInfo`
@@ -125,10 +132,14 @@ The first-login sequence inserts before `/device/register`:
   the cold-boot probe routes on current truth. Affects SESS-01 / KYC-01 / D-13.
 
 - **D6-09 (Profile "Continue" CTA):** Wire `onVerified` in
-  `AppContainer.makeKYCStatusScreen()` (`AppContainer.swift:~178-185`).
-  `KYCCoordinator.pushStatus()` (`~497`) already wires it on the post-submit
-  path; the Profile-entry factory omits it, leaving a dead button. One-line
-  parity fix.
+  `AppContainer.makeKYCStatusScreen()` (`AppContainer.swift:~178-185`). The
+  Profile-entry factory omits the `onVerified` callback, leaving a dead button.
+
+  > **Resolved 2026-05-18 (post-research):** `onVerified` must **dismiss / pop
+  > the KYC status screen back to the Profile tab** — NOT a literal copy of
+  > `KYCCoordinator.pushStatus()`'s post-submit role-shell routing, which is
+  > nonsensical from a Profile entry already inside the role shell. The fix is a
+  > Profile-context dismissal, not a coordinator handoff.
 
 - **D6-10 (WARNING-2):** Make `AppSession.trustTier` **observable** so
   `LimitedTrustBannerView` re-renders — appears on downgrade, disappears on
