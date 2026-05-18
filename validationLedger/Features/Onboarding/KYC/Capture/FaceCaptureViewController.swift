@@ -331,6 +331,19 @@ final class FaceCaptureViewController: UIViewController {
             )
             setGuidePassing(false)
             shutterButton.isEnabled = false
+        case .captureUnavailable:
+            // Test 10 gap — a capture timeout is RECOVERABLE. Mirror the
+            // VehicleCaptureVC: a cue plus an ENABLED shutter so the user can
+            // retry. The Vision gate will re-evaluate frames on the next
+            // `start()`/frame stream; here the shutter is unlocked directly so a
+            // dead capture source never strands the selfie screen.
+            cueLabel.text = NSLocalizedString(
+                "kyc.error.camera_recoverable",
+                value: "The camera needs a moment. Try the photo again.",
+                comment: "KYC recoverable camera-timeout capture error (Test 10 gap)"
+            )
+            setGuidePassing(false)
+            shutterButton.isEnabled = true
         case .captured:
             shutterButton.isEnabled = false
             presentPreview()

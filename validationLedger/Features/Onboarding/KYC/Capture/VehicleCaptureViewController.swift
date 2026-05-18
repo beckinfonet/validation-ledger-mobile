@@ -262,6 +262,17 @@ class VehicleCaptureViewController: UIViewController {
                 comment: "KYC GPS-stale capture error"
             )
             shutterButton.isEnabled = true
+        case .captureUnavailable:
+            // Test 10 gap — a capture timeout is RECOVERABLE. Render it exactly
+            // like `.locationUnavailable`: a cue plus an ENABLED shutter so the
+            // user can simply retry. (`.failed` below disables the shutter — a
+            // timeout must NOT route there or the shutter would stay dead.)
+            cueLabel.text = NSLocalizedString(
+                "kyc.error.camera_recoverable",
+                value: "The camera needs a moment. Try the photo again.",
+                comment: "KYC recoverable camera-timeout capture error (Test 10 gap)"
+            )
+            shutterButton.isEnabled = true
         case .captured:
             presentPreview()
         case let .failed(message):

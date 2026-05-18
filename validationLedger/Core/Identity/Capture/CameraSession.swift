@@ -20,6 +20,7 @@
 import AVFoundation
 import Foundation
 import OSLog
+import UIKit
 
 // MARK: - Camera-path diagnostic log
 
@@ -47,6 +48,12 @@ public enum CameraSessionError: Error, Sendable {
     case configurationFailed
     /// A still-photo capture failed.
     case captureFailed(Error)
+    /// A still-photo capture did not complete within the timeout — the capture
+    /// source is presumed dead (e.g. after an ungraceful force-quit tore down
+    /// the `mediaserverd` connection). The caller should surface a RECOVERABLE
+    /// error and may rebuild the session. Distinct from `captureFailed`: the
+    /// delegate never fired at all, rather than firing with an error.
+    case captureTimedOut
 }
 
 /// Which camera the session is bound to.
@@ -199,8 +206,47 @@ public final class AVFoundationCameraSession: NSObject, CameraSession,
     /// `capturePhoto()` async result — the `LocationProvider` continuation pattern.
     private var captureContinuation: CheckedContinuation<AVCapturePhoto, Error>?
 
+    /// The timeout task racing the delegate callback for `capturePhoto()`. When
+    /// the delegate resumes the continuation first it cancels this task so the
+    /// timeout cannot fire afterwards; when the timeout fires first it resumes
+    /// the continuation itself. `nil` while no capture is in flight.
+    private var captureTimeoutTask: Task<Void, Never>?
+
+    /// How long `capturePhoto()` waits for the photo-output delegate before it
+    /// declares the capture source dead. Long enough that a slow-but-healthy
+    /// capture is never mis-flagged; short enough that the user is not left
+    /// staring at a dead shutter after an ungraceful force-quit (Test 10 gap).
+    private static let captureTimeout: Duration = .seconds(5)
+
+    /// The camera position the session is currently configured for. Set by
+    /// `configureSessionInputs`/`startAuthorizedSession`; read by the
+    /// runtime-error rebuild and the foreground restart so they restore the
+    /// right camera. `nil` until the session has been configured once.
+    private var currentPosition: CameraPosition?
+
+    /// Whether the session is INTENDED to be running — set `true` by `start()`,
+    /// `false` by `stop()`. The background-stop / foreground-restart and the
+    /// interruption-end restart consult this so they only restore a session the
+    /// caller actually wanted running, never one a VC had already stopped.
+    private var intendedRunning = false
+
+    /// `NotificationCenter` observer tokens for the runtime-error / interruption
+    /// / app-lifecycle observers. Removed in `deinit` so no callback fires after
+    /// the session is torn down and the array does not leak.
+    private var observerTokens: [NSObjectProtocol] = []
+
     public override init() {
         super.init()
+        registerLifecycleObservers()
+    }
+
+    deinit {
+        // `deinit` is nonisolated — only touch the tokens array, which is safe
+        // to read here (no other actor can mutate it once the object is being
+        // deallocated). Removing the observers prevents any post-teardown callback.
+        for token in observerTokens {
+            NotificationCenter.default.removeObserver(token)
+        }
     }
 
     public func requestPermission() async -> AVAuthorizationStatus {
@@ -215,6 +261,7 @@ public final class AVFoundationCameraSession: NSObject, CameraSession,
             throw CameraSessionError.cameraUnavailable
         }
         try configureSessionInputs(position: position)
+        currentPosition = position
     }
 
     public func startAuthorizedSession(position: CameraPosition) async throws {
@@ -244,11 +291,34 @@ public final class AVFoundationCameraSession: NSObject, CameraSession,
             kycCameraLog.error("kyc_camera event=configure_inputs.failed error=\(String(describing: error), privacy: .public)")
             throw error
         }
+        currentPosition = position
         start()
         kycCameraLog.info("kyc_camera event=start_authorized_session.end")
     }
 
-    public nonisolated func start() {
+    public func start() {
+        // Record the caller's INTENT before the blocking work hops to the
+        // session queue — the background-stop / foreground-restart and the
+        // interruption-end restart consult `intendedRunning` to know whether to
+        // restore the session. Setting it on the main actor keeps it a single,
+        // race-free source of truth.
+        intendedRunning = true
+        startSession()
+    }
+
+    public func stop() {
+        // An EXPLICIT caller stop (a VC's `viewWillDisappear`) — the session is
+        // no longer intended running, so a later foreground will NOT restart it.
+        intendedRunning = false
+        stopSession()
+    }
+
+    /// Start the `AVCaptureSession` running. The blocking `startRunning()` hops
+    /// onto `sessionQueue` (Apple documents it MUST NOT run on the main thread).
+    /// Does NOT touch `intendedRunning` — the runtime-error rebuild and the
+    /// foreground/interruption-end restart call this to restore a session whose
+    /// intent is already recorded.
+    private func startSession() {
         sessionQueue.async { [session] in
             guard !session.isRunning else {
                 kycCameraLog.info("kyc_camera event=session_start.already_running")
@@ -260,7 +330,11 @@ public final class AVFoundationCameraSession: NSObject, CameraSession,
         }
     }
 
-    public nonisolated func stop() {
+    /// Stop the `AVCaptureSession`. Does NOT touch `intendedRunning` — the
+    /// background-stop observer calls this so a backgrounded session is torn
+    /// down (the force-quit mitigation) while the intent to run survives, so the
+    /// next foreground transition restores it.
+    private func stopSession() {
         sessionQueue.async { [session] in
             guard session.isRunning else { return }
             session.stopRunning()
@@ -269,6 +343,159 @@ public final class AVFoundationCameraSession: NSObject, CameraSession,
 
     public func switchCamera(to position: CameraPosition) throws {
         try configureSessionInputs(position: position)
+        currentPosition = position
+    }
+
+    // MARK: - Runtime-error / interruption / app-lifecycle resilience (Test 10 gap)
+
+    /// Register the `AVCaptureSession` runtime-error / interruption observers
+    /// and the `UIApplication` background/foreground observers.
+    ///
+    /// Test 10 gap (`.planning/debug/kyc-force-quit-camera-stuck.md`): before
+    /// this, `AVFoundationCameraSession` registered ZERO observers and bound
+    /// session start/stop only to VC view lifecycle. An ungraceful force-quit
+    /// skips `viewWillDisappear`, the prior session is never `stopRunning()`-ed,
+    /// the `mediaserverd` capture-source connection is torn down abruptly, and
+    /// the relaunched session can fail to re-establish a live source. These
+    /// observers make the session self-heal: rebuild on a runtime error, and
+    /// stop/restart cleanly across background/foreground.
+    ///
+    /// Notification callbacks fire on arbitrary threads — every closure hops to
+    /// the main actor (the established `photoOutput` delegate pattern) before
+    /// touching `@MainActor` state. Tokens are stored for `deinit` removal.
+    private func registerLifecycleObservers() {
+        let center = NotificationCenter.default
+
+        // AVCaptureSession.runtimeErrorNotification — the dead-source signal.
+        // After an ungraceful force-quit the `mediaserverd` connection is gone
+        // (`FigCaptureSourceRemote err=-17281`). NOTE: a bare `err=-17281` on a
+        // CLEAN launch is benign (the `front-camera-preview-black` round-4
+        // note) — but a runtime-error notification AFTER startup is a real
+        // dead-source signal, so rebuild the session here.
+        observerTokens.append(
+            center.addObserver(
+                forName: AVCaptureSession.runtimeErrorNotification,
+                object: session,
+                queue: nil
+            ) { [weak self] note in
+                let code = (note.userInfo?[AVCaptureSessionErrorKey] as? AVError)?.code.rawValue
+                Task { @MainActor [weak self] in
+                    self?.handleRuntimeError(code: code)
+                }
+            }
+        )
+
+        // App background — stop the session. The prior process's session must
+        // not be left running across background; a backgrounded-then-killed app
+        // has already cleanly stopped. `intendedRunning` is PRESERVED so the
+        // foreground transition can restore it.
+        observerTokens.append(
+            center.addObserver(
+                forName: UIApplication.didEnterBackgroundNotification,
+                object: nil,
+                queue: nil
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.handleDidEnterBackground()
+                }
+            }
+        )
+
+        // App foreground — restart a session that was intended-running before
+        // backgrounding. Re-run `configureSessionInputs` first (safe to always
+        // do) in case a runtime error fired while backgrounded.
+        observerTokens.append(
+            center.addObserver(
+                forName: UIApplication.willEnterForegroundNotification,
+                object: nil,
+                queue: nil
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.handleWillEnterForeground()
+                }
+            }
+        )
+
+        // Session interruption (a phone call, another app taking the camera).
+        observerTokens.append(
+            center.addObserver(
+                forName: AVCaptureSession.wasInterruptedNotification,
+                object: session,
+                queue: nil
+            ) { _ in
+                Task { @MainActor in
+                    kycCameraLog.info("kyc_camera event=session.was_interrupted")
+                }
+            }
+        )
+
+        // Interruption ended — restart if the session was intended-running.
+        observerTokens.append(
+            center.addObserver(
+                forName: AVCaptureSession.interruptionEndedNotification,
+                object: session,
+                queue: nil
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.handleInterruptionEnded()
+                }
+            }
+        )
+    }
+
+    /// `runtimeErrorNotification` handler — rebuild the (presumed-dead) session.
+    private func handleRuntimeError(code: Int?) {
+        kycCameraLog.error("kyc_camera event=runtime_error error_code=\(code ?? 0, privacy: .public) — rebuilding session")
+        // Rebuild only when a position was previously configured — there is
+        // nothing to restore before the first `configure`/`startAuthorizedSession`.
+        guard let position = currentPosition else {
+            kycCameraLog.info("kyc_camera event=runtime_error.no_position — nothing to rebuild")
+            return
+        }
+        do {
+            try configureSessionInputs(position: position)
+        } catch {
+            kycCameraLog.error("kyc_camera event=runtime_error.rebuild_failed error=\(String(describing: error), privacy: .public)")
+            return
+        }
+        // Restart only if the caller wanted the session running.
+        if intendedRunning {
+            startSession()
+        }
+    }
+
+    /// `didEnterBackgroundNotification` handler — stop the session, preserving
+    /// the intent so the foreground transition can restore it.
+    private func handleDidEnterBackground() {
+        kycCameraLog.info("kyc_camera event=app.did_enter_background intendedRunning=\(self.intendedRunning, privacy: .public) — stopping session")
+        stopSession()
+    }
+
+    /// `willEnterForegroundNotification` handler — restart a session that was
+    /// intended-running before backgrounding.
+    private func handleWillEnterForeground() {
+        guard intendedRunning, let position = currentPosition else {
+            kycCameraLog.info("kyc_camera event=app.will_enter_foreground.no_restore intendedRunning=\(self.intendedRunning, privacy: .public)")
+            return
+        }
+        kycCameraLog.info("kyc_camera event=app.will_enter_foreground — restoring session")
+        // Always re-run config before start: a runtime error may have fired
+        // while backgrounded, leaving the session with a dead input.
+        do {
+            try configureSessionInputs(position: position)
+        } catch {
+            kycCameraLog.error("kyc_camera event=app.will_enter_foreground.reconfigure_failed error=\(String(describing: error), privacy: .public)")
+            return
+        }
+        startSession()
+    }
+
+    /// `interruptionEndedNotification` handler — restart if intended-running.
+    private func handleInterruptionEnded() {
+        kycCameraLog.info("kyc_camera event=session.interruption_ended intendedRunning=\(self.intendedRunning, privacy: .public)")
+        if intendedRunning {
+            startSession()
+        }
     }
 
     /// Configure the session's camera input + photo output for `position`.
@@ -323,11 +550,46 @@ public final class AVFoundationCameraSession: NSObject, CameraSession,
         guard Self.isCameraAvailable else {
             throw CameraSessionError.cameraUnavailable
         }
+        // Bridge the single delegate callback into an async result, BOUNDED by a
+        // timeout. `photoOutput(_:didFinishProcessingPhoto:error:)` resumes the
+        // continuation on a healthy capture; the timeout task resumes it with
+        // `.captureTimedOut` when the delegate never fires (a dead capture
+        // source — after an ungraceful force-quit the `mediaserverd` connection
+        // is gone and the delegate is never invoked, so an unbounded await would
+        // hang the capture flow forever; Test 10 gap).
+        //
+        // Exactly-once resume: both the delegate and the timeout route through
+        // `resolveCapture(...)`, which check-and-clears `captureContinuation`
+        // under `@MainActor` isolation. Whichever fires first wins; the loser
+        // sees a `nil` continuation and is a no-op.
         return try await withCheckedThrowingContinuation { continuation in
             self.captureContinuation = continuation
+            self.captureTimeoutTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: Self.captureTimeout)
+                guard let self, !Task.isCancelled else { return }
+                guard self.captureContinuation != nil else { return }
+                kycCameraLog.error("kyc_camera event=capture.timed_out timeout_s=\(Self.captureTimeout.components.seconds, privacy: .public) — capture source presumed dead")
+                self.resolveCapture(.failure(CameraSessionError.captureTimedOut))
+            }
             let settings = AVCapturePhotoSettings()
             photoOutput.capturePhoto(with: settings, delegate: self)
         }
+    }
+
+    /// Resume the in-flight `capturePhoto()` continuation EXACTLY ONCE.
+    ///
+    /// Both the photo-output delegate and the timeout task call this. The
+    /// check-and-clear of `captureContinuation` is atomic with respect to the
+    /// other caller because both run on the `@MainActor` — so a delegate
+    /// callback that lands after the timeout already fired (and a timeout that
+    /// fires after the delegate already resumed) both see a `nil` continuation
+    /// and do nothing. Also cancels the timeout task so it cannot fire later.
+    private func resolveCapture(_ result: Result<AVCapturePhoto, Error>) {
+        guard let continuation = captureContinuation else { return }
+        captureContinuation = nil
+        captureTimeoutTask?.cancel()
+        captureTimeoutTask = nil
+        continuation.resume(with: result)
     }
 
     public var previewLayer: AVCaptureVideoPreviewLayer { _previewLayer }
@@ -341,14 +603,14 @@ public final class AVFoundationCameraSession: NSObject, CameraSession,
     ) {
         Task { @MainActor [weak self] in
             guard let self else { return }
+            // Route through the exactly-once resolver: if the timeout already
+            // fired (a slow delegate after a 5s+ stall) this is a no-op, and the
+            // resolver cancels the timeout task when the delegate wins the race.
             if let error {
-                self.captureContinuation?.resume(
-                    throwing: CameraSessionError.captureFailed(error)
-                )
+                self.resolveCapture(.failure(CameraSessionError.captureFailed(error)))
             } else {
-                self.captureContinuation?.resume(returning: photo)
+                self.resolveCapture(.success(photo))
             }
-            self.captureContinuation = nil
         }
     }
 
