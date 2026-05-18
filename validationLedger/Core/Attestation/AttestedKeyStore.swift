@@ -20,6 +20,15 @@
 //     response (D-07). Not explicitly deleted — the FOUND-02 first-launch
 //     Keychain wipe clears it along with everything else if the user
 //     reinstalls.
+//   - trustTier: Phase 6 DEV-04 (D6-01 / D6-02). Written by OTPViewModel
+//     (Plan 02) from the `/device/register` response, read by the role-shell
+//     AppContainer (Plan 03) to seed AppSession across the post-OTP
+//     container swap. Persisted with `.afterFirstUnlockThisDeviceOnly` and
+//     deliberately NOT in KeychainScope.session — D6-02 keeps it across
+//     logout like attestedKeyId. There is intentionally NO delete accessor
+//     and it is never wired into LogoutService. Re-hydration is fail-safe:
+//     an unknown wire value yields nil → callers fall back to the safe
+//     `.softwareOnly` default, never to `.hardwareAttested`.
 //
 // PII discipline (FOUND-01): keyId bytes never exposed to Logger or
 // analytics. This wrapper is the only legitimate boundary between the
@@ -90,6 +99,35 @@ public struct AttestedKeyStore: Sendable {
         try keychain.set(
             Data(str.utf8),
             for: .lastHeartbeatAt,
+            accessibility: .afterFirstUnlockThisDeviceOnly
+        )
+    }
+
+    // MARK: - trustTier
+
+    /// Returns the persisted backend-driven trust tier, or `nil` if never
+    /// written (first install or pre-first-register). `itemNotFound` is
+    /// translated to `nil` — the absence of a cached tier is not an error.
+    ///
+    /// Re-hydration is fail-safe (D6-02 / T-06-01-03): an unknown wire string
+    /// yields `nil` from `TrustTier(rawValue:)`, which callers resolve to the
+    /// safe `.softwareOnly` default downstream — never to `.hardwareAttested`.
+    public func readTrustTier() throws -> TrustTier? {
+        do {
+            let data = try keychain.get(.trustTier)
+            guard let raw = String(data: data, encoding: .utf8) else { return nil }
+            return TrustTier(rawValue: raw)
+        } catch KeychainError.itemNotFound {
+            return nil
+        }
+    }
+
+    /// Writes `tier`'s rawValue (UTF-8 bytes) to Keychain under `.trustTier`
+    /// with `.afterFirstUnlockThisDeviceOnly` accessibility (D6-02, Pattern C).
+    public func writeTrustTier(_ tier: TrustTier) throws {
+        try keychain.set(
+            Data(tier.rawValue.utf8),
+            for: .trustTier,
             accessibility: .afterFirstUnlockThisDeviceOnly
         )
     }
