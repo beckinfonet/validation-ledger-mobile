@@ -7,6 +7,15 @@
 > **Phase 5 is complete only once every item below is verified on a physical
 > iPhone.** Once approved, run `/gsd:verify-work 5`.
 
+> **Device-UAT automation note (2026-05-18).** The device-UAT automation landed
+> via plans 05-11 (the `-KYCTestSeedForUITest` DEBUG launch seam), 05-12 (the four
+> device XCUITest files), and 05-13 (wiring `validationLedgerUITests` into the
+> `ci-device.yml` device lane). **The manual-UAT burden dropped from 5 items to 2.**
+> Four of the five items below are now AUTOMATED as device XCUITests that run on
+> the self-hosted device CI lane on every merge to `main`; each is annotated below
+> with its covering XCUITest file. **Only items 2 (SC-4) and the deliberate
+> runtime-error-injection portion of item 5 (Test-10) remain human-UAT.**
+
 ---
 
 ## Plan 05-08 Task 3 — `checkpoint:human-verify` (`gate="blocking"`)
@@ -24,38 +33,74 @@ D-08 Profile entry UX and the D-12 hard gate.
 
 ### Checklist
 
-- [ ] **1. SC-2 — force-quit resume.**
-  Start the KYC capture flow and let artifact uploads begin (pipelined, D-01).
-  While a ~6 MB artifact is mid-upload (watch the determinate progress bar),
-  force-quit the app (swipe up from the app switcher). Relaunch. Confirm the
-  upload resumes from where it left off — the progress bar restores to the
-  prior `chunksAcked/totalChunks`, **NOT 0%** — and the artifact eventually
-  commits. The device-CI `KYCForceQuitResumeDeviceTests` automates the pipeline
-  + persistence portion on real hardware; this confirms the real end-to-end UX.
+- [x] **1. SC-2 — force-quit resume. — AUTOMATED (device CI lane).**
+  Covered by `KYCForceQuitResumeUITests` (plan 05-12) running on the
+  `ci-device.yml` `validationLedgerUITests` device lane (plan 05-13). The XCUITest
+  performs a real `XCUIApplication().terminate()` (an ungraceful process kill)
+  between two `.launch()` calls under the `midUpload` seed, then asserts the
+  resumed KYC state is non-error / non-zeroed — the XCUITest-observable proxy for
+  "the upload resumes, not restarts from 0%". The device-CI
+  `KYCForceQuitResumeDeviceTests` additionally automates the pipeline + persistence
+  portion on real hardware.
+  *(Historical record of the original manual procedure:* Start the KYC capture
+  flow and let artifact uploads begin (pipelined, D-01). While a ~6 MB artifact is
+  mid-upload, force-quit the app, relaunch, and confirm the progress bar restores
+  to the prior `chunksAcked/totalChunks`, **NOT 0%**.*)*
 
-- [ ] **2. SC-4 — background upload completion.**
+- [ ] **2. SC-4 — background upload completion. — REMAINS HUMAN-UAT.**
   With an artifact mid-upload, background the app (Home / swipe up but do NOT
   kill). Wait. Confirm the upload continues and completes — re-open the app and
   confirm the artifact shows ✓ committed. (iOS grants `BGProcessingTaskRequest`
   runtime on its own schedule; this may take a short while.) This is the
   end-to-end check for the truth that `BackgroundUploadSchedulingTests` only
   proves at the scheduling-logic level.
+  **Why this cannot be automated:** iOS schedules `BGProcessingTaskRequest`
+  discretionarily — the OS decides *if and when* to grant background runtime
+  based on battery, charging state, and system load. No XCUITest or `xcodebuild
+  test` run can force the OS to grant that runtime on demand, so end-to-end
+  completion under a real OS suspension is irreducibly a human-UAT item.
 
-- [ ] **3. D-08 — Profile entry to the KYC status screen.**
-  Complete (or fixture-seed) KYC to a verified/under-review state, reach the
-  role shell, open Profile (the top-bar avatar), and confirm a "Verification
-  status" row that opens the KYC status screen and re-fetches status.
+- [x] **3. D-08 — Profile entry to the KYC status screen. — AUTOMATED (device CI lane).**
+  Covered by `KYCProfileEntryUITests` (plan 05-12) running on the `ci-device.yml`
+  `validationLedgerUITests` device lane (plan 05-13). The XCUITest launches under
+  the `underReview` seed, taps the Profile `nav-avatar`, taps the
+  `profile-kyc-status` "Verification status" row, and asserts
+  `KYCStatusViewController` opens — the live tap-through D-08 specifies.
+  *(Historical record of the original manual procedure:* Complete (or
+  fixture-seed) KYC to a verified/under-review state, reach the role shell, open
+  Profile (the top-bar avatar), and confirm a "Verification status" row that opens
+  the KYC status screen and re-fetches status.*)*
 
-- [ ] **4. D-12 — hard gate.**
-  Confirm a non-verified account cannot reach the role shell — after OTP-verify
-  it lands in the KYC flow, not the role tab bar.
+- [x] **4. D-12 — hard gate. — AUTOMATED (device CI lane).**
+  Covered by `KYCHardGateUITests` (plan 05-12) running on the `ci-device.yml`
+  `validationLedgerUITests` device lane (plan 05-13). The XCUITest launches under
+  the `nonVerified` seed, asserts the `kyc-start-heading` KYC-gate element exists,
+  and asserts no role tab bar button (`Loads`, etc.) exists — proving the role tab
+  bar was never constructed for a non-verified account.
+  *(Historical record of the original manual procedure:* Confirm a non-verified
+  account cannot reach the role shell — after OTP-verify it lands in the KYC flow,
+  not the role tab bar.*)*
 
-- [ ] **5. Test 10 — camera runtime-error / lifecycle resilience on device.**
-  After an ungraceful force-quit mid-capture and relaunch, confirm the capture
-  screen's shutter is responsive within ~5 s — a recoverable "The camera needs
-  a moment. Try the photo again." cue appears with the shutter enabled (no
-  permanent dead shutter). Then confirm the session self-heals: backgrounding
-  and foregrounding the app mid-capture restores a working capture session.
+- [ ] **5. Test 10 — camera runtime-error / lifecycle resilience on device. — PARTIALLY AUTOMATED.**
+
+  - **Background/foreground portion — AUTOMATED (device CI lane).** Covered by
+    `KYCCaptureLifecycleUITests` (plan 05-12) running on the `ci-device.yml`
+    `validationLedgerUITests` device lane (plan 05-13). The XCUITest enters the
+    capture flow under the `nonVerified` seed, backgrounds the app with
+    `XCUIDevice.shared.press(.home)`, foregrounds it with
+    `XCUIApplication().activate()`, and asserts the `kyc-face-shutter` is
+    `isHittable` again — proving the `AVCaptureSession` background/foreground
+    observers restored a working session.
+  - **Deliberate `AVCaptureSessionRuntimeError` injection — REMAINS HUMAN-UAT.**
+    After an ungraceful force-quit mid-capture and relaunch, confirm the capture
+    screen's shutter is responsive within ~5 s — a recoverable "The camera needs
+    a moment. Try the photo again." cue appears with the shutter enabled (no
+    permanent dead shutter). **Why this cannot be automated:** a genuine
+    `AVCaptureSessionRuntimeError` is a real camera-hardware fault. No XCUITest can
+    force the camera hardware to fault on demand — the live `AVFoundation`
+    `runtimeErrorNotification` only fires on a real device under a real fault, so
+    confirming the recoverable-cue / shutter-re-arm path stays a human-UAT item.
+
   `CameraSessionLifecycleTests` proves the VM-layer shutter re-arm in the
   simulator; the live `AVFoundation` `runtimeErrorNotification` /
   `wasInterrupted` / background-foreground observers only fire on real
