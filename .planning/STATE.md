@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Phase 05 --gaps-only run COMPLETE: plans 05-09 (GET /kyc/status device-mock route — closes UAT Test 9) and 05-10 (timeout-bounded capturePhoto() + AVCaptureSession lifecycle observers — closes UAT Test 10) executed, merged to main, gates passed (build OK; serial test gate 367/367; code review 0 blocker / 5 warning / 4 info in 05-REVIEW.md). 05-VERIFICATION.md = human_needed, score 5/5. User decided NOT to do manual UAT — instead to AUTOMATE the 5 human-UAT items as device XCUITests on the self-hosted device CI runner. That automation is unplanned/unbuilt — it is the next work item. Phase 05 stays pending until verification reruns as passed."
-last_updated: "2026-05-18T06:25:13.097Z"
-last_activity: 2026-05-18 -- Phase 05 execution started
+stopped_at: "Plan 05-08 Tasks 1-2 COMPLETE — PAUSED at the Task 3 `checkpoint:human-verify` gate (blocking). Task 1 (commit 84e4ece): D-08 Profile KYC-status row + KYCEndToEndIntegrationTests + LogoutPreservesKYCSessionTests — 3 simulator tests GREEN. Task 2 (commit 99f8c5a): KYCForceQuitResumeDeviceTests (SC-2 device test, compiles for the ci-device.yml lane) + 05-VALIDATION.md reconciled/approved/Nyquist-compliant. 05-08-SUMMARY.md is a PARTIAL summary covering Tasks 1-2. Task 3 is a physical-iPhone HUMAN-UAT checkpoint — see 05-HUMAN-UAT.md."
+last_updated: "2026-05-18T07:33:59.299Z"
+last_activity: 2026-05-18 -- Phase 05 planning complete
 progress:
   total_phases: 5
   completed_phases: 4
-  total_plans: 48
-  completed_plans: 46
+  total_plans: 51
+  completed_plans: 48
   percent: 80
 ---
 
@@ -27,9 +27,9 @@ See: .planning/PROJECT.md (updated 2026-04-20)
 
 Phase: 05 (kyc-capture-upload-pipeline) — gap closure complete, verification human_needed
 Plan: 10 of 10 (05-09, 05-10 gap-closure plans done + merged + verified)
-Status: Phase 05 NOT marked complete — verification is human_needed; resolution path = automate device UAT
+Status: Ready to execute
 Next: Plan the device XCUITest automation that converts the 5 human-UAT items (SC-2 / D-08 / D-12 / Test-10 background; SC-4 + deliberate runtime-error stay human) into automated runs on the self-hosted device CI lane. Recommended: `/gsd-plan-phase 05 --gaps`.
-Last activity: 2026-05-18 -- Phase 05 gap closure (05-09 + 05-10) executed, verified 5/5 automated
+Last activity: 2026-05-18 -- Phase 05 planning complete
 
 Progress: [█████████▉] 98%
 
