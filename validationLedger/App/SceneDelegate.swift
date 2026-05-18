@@ -9,6 +9,12 @@ import UIKit
 public enum AppPhase {
     case launch
     case auth
+    /// Phase 5 D-12: the KYC hard-gate phase. After OTP-verify a user whose
+    /// `kycStatus != "verified"` is routed here (and on cold boot, a restored
+    /// session with a non-verified cached `kycStatus` lands here). Produces a
+    /// `KYCCoordinator`-driven capture flow; the role shell is unreachable until
+    /// KYC is submitted.
+    case kyc(Role)
     case role(Role)
     /// Phase 3 D-18 / DEV-06: routed to after `LogoutService.logout(.anotherActiveSession)`.
     /// Produces an `AnotherActiveSessionViewController` (terminal support-contact screen).
@@ -194,6 +200,61 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
         #endif
 
+        // Phase 5 Plan 11 (SC-2 / D-08 / D-12 / Test-10): the `-KYCTestSeedForUITest`
+        // launch-argument seam. The plan 05-12 device XCUITests must arrive at
+        // three specific KYC states deterministically; an XCUITest driver runs in
+        // a separate process and can only cross into the app via launch arguments.
+        //
+        // Sequence on `-KYCTestSeedForUITest <mode>` detection:
+        //   1. Force `.mock` NetworkConfig so MockURLProtocol intercepts the
+        //      `GET /kyc/status` + KYC upload routes (the plan 05-09 mock fixtures
+        //      already serve these).
+        //   2. Set `AppContainer.kycTestSeed` to the matching `KYCUITestSeed` case.
+        //   3. Construct ONE throwaway `AppContainer` to TRIGGER the DEBUG seeding
+        //      side-effect: `AppContainer.init` reads `kycTestSeed` and seeds the
+        //      Keychain `session`-scope state (and, for `.midUpload`, the on-disk
+        //      `KYCSessionStore`). This mirrors the `-MockOTPRoleForUITest`
+        //      throwaway-`scrubContainer` discipline above — `AppContainer` owns
+        //      the `KeychainStore` + `KYCSessionStore`, so the seam runs in init.
+        //
+        // DELIBERATE difference from `-MockOTPRoleForUITest`: this block does NOT
+        // call `presentRoot` and does NOT `return` early. It only SEEDS state,
+        // then falls through to the existing `SessionRestoreProbe.probe` switch
+        // below so the seeded Keychain state drives the REAL routing decision:
+        //   nonVerified → probe `.needsKYC` → presentRoot(.kyc(role))
+        //   underReview / midUpload → probe `.restored` → presentRoot(.role(role))
+        // (`-MockOTPRoleForUITest` returns early because it drives the auth flow
+        // from scratch; this seam instead exercises the genuine restore path.)
+        //
+        // Entire block is `#if DEBUG` — Release compiles it to zero bytes
+        // (threat T-05-11-01).
+        #if DEBUG
+        if let idx = ProcessInfo.processInfo.arguments.firstIndex(of: "-KYCTestSeedForUITest"),
+           idx + 1 < ProcessInfo.processInfo.arguments.count {
+            let mode = ProcessInfo.processInfo.arguments[idx + 1]
+            let seed: AppContainer.KYCUITestSeed?
+            switch mode {
+            case "nonVerified": seed = .nonVerified
+            case "underReview": seed = .underReview
+            case "midUpload":   seed = .midUpload
+            default:            seed = nil
+            }
+            if let seed {
+                // 1. Force .mock so MockURLProtocol serves the KYC routes.
+                self.currentNetworkConfigOverride = .mock
+                // 2. Set the seed the AppContainer init-time block consumes.
+                AppContainer.kycTestSeed = seed
+                // 3. Throwaway container TRIGGERS the DEBUG seeding side-effect
+                //    BEFORE the probe runs (mirrors -MockOTPRoleForUITest's
+                //    scrubContainer). We discard it; presentRoot below builds a
+                //    fresh, fully-wired container for the probed phase per ADR 0002.
+                _ = AppContainer(env: .current, networkConfig: .mock)
+                // NO presentRoot, NO return — fall through to the probe switch so
+                // the seeded Keychain state drives the genuine routing decision.
+            }
+        }
+        #endif
+
         // Phase 3 D-04/D-05 (Blocker 6): probe the session via the lightweight
         // SessionRestoreProbe helper BEFORE first paint. The probe constructs ONLY
         // KeychainStore + DefaultSessionRestoreService (no SessionLockService, no
@@ -220,6 +281,12 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                     await self.performHeartbeatIfNeeded(container: container)
                 }
             }
+        case .needsKYC(let role):
+            // Phase 5 D-12/D-13: a restored session whose cached `kycStatus` is not
+            // "verified" routes into the KYC hard gate. No biometric lock overlay —
+            // the KYC capture flow has its own D-14 sign-out affordance, and the
+            // role shell is not constructed at all until KYC is submitted.
+            presentRoot(.kyc(role))
         case .needsAuth:
             presentRoot(.auth)
         }
@@ -264,6 +331,32 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         #endif
     }
 
+    // MARK: - Phase 5 Plan 07 (UPL-05) — background upload continuation
+
+    /// Phase 5 UPL-05: when the app backgrounds with at least one incomplete KYC
+    /// upload, submit a `BGProcessingTaskRequest` so the OS grants runtime to keep
+    /// the foreground chunk loop alive (RATIFIED USER DECISION — foreground loop +
+    /// BGTask, NOT a file-based background URLSession).
+    ///
+    /// The pending-upload check reads the SCENE AppContainer's `KYCSessionStore`
+    /// (`loadSession()` — a non-committed artifact means an upload is in flight)
+    /// and the scheduling uses that scene container's `KYCUploadScheduler`. No new
+    /// `AppContainer` is constructed anywhere (threat T-05-07-06).
+    func sceneDidEnterBackground(_ scene: UIScene) {
+        guard let container = appCoordinator?.container else { return }
+        // A non-committed artifact in the on-disk session = an upload still owes
+        // chunks. An absent session / a fully-committed session = nothing pending.
+        let hasPendingUploads: Bool
+        if let session = try? container.kycSessionStore.loadSession() {
+            hasPendingUploads = session.uploadStates.values.contains { !$0.committed }
+        } else {
+            hasPendingUploads = false
+        }
+        container.kycUploadScheduler.scheduleUploadContinuation(
+            hasPendingUploads: hasPendingUploads
+        )
+    }
+
     // MARK: - Deep-link forwarding
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
@@ -297,11 +390,28 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Fresh container + fresh coordinator per D-10.
         // In DEBUG, respect the DevMenu NetworkConfig override (NET-03 SC-2 demonstrator)
         // so toggling mock/live persists across subsequent role swaps.
+        //
+        // Phase 5 Plan 07 (UPL-05): pass the AppDelegate-owned `KYCUploadScheduler`
+        // into every AppContainer — the BGTask handler is registered on THAT
+        // scheduler at launch, so its live-uploader slot (filled below) must be
+        // the same instance every scene container sees.
+        let scheduler = (UIApplication.shared.delegate as? AppDelegate)?.kycUploadScheduler
         #if DEBUG
-        let container = AppContainer(env: .current, networkConfig: currentNetworkConfigOverride)
+        let container = AppContainer(
+            env: .current,
+            networkConfig: currentNetworkConfigOverride,
+            kycUploadScheduler: scheduler
+        )
         #else
-        let container = AppContainer(env: .current)
+        let container = AppContainer(env: .current, kycUploadScheduler: scheduler)
         #endif
+
+        // UPL-05: hand the scheduler this scene container's `kycUploader` so the
+        // BGTask handler resumes THIS container's foreground chunk loop. The
+        // handler captures this uploader via the scheduler's live-uploader slot —
+        // it never constructs a fresh AppContainer (threat T-05-07-06).
+        container.kycUploadScheduler.setLiveUploader(container.kycUploader)
+
         let coordinator = AppCoordinator(container: container, phase: phase)
 
         // Wire callbacks that can trigger re-routing in Phase 3+.
@@ -313,6 +423,12 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
         coordinator.onLogout = { [weak self] in
             self?.presentRoot(.auth)   // Phase 3 replaces with real phone-entry screen
+        }
+        // Phase 5 D-12: a not-yet-KYC-verified user (post-OTP-verify) root-swaps
+        // into the `.kyc` hard gate. The role shell is unreachable until the
+        // KYCCoordinator's `onKYCSubmitted` fires `onRoleResolved`.
+        coordinator.onKYCRequired = { [weak self] role in
+            self?.presentRoot(.kyc(role))
         }
 
         self.appCoordinator = coordinator                       // single strong reference
@@ -357,6 +473,19 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     /// (lines 72-86) and root-swaps to .auth. Future phases replace this with a proper
     /// device re-bind UI; for M1 the "re-bind" is a forced re-auth.
     private func presentBiometricLockIfNeeded(container: AppContainer, over presenter: UIViewController) {
+        #if DEBUG
+        // Phase 5 Plan 11 device-XCUITest seam. A `-KYCTestSeedForUITest` launch seeds a
+        // synthetic session and falls through to the genuine cold-boot `.role` restore
+        // path — which presents BiometricLockViewController and invokes LAContext / Face ID
+        // (SESS-01). A headless XCUITest driver on a real device cannot satisfy that Face ID
+        // prompt; the `com.apple.localauthentication` system alert then blocks every KYC
+        // XCUITest that reaches the role shell (KYCProfileEntryUITests, KYCForceQuitResumeUITests).
+        // Suppress the cold-boot lock when the seam is active. DEBUG-only — Release compiles
+        // this to zero bytes and the production cold-boot biometric lock is unaffected
+        // (consistent with threat T-05-11-01: the entire seam is `#if DEBUG`).
+        if ProcessInfo.processInfo.arguments.contains("-KYCTestSeedForUITest") { return }
+        #endif
+
         // Idempotency: if a lock VC is already up, don't stack another one.
         if presentedLockVC != nil { return }
 

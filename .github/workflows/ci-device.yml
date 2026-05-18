@@ -50,7 +50,9 @@ jobs:
             exit 0
           }
           # Security surface: D-05 Phase 1 paths + Phase 4 additions + the workflow itself.
-          PATTERN='^(validationLedger/Core/Auth/|validationLedger/Core/KeyStore/|validationLedger/Core/Identity/|validationLedger/Core/Networking/CertificatePinning/|validationLedger/Core/Attestation/|validationLedger/Core/Storage/Keychain/|validationLedger/App/Info\.plist|validationLedgerDeviceTests/|\.github/workflows/ci-device\.yml)'
+          # validationLedgerUITests/ is included (Phase 5 / plan 05-13) so a change to the
+          # device XCUITest suite re-runs the device lane that now executes those XCUITests.
+          PATTERN='^(validationLedger/Core/Auth/|validationLedger/Core/KeyStore/|validationLedger/Core/Identity/|validationLedger/Core/Networking/CertificatePinning/|validationLedger/Core/Attestation/|validationLedger/Core/Storage/Keychain/|validationLedger/App/Info\.plist|validationLedgerDeviceTests/|validationLedgerUITests/|\.github/workflows/ci-device\.yml)'
           if printf '%s\n' "$CHANGED" | grep -E -q "$PATTERN"; then
             echo "Security-surface paths changed — device surface runs."
             echo "device=true" >> "$GITHUB_OUTPUT"
@@ -67,7 +69,12 @@ jobs:
     needs: changes
     if: needs.changes.outputs.device == 'true'
     runs-on: [self-hosted, macOS, device]
-    timeout-minutes: 25    # Bumped from 15 — App Attest round-trip adds latency
+    # Bumped 25 → 35 (Phase 5 / plan 05-13): the lane now also runs the four
+    # validationLedgerUITests XCUITests, each of which cold-launches the app and
+    # drives live UI, adding several minutes of runtime. NOTE — a locked runner
+    # iPhone still manifests as a ~timeout "cancelled" run (project memory), not a
+    # genuine failure; ensure the runner iPhone is unlocked before triggering.
+    timeout-minutes: 35
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -99,6 +106,13 @@ jobs:
         # If it passes on retry → workflow green; flaky-pass annotation in xcresult → Slack.
         # If it fails twice → workflow red → merge blocked per D-16.
         # Native xcodebuild flag runs only the failed test on retry (not the whole step).
+        # Multiple -only-testing flags (xcodebuild accepts many): the in-process
+        # validationLedgerDeviceTests AND the four Phase 5 KYC device XCUITest CLASSES
+        # (SC-2, D-08, D-12, Test-10 background/foreground). The scope is class-level,
+        # NOT the whole validationLedgerUITests target — that target also holds
+        # RoleShellSmokeTests + LimitedTrustBannerTests, which are simulator-tuned
+        # (mock-OTP, 5 s timeouts) and run on the simulator lane; they fail on real
+        # hardware and are intentionally excluded here.
         run: |
           set -o pipefail
           xcodebuild test \
@@ -106,6 +120,10 @@ jobs:
             -scheme validationLedger \
             -destination "platform=iOS,id=${{ secrets.DEVICE_UDID }}" \
             -only-testing:validationLedgerDeviceTests \
+            -only-testing:validationLedgerUITests/KYCForceQuitResumeUITests \
+            -only-testing:validationLedgerUITests/KYCProfileEntryUITests \
+            -only-testing:validationLedgerUITests/KYCHardGateUITests \
+            -only-testing:validationLedgerUITests/KYCCaptureLifecycleUITests \
             -retry-tests-on-failure \
             -test-iterations 2 \
             -resultBundlePath $PWD/build/DeviceTestResults.xcresult

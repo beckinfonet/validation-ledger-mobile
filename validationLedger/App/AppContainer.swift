@@ -30,6 +30,7 @@
 import Foundation
 import CryptoKit
 import DeviceCheck
+import UIKit
 
 /// Phase 4 DEV-04 (D-09): result of `AppContainer.preflightAttestationEntitlement(...)`.
 ///
@@ -72,6 +73,38 @@ final class AppContainer {
     // default `.softwareOnly`. Release builds compile zero bytes for this
     // path (T-03-12-01 / T-APP-ATTEST-11 mitigation analog).
     static var uiTestTrustTierOverride: TrustTier?
+
+    // Phase 5 Plan 11 (SC-2 / D-08 / D-12 / Test-10): KYC test-seed seam.
+    //
+    // The plan 05-12 device XCUITests must arrive at three specific KYC states
+    // deterministically — an XCUITest driver runs in a separate process and
+    // cannot reach internal app state; the only crossing point is a launch
+    // argument parsed at scene-connect. SceneDelegate's `-KYCTestSeedForUITest`
+    // parsing block sets this static BEFORE constructing the AppContainer for
+    // `presentRoot`; `AppContainer.init` reads it (in a `#if DEBUG` block) and
+    // seeds the matching Keychain `session`-scope state (and, for `.midUpload`,
+    // the on-disk `KYCSessionStore`) so the real `SessionRestoreProbe` routes
+    // the seeded session to the expected phase.
+    //
+    // Threat T-05-11-01 / T-05-11-02: the enum, the static, and the init-time
+    // consumption are ALL inside `#if DEBUG` — a Release build compiles them to
+    // zero bytes. No Release code path reads a launch argument to seed a
+    // verified / under-review session.
+    enum KYCUITestSeed {
+        /// A valid session whose cached `kycStatus` is non-verified — the probe
+        /// resolves `.needsKYC`, routing to the `.kyc` hard gate (D-12).
+        case nonVerified
+        /// A valid verified session — the probe resolves `.restored`, routing to
+        /// the role shell. The "Under Review" KYC status the 05-12 device test
+        /// then verifies is served by the `GET /kyc/status` mock route, not the
+        /// cached Keychain status (see the init-time consumption block).
+        case underReview
+        /// Same Keychain state as `.underReview` PLUS a mid-upload artifact
+        /// seeded onto the on-disk `KYCSessionStore` (SC-2 force-quit-resume).
+        case midUpload
+    }
+
+    static var kycTestSeed: KYCUITestSeed?
     #endif
 
     let env: Environment
@@ -113,6 +146,44 @@ final class AppContainer {
     public let attestationService: any AttestationService
     public let session: AppSession
 
+    // Phase 5 Plan 05 additions (KYC capture + upload pipeline):
+    //   - kycSessionStore: encrypted on-disk in-progress KYC session store
+    //     (plan 02). Deliberately NOT wired into LogoutService teardown — the
+    //     on-disk KYC session survives a logout (D-02).
+    //   - geoContext:      fresh-CLLocation cache over locationProvider for
+    //     capture-time GPS injection (plan 03 / KYC-04 / Pitfall 5).
+    //   - kycUploader:     resumable chunked-upload pipeline (plan 04 / UPL-01).
+    //     KYCCoordinator kicks `upload(artifactType:)` per captured artifact
+    //     (D-01 pipelined upload).
+    //
+    // Phase 5 Plan 07 addition (UPL-05 background-continuation wiring):
+    //   - kycUploadScheduler: schedules the BGProcessingTaskRequest when the app
+    //     backgrounds mid-upload. SceneDelegate hands it `kycUploader` so the
+    //     BGTask handler resumes THIS scene container's foreground chunk loop —
+    //     the handler never constructs a fresh AppContainer (threat T-05-07-06).
+    let kycSessionStore: KYCSessionStore
+    let geoContext: GeoContext
+    let kycUploader: KYCUploader
+    let kycUploadScheduler: KYCUploadScheduler
+
+    // Phase 5 Plan 08 addition (D-08 — KYC status screen, second entry point):
+    //   - makeKYCStatusScreen: a composition-root factory that builds
+    //     `KYCStatusViewController` from `Core/` deps (apiClient / kycSessionStore
+    //     / logger). The role-shell `ProfileViewController` is handed this closure
+    //     so it can open the SAME single status screen plan 06 built WITHOUT
+    //     `Features/Profile` cross-importing `Features/Onboarding` (ARCH-05).
+    //     Construction lives here in the composition root, not in the Profile
+    //     feature; the closure's return type is the opaque `UIViewController`.
+    @MainActor
+    func makeKYCStatusScreen() -> UIViewController {
+        let viewModel = KYCStatusViewModel(
+            apiClient: apiClient,
+            store: kycSessionStore,
+            logger: logger
+        )
+        return KYCStatusViewController(viewModel: viewModel)
+    }
+
     /// Primary initializer.
     ///
     /// - Parameters:
@@ -135,11 +206,22 @@ final class AppContainer {
     ///                               construct; `sessionLock` + `sensitiveAction` observe the override
     ///                               transitively because they resolve `biometricService` through the
     ///                               container.
+    ///   - kycUploadScheduler: Phase 5 Plan 07 (UPL-05). `AppDelegate` owns the single
+    ///                         `KYCUploadScheduler` (its launch handler is registered with
+    ///                         `BGTaskScheduler` before launch completes) and passes that SAME
+    ///                         instance into every `AppContainer` the `SceneDelegate` builds —
+    ///                         so the BGTask handler's live-uploader slot, the slot
+    ///                         `SceneDelegate.sceneDidEnterBackground` fills, and the scheduling
+    ///                         decision all act on one scheduler. When `nil` (existing tests /
+    ///                         non-app callers) init constructs a fresh stand-alone scheduler so
+    ///                         the container is still fully formed; only the `AppDelegate`-fed
+    ///                         path has a registered BGTask handler.
     init(
         env: Environment,
         networkConfig: NetworkConfig? = nil,
         isSecureEnclaveAvailable: Bool = SecureEnclave.isAvailable,
-        biometricServiceOverride: (any BiometricService)? = nil
+        biometricServiceOverride: (any BiometricService)? = nil,
+        kycUploadScheduler: KYCUploadScheduler? = nil
     ) {
         self.env = env
 
@@ -379,6 +461,132 @@ final class AppContainer {
         )
 
         self.deepLinkRouter = DeepLinkRouter()
+
+        // Phase 5 Plan 05 — KYC capture + upload services. Constructed AFTER
+        // apiClient + locationProvider since kycUploader depends on apiClient and
+        // geoContext builds on locationProvider.
+        //
+        // KYCSessionStore.init throws on a file-system failure constructing its
+        // protected directory. The composition root is non-throwing, so a
+        // failure here is a fatal misconfiguration (a non-writable app
+        // container) — fail fast rather than ship a launch that cannot persist
+        // an in-progress KYC session.
+        let kycStore: KYCSessionStore
+        do {
+            kycStore = try KYCSessionStore()
+        } catch {
+            fatalError("KYCSessionStore could not initialize its protected directory: \(error)")
+        }
+        self.kycSessionStore = kycStore
+        self.geoContext = GeoContext(locationProvider: self.locationProvider)
+        let kycLogger = OSLogLoggerImpl(
+            subsystem: LoggingSubsystem.identity,
+            category: "identity.kyc"
+        )
+        self.kycUploader = KYCUploader(
+            apiClient: self.apiClient,
+            store: kycStore,
+            logger: kycLogger
+        )
+
+        // Phase 5 Plan 07 (UPL-05): use the AppDelegate-owned scheduler when one
+        // is injected (the app launch path — its BGTask handler is registered
+        // with BGTaskScheduler at launch). When `nil` (existing tests / non-app
+        // callers), construct a fresh stand-alone scheduler so the container is
+        // fully formed. The app NEVER constructs an AppContainer inside the
+        // BGTask handler, so the handler always sees the AppDelegate scheduler.
+        let bgLogger = OSLogLoggerImpl(
+            subsystem: LoggingSubsystem.identity,
+            category: "identity.kyc.bgtask"
+        )
+        self.kycUploadScheduler = kycUploadScheduler ?? KYCUploadScheduler(logger: bgLogger)
+
+        // Phase 5 Plan 11 (SC-2 / D-08 / D-12 / Test-10): KYC test-seed consumption.
+        //
+        // When `SceneDelegate`'s `-KYCTestSeedForUITest` parsing block set
+        // `AppContainer.kycTestSeed` (DEBUG-only), seed the Keychain `session`-
+        // scope state the real `SessionRestoreProbe` reads so the seeded session
+        // routes to the expected phase. The seeded credential values are FIXED
+        // synthetic placeholders (threat T-05-11-02/03) — never a real token,
+        // phone, DL number, or coordinate.
+        //
+        // Routing the seam through `AppContainer.init` (rather than a free
+        // function) mirrors the `-MockOTPRoleForUITest` discipline: that path
+        // also drives its Keychain wipe by constructing a throwaway container,
+        // because `AppContainer` owns the `KeychainStore` + `KYCSessionStore`.
+        // SceneDelegate constructs one throwaway container to trigger this block
+        // BEFORE the probe runs, then falls through to the probe switch.
+        //
+        // The whole block is `#if DEBUG` — a Release build compiles it to zero
+        // bytes; there is no Release path that reads a launch argument to seed a
+        // verified / under-review session (threat T-05-11-01).
+        #if DEBUG
+        if let seed = AppContainer.kycTestSeed {
+            // Synthetic, non-secret placeholders — never a real session token.
+            let seededToken = Data("uitest-seed-token".utf8)
+            let seededRole = Data(Role.shipper.rawValue.utf8)
+            do {
+                try keychainStore.set(
+                    seededToken,
+                    for: .sessionToken,
+                    accessibility: .afterFirstUnlockThisDeviceOnly
+                )
+                try keychainStore.set(
+                    seededRole,
+                    for: .sessionRole,
+                    accessibility: .afterFirstUnlockThisDeviceOnly
+                )
+                switch seed {
+                case .nonVerified:
+                    // A non-verified cached status fails CLOSED to the `.kyc`
+                    // hard gate — the probe resolves `.needsKYC` (D-12).
+                    try keychainStore.set(
+                        Data("pending".utf8),
+                        for: .kycStatus,
+                        accessibility: .afterFirstUnlockThisDeviceOnly
+                    )
+                case .underReview, .midUpload:
+                    // The `must_haves` truth + 05-12 contract require these two
+                    // modes to REACH THE ROLE SHELL. `SessionRestoreProbe` (the
+                    // shipped, threat-modeled fail-closed D-13 gate, T-05-07-02)
+                    // routes a restored session to the role shell ONLY on an
+                    // exact cached `kycStatus == "verified"` — any other value,
+                    // including `"under_review"`, fails CLOSED to `.needsKYC`.
+                    //
+                    // Deviation (Rule 1/3): seed the cached status as `"verified"`
+                    // so the probe resolves `.restored` and the seeded session
+                    // lands on the role shell as the plan requires. The
+                    // "Under Review" status the 05-12 device test then verifies
+                    // is sourced from the `GET /kyc/status` MOCK route (which the
+                    // test points at an `under_review` fixture) — not from this
+                    // cached Keychain string. Seeding `"under_review"` here
+                    // verbatim would defeat the plan's own stated goal (the app
+                    // would route to the `.kyc` gate, never the role shell).
+                    // Modifying the probe's fail-closed routing is out of scope
+                    // (a shipped threat-modeled gate — Rule 4).
+                    try keychainStore.set(
+                        Data("verified".utf8),
+                        for: .kycStatus,
+                        accessibility: .afterFirstUnlockThisDeviceOnly
+                    )
+                }
+                if case .midUpload = seed {
+                    // SC-2: seed a partial face-artifact upload on the encrypted
+                    // on-disk session via the Task 1 DEBUG helper.
+                    try kycStore.seedMidUploadStateForUITest()
+                }
+                logger.info(
+                    event: .init("kyc_uitest_seed_applied"),
+                    fields: [:]
+                )
+            } catch {
+                logger.error(
+                    event: .init("kyc_uitest_seed_failed"),
+                    fields: [:]
+                )
+            }
+        }
+        #endif
 
         logger.info(event: .init("app_container_init"), fields: [.event: env.name])
     }

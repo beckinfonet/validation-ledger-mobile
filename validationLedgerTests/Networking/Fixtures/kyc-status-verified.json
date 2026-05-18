@@ -1,0 +1,11 @@
+{
+  "overall_status": "verified",
+  "artifacts": [
+    { "artifact_id": "art-face-001", "status": "verified", "rejection_reason": null },
+    { "artifact_id": "art-dl-front-002", "status": "verified", "rejection_reason": null },
+    { "artifact_id": "art-dl-back-003", "status": "verified", "rejection_reason": null },
+    { "artifact_id": "art-vehicle-004", "status": "verified", "rejection_reason": null },
+    { "artifact_id": "art-trailer-005", "status": "verified", "rejection_reason": null },
+    { "artifact_id": "art-plate-006", "status": "verified", "rejection_reason": null }
+  ]
+}

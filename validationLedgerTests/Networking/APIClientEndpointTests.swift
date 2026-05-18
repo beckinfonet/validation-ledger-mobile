@@ -118,6 +118,56 @@ struct APIClientEndpointTests {
         #expect(response.userID == "u-42")
     }
 
+    @Test("OTPVerifyEndpoint: kycStatus regression — optional field is backward compatible (Phase 5 / D-13)")
+    func otpVerifyKycStatusBackwardCompatible() async throws {
+        // Phase 5 Plan 05-01: OTPVerifyEndpoint.Response gained an optional
+        // `kycStatus: String?`. This regression test proves the addition did not
+        // break the shipped fixture: otp-verify-success.json now carries
+        // `kyc_status: "verified"`, and all the existing fields still decode.
+        MockURLProtocol.reset()
+        defer { MockURLProtocol.reset() }
+        let fixture = try FixtureLoader.loadFixture("otp-verify-success")
+        MockURLProtocol.registerFixture(
+            for: OTPVerifyEndpoint.self,
+            path: "/auth/otp/verify",
+            method: .post,
+            statusCode: 200,
+            body: fixture
+        )
+        let client = makeClient()
+        let response = try await client.request(OTPVerifyEndpoint(otpSessionID: "sess-abc-123", code: "123456"))
+        #expect(response.sessionToken == "test-session-token-xyz")
+        #expect(response.role == "carrier")
+        #expect(response.userID == "u-42")
+        #expect(response.kycStatus == "verified")
+    }
+
+    // MARK: - KYCSubmitEndpoint
+
+    @Test("KYCSubmitEndpoint: success fixture decodes overallStatus (Phase 5 / D-03)")
+    func kycSubmitSuccess() async throws {
+        // Phase 5 Plan 05-01: KYCSubmitEndpoint is the D-03 thin finalizer. This
+        // proves the new endpoint struct decodes its success fixture.
+        MockURLProtocol.reset()
+        defer { MockURLProtocol.reset() }
+        let fixture = try FixtureLoader.loadFixture("kyc-submit-success")
+        MockURLProtocol.registerFixture(
+            for: KYCSubmitEndpoint.self,
+            path: "/kyc/submit",
+            method: .post,
+            statusCode: 200,
+            body: fixture
+        )
+        let client = makeClient()
+        let response = try await client.request(
+            KYCSubmitEndpoint(artifactIDs: [
+                "art-face-001", "art-dl-front-002", "art-dl-back-003",
+                "art-vehicle-004", "art-trailer-005", "art-plate-006"
+            ])
+        )
+        #expect(response.overallStatus == "under_review")
+    }
+
     @Test("OTPVerifyEndpoint: failure fixture (401) throws NetworkError.httpError")
     func otpVerifyFailure() async {
         MockURLProtocol.reset()

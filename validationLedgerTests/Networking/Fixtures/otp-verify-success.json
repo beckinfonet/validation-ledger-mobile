@@ -1,5 +1,6 @@
 {
   "session_token": "test-session-token-xyz",
   "role": "carrier",
-  "user_id": "u-42"
+  "user_id": "u-42",
+  "kyc_status": "verified"
 }

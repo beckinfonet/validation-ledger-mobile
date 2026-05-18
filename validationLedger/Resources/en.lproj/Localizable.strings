@@ -6,3 +6,105 @@
   structured for Spanish in v2" is reserved. User-facing strings land starting
   in Phase 3 (OTP entry screens).
 */
+
+/* MARK: - KYC rejection reasons (Phase 5 Plan 02 — D-11 / KYC-05)
+   iOS owns this copy; the backend owns the matching code vocabulary. Each key
+   is kyc.reject.<backend_code>. kyc.reject.generic is the fallback for any
+   code outside the controlled vocabulary — see RejectionReasonCode.swift. */
+"kyc.reject.dl_front_glare" = "There's glare on your license. Retake it away from direct light.";
+"kyc.reject.dl_front_blurry" = "The front of your license is blurry. Hold steady and retake it.";
+"kyc.reject.dl_expired" = "This license looks expired. Use a current, valid license.";
+"kyc.reject.dl_back_unreadable" = "The back of your license can't be read. Retake it in better light.";
+"kyc.reject.face_not_centered" = "Center your face in the frame and take the photo again.";
+"kyc.reject.face_obscured" = "Something is covering your face. Remove it and retake the photo.";
+"kyc.reject.face_low_light" = "It's too dark to see your face clearly. Move to better light and retake it.";
+"kyc.reject.vehicle_plate_unreadable" = "The license plate can't be read. Move closer and retake the photo.";
+"kyc.reject.vehicle_photo_unclear" = "This vehicle photo is unclear. Retake it with the whole vehicle in frame.";
+"kyc.reject.generic" = "This photo needs to be retaken. Tap to try again.";
+
+/* MARK: - KYC flow start + sign-out (Phase 5 Plan 05 — KYC-01 / D-14)
+   The "Let's verify your identity" intro/empty state and the D-14 in-flow
+   sign-out affordance + destructive confirmation. */
+"kyc.start.title" = "Verify identity";
+"kyc.start.heading" = "Let's verify your identity";
+"kyc.start.body" = "We'll take 6 quick photos: your face, both sides of your license, and your truck, trailer, and plate. It takes about 2 minutes.";
+"kyc.start.cta" = "Get started";
+"kyc.signout.button" = "Sign out";
+"kyc.signout.confirm.title" = "Sign out of Validation Ledger?";
+"kyc.signout.confirm.body" = "Your photos are saved on this device and will resume next time you sign in.";
+"kyc.signout.confirm.action" = "Sign out";
+"kyc.signout.confirm.cancel" = "Stay";
+
+/* MARK: - KYC capture screens (Phase 5 Plan 05 — KYC-02/03/04 / D-04..D-07)
+   Capture-cue, error-state, extraction-confirm, preview, and permission-denied
+   copy. UI-SPEC Copywriting Contract. */
+"kyc.face.instruction" = "Position your face inside the oval.";
+"kyc.face.cue.center" = "Center your face";
+"kyc.face.cue.light" = "Move into better light";
+"kyc.face.cue.steady" = "Hold the phone steady";
+"kyc.face.cue.hold" = "Hold still";
+"kyc.face.cue.ready" = "Looks good — take the photo";
+"kyc.dlfront.instruction" = "Fit your license inside the frame.";
+"kyc.dlback.instruction" = "Photograph the back of your license.";
+"kyc.truck.instruction" = "Take a photo of the truck.";
+"kyc.trailer.instruction" = "Take a photo of the trailer.";
+"kyc.plate.instruction" = "Take a photo of the license plate.";
+"kyc.extraction.title" = "Does this look right?";
+"kyc.extraction.field.name" = "Name";
+"kyc.extraction.field.dlnumber" = "License number";
+"kyc.extraction.field.expiry" = "Expiration";
+"kyc.extraction.cta" = "Looks good";
+"kyc.extraction.rescan" = "Rescan";
+"kyc.extraction.format_fail" = "That scan didn't come through clearly — let's try again.";
+"kyc.preview.title" = "Check your photo";
+"kyc.preview.cta" = "Use photo";
+"kyc.preview.retake" = "Retake";
+"kyc.error.gps_stale" = "We couldn't confirm your location. Move to an open area and try the photo again.";
+"kyc.error.camera_unavailable" = "The camera isn't available on this device.";
+"kyc.error.camera_permission" = "Camera access is needed to verify your identity. Turn it on in Settings.";
+"kyc.permission.heading" = "Camera access needed";
+"kyc.permission.body" = "Validation Ledger needs your camera to photograph your ID and vehicle. Turn it on in Settings.";
+"kyc.permission.open_settings" = "Open Settings";
+"kyc.permission.cancel" = "Cancel";
+"kyc.capture.shutter" = "Take photo";
+
+/* MARK: - KYC Review screen (Phase 5 Plan 06 — D-03 / KYC-01) */
+"kyc.review.nav_title" = "Review";
+"kyc.review.title" = "Review your photos";
+"kyc.review.submit" = "Submit";
+"kyc.review.submit_helper" = "Submit unlocks once all 6 photos finish uploading.";
+"kyc.review.retry_upload" = "Retry upload";
+"kyc.review.retake" = "Retake";
+"kyc.review.status.uploaded" = "Uploaded";
+"kyc.review.status.uploading" = "Uploading…";
+"kyc.review.status.failed" = "Upload failed.";
+"kyc.review.status.pending" = "Waiting to upload…";
+"kyc.review.error.submit_failed" = "We couldn't submit your verification. Try again.";
+"kyc.artifact.face" = "Selfie";
+"kyc.artifact.dl_front" = "License front";
+"kyc.artifact.dl_back" = "License back";
+"kyc.artifact.truck" = "Truck";
+"kyc.artifact.trailer" = "Trailer";
+"kyc.artifact.plate" = "Plate";
+
+/* MARK: - KYC status screen (Phase 5 Plan 06 — D-08..D-11 / KYC-05) */
+"kyc.status.nav_title" = "Verification";
+"kyc.status.continue" = "Continue";
+"kyc.status.retake" = "Retake";
+"kyc.status.error" = "We couldn't load your verification status. Pull down to try again.";
+"kyc.status.pending.title" = "Verification pending";
+"kyc.status.pending.body" = "We've received your photos. Verification will begin shortly.";
+"kyc.status.under_review.title" = "Under review";
+"kyc.status.under_review.body" = "Our team is reviewing your identity. This usually takes a short while.";
+"kyc.status.verified.title" = "You're verified";
+"kyc.status.verified.body" = "Your identity is confirmed. You can start using Validation Ledger.";
+"kyc.status.rejected.title" = "Some photos need a retake";
+"kyc.status.rejected.body" = "Retake the photos below. The rest of your verification is fine.";
+"kyc.status.empty.title" = "No verification in progress";
+"kyc.status.empty.body" = "Finish your KYC photos to start verification.";
+"kyc.status.error.title" = "Couldn't load status";
+
+/* MARK: - Profile screen (Phase 5 Plan 08 — D-08 / KYC-01)
+   The role-shell Profile row that opens the KYC status screen (the status
+   screen's second entry point). */
+"profile.kyc_status.row" = "Verification status";

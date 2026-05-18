@@ -12,8 +12,17 @@ final class ShipperTabBarController: UITabBarController, RoleCoordinator {
     /// present `ProfileViewController(logoutService:)` modally on tap.
     let logoutService: any LogoutService
 
-    init(logoutService: any LogoutService) {
+    /// Phase 5 Plan 08 (D-08): the composition-root factory for the KYC status
+    /// screen, forwarded into the modal `ProfileViewController` so its
+    /// "Verification status" row can open the screen. `nil` hides the row.
+    let kycStatusScreenFactory: (() -> UIViewController)?
+
+    init(
+        logoutService: any LogoutService,
+        kycStatusScreenFactory: (() -> UIViewController)? = nil
+    ) {
         self.logoutService = logoutService
+        self.kycStatusScreenFactory = kycStatusScreenFactory
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -32,7 +41,10 @@ final class ShipperTabBarController: UITabBarController, RoleCoordinator {
         // ProfileViewController modally with the injected LogoutService.
         wrapTabsWithNavAndInstallAvatar { [weak self] in
             guard let self else { return UIViewController() }
-            return ProfileViewController(logoutService: self.logoutService)
+            return ProfileViewController(
+                logoutService: self.logoutService,
+                kycStatusScreenFactory: self.kycStatusScreenFactory
+            )
         }
     }
 

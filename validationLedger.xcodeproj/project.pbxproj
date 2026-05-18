@@ -6,12 +6,53 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		A1000000000000000000000B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EE92A0B92F9731A80095025B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EE92A0C02F9731A80095025B;
+			remoteInfo = validationLedger;
+		};
+		A2000000000000000000000B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EE92A0B92F9731A80095025B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EE92A0C02F9731A80095025B;
+			remoteInfo = validationLedger;
+		};
+		A3000000000000000000000B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = EE92A0B92F9731A80095025B /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EE92A0C02F9731A80095025B;
+			remoteInfo = validationLedger;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		A10000000000000000000002 /* validationLedgerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = validationLedgerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A20000000000000000000002 /* validationLedgerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = validationLedgerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A30000000000000000000002 /* validationLedgerDeviceTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = validationLedgerDeviceTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		EE92A0C12F9731A80095025B /* validationLedger.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = validationLedger.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		EE92A0E02F9731A80095025B /* Exceptions for "validationLedger" folder in "validationLedger" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				App/Info.plist,
+				Features/Assistant/.gitkeep,
+				Features/BOL/.gitkeep,
+				Features/Loads/.gitkeep,
+				Features/Onboarding/.gitkeep,
+				Features/Profile/.gitkeep,
+				Features/Scanner/.gitkeep,
+				Features/Settings/.gitkeep,
+			);
+			target = EE92A0C02F9731A80095025B /* validationLedger */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		A10000000000000000000009 /* validationLedgerTests */ = {
@@ -32,29 +73,12 @@
 		EE92A0C32F9731A80095025B /* validationLedger */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				EE92A0E02F9731A80095025B /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+				EE92A0E02F9731A80095025B /* Exceptions for "validationLedger" folder in "validationLedger" target */,
 			);
 			path = validationLedger;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
-
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		EE92A0E02F9731A80095025B /* Exceptions for "validationLedger" folder in "validationLedger" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				"App/Info.plist",
-				"Features/Onboarding/.gitkeep",
-				"Features/Loads/.gitkeep",
-				"Features/BOL/.gitkeep",
-				"Features/Scanner/.gitkeep",
-				"Features/Assistant/.gitkeep",
-				"Features/Profile/.gitkeep",
-				"Features/Settings/.gitkeep",
-			);
-			target = EE92A0C02F9731A80095025B /* validationLedger */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		A10000000000000000000007 /* Frameworks */ = {
@@ -315,30 +339,6 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
-/* Begin PBXContainerItemProxy section */
-		A1000000000000000000000B /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = EE92A0B92F9731A80095025B /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = EE92A0C02F9731A80095025B;
-			remoteInfo = validationLedger;
-		};
-		A2000000000000000000000B /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = EE92A0B92F9731A80095025B /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = EE92A0C02F9731A80095025B;
-			remoteInfo = validationLedger;
-		};
-		A3000000000000000000000B /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = EE92A0B92F9731A80095025B /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = EE92A0C02F9731A80095025B;
-			remoteInfo = validationLedger;
-		};
-/* End PBXContainerItemProxy section */
-
 /* Begin PBXTargetDependency section */
 		A1000000000000000000000A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -358,6 +358,120 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		A10000000000000000000004 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = M3W6Y259JR;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.maldin.validationLedger.validationLedgerTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/validationLedger.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/validationLedger";
+			};
+			name = Debug;
+		};
+		A10000000000000000000005 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = M3W6Y259JR;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.maldin.validationLedger.validationLedgerTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/validationLedger.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/validationLedger";
+			};
+			name = Release;
+		};
+		A20000000000000000000004 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = M3W6Y259JR;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.maldin.validationLedger.validationLedgerUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = validationLedger;
+			};
+			name = Debug;
+		};
+		A20000000000000000000005 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = M3W6Y259JR;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.maldin.validationLedger.validationLedgerUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = validationLedger;
+			};
+			name = Release;
+		};
+		A30000000000000000000004 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = M3W6Y259JR;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.maldin.validationLedger.validationLedgerDeviceTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/validationLedger.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/validationLedger";
+			};
+			name = Debug;
+		};
+		A30000000000000000000005 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = M3W6Y259JR;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.maldin.validationLedger.validationLedgerDeviceTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/validationLedger.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/validationLedger";
+			};
+			name = Release;
+		};
 		EE92A0CA2F9731AA0095025B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -537,141 +651,9 @@
 			};
 			name = Release;
 		};
-		A10000000000000000000004 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = M3W6Y259JR;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.maldin.validationLedger.validationLedgerTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/validationLedger.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/validationLedger";
-			};
-			name = Debug;
-		};
-		A10000000000000000000005 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = M3W6Y259JR;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.maldin.validationLedger.validationLedgerTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/validationLedger.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/validationLedger";
-			};
-			name = Release;
-		};
-		A20000000000000000000004 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = M3W6Y259JR;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.maldin.validationLedger.validationLedgerUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = validationLedger;
-			};
-			name = Debug;
-		};
-		A20000000000000000000005 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = M3W6Y259JR;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.maldin.validationLedger.validationLedgerUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_TARGET_NAME = validationLedger;
-			};
-			name = Release;
-		};
-		A30000000000000000000004 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = M3W6Y259JR;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.maldin.validationLedger.validationLedgerDeviceTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/validationLedger.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/validationLedger";
-			};
-			name = Debug;
-		};
-		A30000000000000000000005 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = M3W6Y259JR;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.maldin.validationLedger.validationLedgerDeviceTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/validationLedger.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/validationLedger";
-			};
-			name = Release;
-		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		EE92A0BC2F9731A80095025B /* Build configuration list for PBXProject "validationLedger" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				EE92A0CA2F9731AA0095025B /* Debug */,
-				EE92A0CB2F9731AA0095025B /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		EE92A0CC2F9731AA0095025B /* Build configuration list for PBXNativeTarget "validationLedger" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				EE92A0CD2F9731AA0095025B /* Debug */,
-				EE92A0CE2F9731AA0095025B /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		A10000000000000000000003 /* Build configuration list for PBXNativeTarget "validationLedgerTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -695,6 +677,24 @@
 			buildConfigurations = (
 				A30000000000000000000004 /* Debug */,
 				A30000000000000000000005 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EE92A0BC2F9731A80095025B /* Build configuration list for PBXProject "validationLedger" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EE92A0CA2F9731AA0095025B /* Debug */,
+				EE92A0CB2F9731AA0095025B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EE92A0CC2F9731AA0095025B /* Build configuration list for PBXNativeTarget "validationLedger" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EE92A0CD2F9731AA0095025B /* Debug */,
+				EE92A0CE2F9731AA0095025B /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

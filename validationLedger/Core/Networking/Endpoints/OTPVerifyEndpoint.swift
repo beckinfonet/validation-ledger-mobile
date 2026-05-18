@@ -29,12 +29,22 @@ nonisolated public struct OTPVerifyEndpoint: APIEndpoint {
         public let role: String   // "shipper" | "broker" | "carrier" | "dispatch" | "factoring"
         public let userID: String
 
+        // D-13 (Phase 5): the KYC status of the user returned on verify, so Phase 5 Plan 07
+        // can route a returning verified user straight to the role shell and a not-yet-verified
+        // user to the KYC gate. OPTIONAL with no default — the wire field is `kyc_status` but
+        // pre-Phase-5 fixtures (otp-verify-success.json and role-specific shells) do not carry
+        // it, so an absent/malformed value decodes to `nil`. Downstream routing (Plan 07)
+        // treats `nil` as "not verified" — fail-closed to the KYC gate (threat T-05-01-01).
+        public let kycStatus: String?
+
         // Explicit CodingKeys: acronym bridge — see OTPRequestEndpoint.Response for rationale.
-        // Raw values are camelCase (post-.convertFromSnakeCase form).
+        // Raw values are camelCase (post-.convertFromSnakeCase form); `kycStatus` is the
+        // post-.convertFromSnakeCase form of the wire key `kyc_status`.
         private enum CodingKeys: String, CodingKey {
             case sessionToken
             case role
             case userID = "userId"
+            case kycStatus
         }
     }
     public let path = "/auth/otp/verify"

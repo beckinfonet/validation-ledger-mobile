@@ -1,0 +1,4 @@
+{
+  "error_code": "kyc.incomplete_submission",
+  "message": "Not all artifacts committed; missing artifacts: [art-plate-006]."
+}

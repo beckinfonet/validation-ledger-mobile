@@ -115,11 +115,20 @@ extension KeychainStore {
         let keys: [KeychainKey]
         switch scope {
         case .session:
+            // MUST stay in sync with `KeychainScope.session.contains(_:)` — the
+            // scope's membership table is the source of truth for what "session
+            // scope" means. Phase 5 D-13 added `kycStatus` to that table (the
+            // cached KYC status STRING is session metadata, wiped on logout like
+            // `sessionRole`); this delete list was missing it, so a logout left
+            // a stale cached `kycStatus` behind. The on-disk `KYCSessionStore`
+            // artifact blob is a SEPARATE store and deliberately survives logout
+            // (D-02) — only this Keychain CACHE is session-scoped.
             keys = [
                 .sessionToken,
                 .sessionRole,
                 .sessionUserID,
                 .biometricDomainState,
+                .kycStatus,
             ]
         }
         for key in keys {

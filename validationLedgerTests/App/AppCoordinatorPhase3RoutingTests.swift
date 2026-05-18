@@ -179,7 +179,9 @@ struct AppCoordinatorPhase3RoutingTests {
         // so we accept either branch of the result — the test asserts non-crash + signature.
         let result = SessionRestoreProbe.probe(env: debugEnv())
         switch result {
-        case .needsAuth, .restored:
+        case .needsAuth, .restored, .needsKYC:
+            // Phase 5 D-13: `.needsKYC` is the third probe outcome — a restored
+            // session whose cached `kycStatus` is not "verified".
             break
         }
     }

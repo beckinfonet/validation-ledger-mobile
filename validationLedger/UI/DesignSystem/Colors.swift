@@ -13,5 +13,8 @@ public enum DS {
         public static let label:      UIColor = .label
         public static let labelSecondary: UIColor = .secondaryLabel
         public static let separator:  UIColor = .separator
+        // Phase 5 (05-UI-SPEC) — failed-upload status, rejection-reason text,
+        // inline error labels, and destructive confirmation actions.
+        public static let destructive: UIColor = .systemRed
     }
 }

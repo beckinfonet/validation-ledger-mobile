@@ -1,0 +1,11 @@
+{
+  "overall_status": "under_review",
+  "artifacts": [
+    { "artifact_id": "art-face-001", "status": "under_review", "rejection_reason": null },
+    { "artifact_id": "art-dl-front-002", "status": "under_review", "rejection_reason": null },
+    { "artifact_id": "art-dl-back-003", "status": "under_review", "rejection_reason": null },
+    { "artifact_id": "art-vehicle-004", "status": "under_review", "rejection_reason": null },
+    { "artifact_id": "art-trailer-005", "status": "under_review", "rejection_reason": null },
+    { "artifact_id": "art-plate-006", "status": "under_review", "rejection_reason": null }
+  ]
+}

@@ -20,6 +20,18 @@ public struct KeychainKey: Hashable, Sendable {
     public static let sessionUserID        = KeychainKey(rawValue: "session.userID")
     public static let biometricDomainState = KeychainKey(rawValue: "biometric.domainState")
 
+    // Phase 5 D-13: cached KYC status string. Sourced from
+    // `OTPVerifyEndpoint.Response.kycStatus` at OTP-verify and refreshed by
+    // `GET /kyc/status` once routed. Cold boot reads this OPTIMISTICALLY (no
+    // round-trip — Phase 3 D-04 philosophy) to route to `.kyc` or `.role`.
+    //
+    // This is a member of `KeychainScope.session` — the cached status STRING is
+    // session metadata and IS wiped on logout, exactly like `sessionRole`.
+    // CRITICAL: this Keychain cache is a DIFFERENT store from the on-disk
+    // `KYCSessionStore` artifact blob — only this cache is session-scoped; the
+    // on-disk session must NOT be wiped on logout (D-02).
+    public static let kycStatus            = KeychainKey(rawValue: "session.kycStatus")
+
     // Phase 4 DEV-04 (D-01, D-03): App Attest identifier + last-heartbeat-timestamp Keychain entries.
     // Both MUST NOT be members of KeychainScope.session — D-03 preserves attestedKeyId across logout
     // so the same install presents the same attestation after re-login. Raw values are referenced

@@ -60,7 +60,18 @@ public final class OTPViewModel {
 
     public var onStateChange: ((State) -> Void)?
     public var onVerifyEnabledChange: ((Bool) -> Void)?
+
+    /// Fires when the verified user's `kycStatus == "verified"` — route to the
+    /// role shell. (D-12: a non-verified user fires `onKYCRequired` instead.)
     public var onAuthenticated: ((Role) -> Void)?
+
+    /// Phase 5 D-12: fires when OTP-verify succeeds but the response's
+    /// `kycStatus` is absent or != "verified" — the user must complete KYC before
+    /// the role shell is reachable. AuthCoordinator forwards this to
+    /// `AppCoordinator`, which root-swaps to `AppPhase.kyc(role)`. Routing
+    /// fails CLOSED: any non-"verified" value (including `nil`) routes to the
+    /// KYC gate, never the role shell (threat T-05-07-02).
+    public var onKYCRequired: ((Role) -> Void)?
 
     // MARK: - Dependencies (initializer-DI per ARCH-04)
 
@@ -136,6 +147,21 @@ public final class OTPViewModel {
             try keychain.set(Data(verifyResp.userID.utf8),
                              for: .sessionUserID,
                              accessibility: .afterFirstUnlockThisDeviceOnly)
+            // Phase 5 D-13: cache the OTP-verify response's `kycStatus` so cold
+            // boot can route on it (SessionRestoreService.probe reads this key).
+            // The field is OPTIONAL — pre-Phase-5 fixtures omit it; when absent we
+            // persist nothing and the cold-boot probe sees no cached value, which
+            // fails CLOSED to the KYC gate (T-05-07-02). When present, persist it
+            // under the same .afterFirstUnlockThisDeviceOnly class as sessionRole.
+            if let kycStatus = verifyResp.kycStatus {
+                try keychain.set(Data(kycStatus.utf8),
+                                 for: .kycStatus,
+                                 accessibility: .afterFirstUnlockThisDeviceOnly)
+            } else {
+                // No cached status — clear any stale prior value so the probe
+                // does not route on a previous session's KYC state.
+                try keychain.delete(.kycStatus)
+            }
         } catch {
             logger.error(event: .init("otp_verify_keychain_failed"),
                          fields: [.event: String(describing: error)])
@@ -210,7 +236,15 @@ public final class OTPViewModel {
             return
         }
         state = .success(role: role)
-        onAuthenticated?(role)
+        // Phase 5 D-12: route on the verified KYC status. A user whose
+        // `kycStatus == "verified"` goes straight to the role shell; any other
+        // value (including `nil`) routes into the `.kyc` hard gate — the role
+        // shell is unreachable until KYC is submitted. Fails CLOSED (T-05-07-02).
+        if verifyResp.kycStatus == "verified" {
+            onAuthenticated?(role)
+        } else {
+            onKYCRequired?(role)
+        }
     }
 
     // MARK: - Retry-After countdown (AUTH-02 / D-02)
