@@ -199,9 +199,20 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 **Plans:** 4 plans
 
 Plans:
+**Wave 1**
+
 - [ ] 06-01-PLAN.md — Wave 1: Keychain foundation — `device.trustTier` KeychainKey + `AttestedKeyStore.read/writeTrustTier` + Wave 0 round-trip / preserve-across-logout tests (D6-01/D6-02)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 06-02-PLAN.md — Wave 2: first-login App Attest — `OTPViewModel` STEP 5 orchestration (generateKey → challenge → attestKey → register), response capture, `challengeExpired` retry, DI growth + `AuthCoordinator` (DEV-04 / D6-04..D6-07)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 06-03-PLAN.md — Wave 3: trustTier consumer + folded audit fixes — `AppContainer` Keychain seeding, observable `AppSession.trustTier` + banner re-render, `uiTestTrustTierOverride` deletion, `kycStatus` refresh, Profile "Continue" CTA (D6-01/D6-03/D6-08/D6-09/D6-10)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
 - [ ] 06-04-PLAN.md — Wave 4: retroactive `04-VERIFICATION.md` (full Phase 4 re-verification — 3 SC + DEV-04 + CI-03) + tick roadmap `04-10` checkbox (D6-11/D6-12)
 
 ---
