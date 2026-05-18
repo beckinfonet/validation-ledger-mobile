@@ -21,7 +21,7 @@ Per `.planning/research/PITFALLS.md` Pitfall 20 + research/SUMMARY.md: **~30% of
 - [x] **Phase 2: Networking Contract & Device Keys** - Contract-first mock networking + cert pinning + Secure Enclave keypair + token storage *(completed 2026-04-21, 3 HUMAN-UAT items pending)*
 - [x] **Phase 3: OTP Auth + Role Shell + Session** - The fixed Phase 1 goal: 5 roles OTP-login to distinct tab shells, cold-boot into persisted session, clean logout *(completed 2026-04-22, 4 HUMAN-UAT items pending physical-device test)*
 - [x] **Phase 4: App Attest & Physical-Device CI Hardening** - App Attest productionization + on-device CI pipeline for Secure Enclave / Keychain biometric / App Attest paths *(completed 2026-05-16, 5 visual UAT items pending)*
-- [x] **Phase 5: KYC Capture & Upload Pipeline** - Live face + DL + vehicle capture with GPS metadata, resumable chunked upload, KYC status UI *(completed 2026-05-17, 4 HUMAN-UAT items pending physical-device test — SC-2/SC-4/D-08/D-12, see 05-HUMAN-UAT.md)*
+- [x] **Phase 5: KYC Capture & Upload Pipeline** - Live face + DL + vehicle capture with GPS metadata, resumable chunked upload, KYC status UI *(completed 2026-05-17; device-UAT automation gap-closure planned 2026-05-18 — plans 05-11..13)*
 
 ## Phase Details
 
@@ -142,7 +142,7 @@ Plans:
   4. Uploads continue in the background via `BGProcessingTaskRequest` keeping the foreground chunk loop alive across a background transition (ratified UPL-05 model — Pitfall 2 option 1; the file-based background `URLSession` is a deliberate M2 follow-up) — verified by backgrounding the app mid-upload and confirming the upload completes.
   5. Exponential backoff with jitter caps retries at 5 attempts on 5xx / network errors; server-side idempotency keys prevent duplicate chunk commits — verified by a stress test that injects transient failures and asserts no duplicate chunks land.
 
-**Plans:** 10/10 plans complete
+**Plans:** 13 plans (10 feature + 2 UAT gap-closure + 3 device-UAT automation gap-closure — 05-10 was already counted; 13 total)
 Plans:
 **Wave 1**
 
@@ -169,6 +169,12 @@ Plans:
 - [x] 05-09-PLAN.md — Wave 1 (gap-closure): MockDefaultFixtures GET /kyc/status route + kycStatusResponseJSON() builder — closes Test 9 (status screen errors), unblocks Test 12
 - [x] 05-10-PLAN.md — Wave 1 (gap-closure): timeout-bounded capturePhoto() + AVCaptureSession runtime-error/interruption observers + app-lifecycle session control — closes Test 10 (force-quit shutter wedge)
 
+**Device-UAT Automation Gap Closure** *(automates 4 of the 5 physical-device HUMAN-UAT items as device XCUITests — closes the 05-VERIFICATION.md `human_verification` gap; planned 2026-05-18)*
+
+- [ ] 05-11-PLAN.md — Wave 1 (gap-closure): app-side `#if DEBUG` launch-argument test seams — `-KYCTestSeedForUITest` (nonVerified / underReview / midUpload) in SceneDelegate + AppContainer `kycTestSeed` seam + KYCSessionStore mid-upload seeding helper
+- [ ] 05-12-PLAN.md — Wave 2 (gap-closure): four device XCUITests in `validationLedgerUITests/` — SC-2 force-quit resume (`terminate()`+`launch()`), D-08 Profile tap-through, D-12 hard gate, Test-10 background/foreground capture-session restore
+- [ ] 05-13-PLAN.md — Wave 3 (gap-closure): wire `validationLedgerUITests` into `ci-device.yml` device lane + scheme check + update 05-HUMAN-UAT.md / 05-VERIFICATION.md so only SC-4 + the Test-10 runtime-error injection remain human-UAT (5 items → 2)
+
 **UI hint**: yes
 
 ## Progress
@@ -182,7 +188,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Networking Contract & Device Keys | 7/7 | Complete | 2026-04-21 |
 | 3. OTP Auth + Role Shell + Session | 13/13 | Complete | 2026-04-22 |
 | 4. App Attest & Physical-Device CI Hardening | 0/TBD | Not started | - |
-| 5. KYC Capture & Upload Pipeline | 10/10 | Complete   | 2026-05-18 |
+| 5. KYC Capture & Upload Pipeline | 10/13 | Device-UAT automation gap-closure (05-11..13) planned | - |
 
 ---
 *Roadmap created: 2026-04-20*
@@ -192,3 +198,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 *Phase 3 planned: 2026-04-21 (10 plans, 6 waves) — revised 2026-04-21 to 12 plans, 6 waves per checker feedback (Blockers 1-6 + Warnings 1-5)*
 *Phase 5 planned: 2026-05-17 (8 plans, 5 waves)*
 *Phase 5 UAT gap-closure planned: 2026-05-17 (2 plans — 05-09 status mock route, 05-10 camera lifecycle)*
+*Phase 5 device-UAT automation gap-closure planned: 2026-05-18 (3 plans — 05-11 DEBUG test seams, 05-12 device XCUITests, 05-13 CI wiring + doc update)*
