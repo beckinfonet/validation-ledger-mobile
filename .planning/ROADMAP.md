@@ -142,7 +142,7 @@ Plans:
   4. Uploads continue in the background via `BGProcessingTaskRequest` keeping the foreground chunk loop alive across a background transition (ratified UPL-05 model — Pitfall 2 option 1; the file-based background `URLSession` is a deliberate M2 follow-up) — verified by backgrounding the app mid-upload and confirming the upload completes.
   5. Exponential backoff with jitter caps retries at 5 attempts on 5xx / network errors; server-side idempotency keys prevent duplicate chunk commits — verified by a stress test that injects transient failures and asserts no duplicate chunks land.
 
-**Plans:** 12/13 plans executed
+**Plans:** 13/13 plans complete
 Plans:
 **Wave 1**
 
@@ -173,7 +173,7 @@ Plans:
 
 - [x] 05-11-PLAN.md — Wave 1 (gap-closure): app-side `#if DEBUG` launch-argument test seams — `-KYCTestSeedForUITest` (nonVerified / underReview / midUpload) in SceneDelegate + AppContainer `kycTestSeed` seam + KYCSessionStore mid-upload seeding helper
 - [x] 05-12-PLAN.md — Wave 2 (gap-closure): four device XCUITests in `validationLedgerUITests/` — SC-2 force-quit resume (`terminate()`+`launch()`), D-08 Profile tap-through, D-12 hard gate, Test-10 background/foreground capture-session restore
-- [ ] 05-13-PLAN.md — Wave 3 (gap-closure): wire `validationLedgerUITests` into `ci-device.yml` device lane + scheme check + update 05-HUMAN-UAT.md / 05-VERIFICATION.md so only SC-4 + the Test-10 runtime-error injection remain human-UAT (5 items → 2)
+- [x] 05-13-PLAN.md — Wave 3 (gap-closure): wire `validationLedgerUITests` into `ci-device.yml` device lane + scheme check + update 05-HUMAN-UAT.md / 05-VERIFICATION.md so only SC-4 + the Test-10 runtime-error injection remain human-UAT (5 items → 2)
 
 **UI hint**: yes
 
@@ -188,7 +188,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Networking Contract & Device Keys | 7/7 | Complete | 2026-04-21 |
 | 3. OTP Auth + Role Shell + Session | 13/13 | Complete | 2026-04-22 |
 | 4. App Attest & Physical-Device CI Hardening | 0/TBD | Not started | - |
-| 5. KYC Capture & Upload Pipeline | 12/13 | In Progress|  |
+| 5. KYC Capture & Upload Pipeline | 13/13 | Complete   | 2026-05-18 |
 
 ---
 *Roadmap created: 2026-04-20*
