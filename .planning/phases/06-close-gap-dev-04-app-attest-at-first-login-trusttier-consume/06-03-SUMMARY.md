@@ -167,6 +167,17 @@ None. No hardcoded empty values, placeholder text, or unwired data sources were 
 - All three folded audit fixes (D6-03 seam deletion, D6-08 `kycStatus` refresh, D6-09 Profile CTA) are landed.
 - No blockers introduced. The cross-suite `MockURLProtocol` race remains a pre-existing test-infra item (already in Phase 4 deferred-items); it does not affect production code.
 
+## Self-Check: PASSED
+
+- FOUND: validationLedgerTests/App/AppContainerTrustTierSeedingTests.swift (created)
+- FOUND: validationLedgerTests/App/AppSessionTrustTierObservationTests.swift (created)
+- FOUND: validationLedger/UI/LimitedTrustBannerView.swift (modified — LimitedTrustBannerContainerViewController added)
+- FOUND: .planning/phases/06-close-gap-dev-04-app-attest-at-first-login-trusttier-consume/06-03-SUMMARY.md (created)
+- FOUND commit: d7720cc (Task 1 RED)
+- FOUND commit: 36872ec (Task 1 GREEN)
+- FOUND commit: 3f8769f (Task 2 RED)
+- FOUND commit: 1dbfa15 (Task 2 GREEN)
+
 ---
 *Phase: 06-close-gap-dev-04-app-attest-at-first-login-trusttier-consume*
 *Completed: 2026-05-18*
