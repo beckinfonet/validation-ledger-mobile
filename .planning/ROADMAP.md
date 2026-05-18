@@ -126,7 +126,7 @@ Plans:
 - [x] 04-07-PLAN.md — Wave 4: SceneDelegate cold-boot + 24h warm-foreground heartbeat + DevMenu 'Re-attest now' row + AttestationErrorResponseInterceptor (D-07 + D-04 automatic + manual paths)
 - [x] 04-08-PLAN.md — Wave 4: LimitedTrustBannerView (UIKit non-dismissible) + RoleCoordinator wrap extension + 2 XCUITests + iPad landscape checkpoint (D-11 + D-12) *(iPhone-portrait HUMAN-UAT confirmed; iPad landscape/Split View + iPhone landscape + gesture dismiss deferred to 04-HUMAN-UAT.md)*
 - [x] 04-09-PLAN.md — Wave 4: Device-CI tests — AppAttestRoundTripTests + KeychainBiometricACLTests + LogoutClearsAuthorizationKeyTests (D-13 + D-14 + D-03 on device)
-- [ ] 04-10-PLAN.md — Wave 5: CI pipeline — ci-device.yml upgrade + ci-simulator.yml Release guard + report-flaky-passes.sh + docs/ci.md + branch-protection HUMAN checkpoint (CI-03 + D-15 + D-16)
+- [x] 04-10-PLAN.md — Wave 5: CI pipeline — ci-device.yml upgrade + ci-simulator.yml Release guard + report-flaky-passes.sh + docs/ci.md + branch-protection HUMAN checkpoint (CI-03 + D-15 + D-16)
 - [x] 04-11-PLAN.md — Wave 4 INSERTED: DEBUG-only MockDefaultFixtures + AppContainer triple-gated registration so physical-device DEBUG builds can tap through the organic OTP → role-shell flow without launch args (unblocked 04-08's human-verify checkpoint)
 
 ### Phase 5: KYC Capture & Upload Pipeline
@@ -180,7 +180,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -189,6 +189,20 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 3. OTP Auth + Role Shell + Session | 13/13 | Complete | 2026-04-22 |
 | 4. App Attest & Physical-Device CI Hardening | 0/TBD | Not started | - |
 | 5. KYC Capture & Upload Pipeline | 13/13 | Complete   | 2026-05-18 |
+| 6. Close gap: DEV-04 App Attest + trustTier + Phase 4 verification | 0/4 | Not started | - |
+
+### Phase 6: Close gap: DEV-04 App Attest at first login + trustTier consumer + Phase 4 verification
+
+**Goal:** Close the two Phase 4 gaps the v1.0 milestone audit found: (1) wire `AttestationService` into the first-login `/device/register` path so App Attest fires at first OTP verify — `OTPViewModel.swift:202-211` currently hardcodes `attestationStatus: .unsupported` (DEV-04 / Phase 4 SC-1 unmet); (2) capture the discarded `/device/register` response and write `AppSession.trustTier` from the login path (closes the cross-phase wiring break + Phase 4 `deferred-items.md` #2); (3) produce a real `04-VERIFICATION.md` for the previously-unverified Phase 4. Source of scope: `.planning/v1.0-MILESTONE-AUDIT.md`.
+**Requirements**: DEV-04, CI-03
+**Depends on:** Phase 5
+**Plans:** 4 plans
+
+Plans:
+- [ ] 06-01-PLAN.md — Wave 1: Keychain foundation — `device.trustTier` KeychainKey + `AttestedKeyStore.read/writeTrustTier` + Wave 0 round-trip / preserve-across-logout tests (D6-01/D6-02)
+- [ ] 06-02-PLAN.md — Wave 2: first-login App Attest — `OTPViewModel` STEP 5 orchestration (generateKey → challenge → attestKey → register), response capture, `challengeExpired` retry, DI growth + `AuthCoordinator` (DEV-04 / D6-04..D6-07)
+- [ ] 06-03-PLAN.md — Wave 3: trustTier consumer + folded audit fixes — `AppContainer` Keychain seeding, observable `AppSession.trustTier` + banner re-render, `uiTestTrustTierOverride` deletion, `kycStatus` refresh, Profile "Continue" CTA (D6-01/D6-03/D6-08/D6-09/D6-10)
+- [ ] 06-04-PLAN.md — Wave 4: retroactive `04-VERIFICATION.md` (full Phase 4 re-verification — 3 SC + DEV-04 + CI-03) + tick roadmap `04-10` checkbox (D6-11/D6-12)
 
 ---
 *Roadmap created: 2026-04-20*
@@ -199,3 +213,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 *Phase 5 planned: 2026-05-17 (8 plans, 5 waves)*
 *Phase 5 UAT gap-closure planned: 2026-05-17 (2 plans — 05-09 status mock route, 05-10 camera lifecycle)*
 *Phase 5 device-UAT automation gap-closure planned: 2026-05-18 (3 plans — 05-11 DEBUG test seams, 05-12 device XCUITests, 05-13 CI wiring + doc update)*
+*Phase 6 planned: 2026-05-18 (4 plans, 4 waves — 06-01 Keychain foundation, 06-02 first-login App Attest, 06-03 trustTier consumer + audit fixes, 06-04 retroactive 04-VERIFICATION.md)*
