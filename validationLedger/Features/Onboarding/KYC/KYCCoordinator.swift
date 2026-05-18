@@ -490,6 +490,9 @@ final class KYCCoordinator {
         let viewModel = KYCStatusViewModel(
             apiClient: container.apiClient,
             store: container.kycSessionStore,
+            // Phase 6 D6-08: refresh the cached `.kycStatus` Keychain item after
+            // a successful GET /kyc/status.
+            keychain: container.keychainStore,
             logger: container.logger
         )
         let vc = KYCStatusViewController(viewModel: viewModel)

@@ -160,15 +160,18 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
            idx + 1 < ProcessInfo.processInfo.arguments.count {
             let raw = ProcessInfo.processInfo.arguments[idx + 1]
             if let role = Role(rawValue: raw) {
-                // Phase 4 Plan 08 (D-11 / D-12): optional `-MockOTPTrustTierForUITest`
-                // launchArg selects the trust tier that will be (a) returned in the
-                // mocked /device/register response's `trust_tier` field AND (b) seeded
-                // directly into AppSession.trustTier via the AppContainer.uiTestTrustTierOverride
-                // seam — since OTPViewModel currently does not consume the
-                // /device/register response's trust_tier (wiring is Plan 07 scope),
-                // the override bridges the gap for UI smoke tests. Default to
-                // `.hardwareAttested` so existing Phase 3 RoleShellSmokeTests keep
-                // their banner-absent expectations.
+                // Phase 4 Plan 08 / Phase 6 Plan 03 (D-11 / D-12 / D6-01):
+                // optional `-MockOTPTrustTierForUITest` launchArg selects the
+                // trust tier returned in the mocked /device/register response's
+                // `trust_tier` field. Phase 6 Plan 02 wired OTPViewModel STEP 5
+                // to consume that response and persist `trustTier` to Keychain,
+                // and Plan 03's AppContainer seeds AppSession.trustTier from
+                // that Keychain item — so the fixture path now drives the REAL
+                // consumer end-to-end. The prior DEBUG trust-tier static
+                // override seam is deleted (D6-03 / 06-RESEARCH Pitfall 6); the
+                // launchArg lives on. Default to `.hardwareAttested` so
+                // existing Phase 3 RoleShellSmokeTests keep their banner-absent
+                // expectations.
                 let uiTestTrustTier: TrustTier = {
                     guard let ttIdx = ProcessInfo.processInfo.arguments.firstIndex(of: "-MockOTPTrustTierForUITest"),
                           ttIdx + 1 < ProcessInfo.processInfo.arguments.count,
@@ -179,12 +182,13 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 // 1. Register fixtures — OTPRequest + OTPVerify(role) + DeviceRegister
                 //    (Phase 4 D-12: fixture `trust_tier` mirrors uiTestTrustTier)
                 MockOTPRoleFixtureRegistry.registerForRole(role, trustTier: uiTestTrustTier)
-                // 2. Inject stubbed location + country gate (Warning 4) + Phase 4
-                //    trustTier override (D-11/D-12 seam so LimitedTrustBannerTests
-                //    can drive both softwareOnly and hardwareAttested paths).
+                // 2. Inject stubbed location + country gate (Warning 4). The
+                //    trustTier no longer needs an override seam — the fixture
+                //    `/device/register` response's `trust_tier` (registered in
+                //    step 1) flows through the real OTPViewModel -> Keychain ->
+                //    AppContainer seed consumer (06-03 D6-01).
                 AppContainer.uiTestLocationProvider = StubLocationProviderForUITest()
                 AppContainer.uiTestCountryGate = StubCountryGateForUITest()
-                AppContainer.uiTestTrustTierOverride = uiTestTrustTier
                 // 3. Force .mock network config so MockURLProtocol intercepts (reuses
                 //    the existing DevMenu override seam).
                 self.currentNetworkConfigOverride = .mock
