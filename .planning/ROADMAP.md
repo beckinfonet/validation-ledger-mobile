@@ -142,7 +142,7 @@ Plans:
   4. Uploads continue in the background via `BGProcessingTaskRequest` keeping the foreground chunk loop alive across a background transition (ratified UPL-05 model — Pitfall 2 option 1; the file-based background `URLSession` is a deliberate M2 follow-up) — verified by backgrounding the app mid-upload and confirming the upload completes.
   5. Exponential backoff with jitter caps retries at 5 attempts on 5xx / network errors; server-side idempotency keys prevent duplicate chunk commits — verified by a stress test that injects transient failures and asserts no duplicate chunks land.
 
-**Plans:** 8/8 plans complete
+**Plans:** 10 plans complete (8 phase plans + 2 UAT gap-closure)
 Plans:
 **Wave 1**
 
@@ -164,6 +164,11 @@ Plans:
 
 - [x] 05-08-PLAN.md — Wave 4: integration — Profile KYC-status entry + end-to-end + logout-preserves-session test + device force-quit-resume test + 05-VALIDATION.md *(complete; Task 3 device HUMAN-UAT deferred — see 05-HUMAN-UAT.md)*
 
+**UAT Gap Closure** *(closes 05-UAT.md diagnosed gaps — independent of the Wave 1-4 plans)*
+
+- [ ] 05-09-PLAN.md — Wave 1 (gap-closure): MockDefaultFixtures GET /kyc/status route + kycStatusResponseJSON() builder — closes Test 9 (status screen errors), unblocks Test 12
+- [ ] 05-10-PLAN.md — Wave 1 (gap-closure): timeout-bounded capturePhoto() + AVCaptureSession runtime-error/interruption observers + app-lifecycle session control — closes Test 10 (force-quit shutter wedge)
+
 **UI hint**: yes
 
 ## Progress
@@ -177,13 +182,13 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Networking Contract & Device Keys | 7/7 | Complete | 2026-04-21 |
 | 3. OTP Auth + Role Shell + Session | 13/13 | Complete | 2026-04-22 |
 | 4. App Attest & Physical-Device CI Hardening | 0/TBD | Not started | - |
-| 5. KYC Capture & Upload Pipeline | 8/8 | Complete   | 2026-05-17 |
+| 5. KYC Capture & Upload Pipeline | 8/10 | Gap closure | 2026-05-17 |
 
 ---
 *Roadmap created: 2026-04-20*
 *Milestone: M1 Foundation (4 weeks, 1–2 engineers)*
 *Phase 1 planned: 2026-04-20 (7 plans, 4 waves)*
-*Next: `/gsd-execute-phase 1`*
 *Phase 2 planned: 2026-04-21 (7 plans, 4 waves)*
 *Phase 3 planned: 2026-04-21 (10 plans, 6 waves) — revised 2026-04-21 to 12 plans, 6 waves per checker feedback (Blockers 1-6 + Warnings 1-5)*
 *Phase 5 planned: 2026-05-17 (8 plans, 5 waves)*
+*Phase 5 UAT gap-closure planned: 2026-05-17 (2 plans — 05-09 status mock route, 05-10 camera lifecycle)*
