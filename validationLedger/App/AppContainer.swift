@@ -169,9 +169,33 @@ final class AppContainer {
         let viewModel = KYCStatusViewModel(
             apiClient: apiClient,
             store: kycSessionStore,
+            // Phase 6 D6-08: the KYC status VM refreshes the cached `.kycStatus`
+            // Keychain item after a successful GET /kyc/status.
+            keychain: keychainStore,
             logger: logger
         )
-        return KYCStatusViewController(viewModel: viewModel)
+        let viewController = KYCStatusViewController(viewModel: viewModel)
+        // Phase 6 D6-09: wire the verified "Continue" CTA. This is the
+        // PROFILE entry point — the user is ALREADY inside the role shell, so
+        // copying `KYCCoordinator.pushStatus()`'s `onKYCSubmitted` routing
+        // (which root-swaps TO the role shell) would be nonsensical here
+        // (06-RESEARCH Open Question 2 / CONTEXT.md D6-09, resolved 2026-05-18).
+        // Instead, "Continue" simply DISMISSES the status screen back to the
+        // Profile tab. `ProfileViewController.kycStatusTapped()` pushes this VC
+        // onto Profile's UINavigationController (with a modal-present fallback),
+        // so pop when it is on a nav stack, dismiss when presented modally.
+        // The VC is captured weakly — the closure is retained by the VM which
+        // the VC owns, so a strong capture would cycle.
+        viewModel.onVerified = { [weak viewController] in
+            guard let viewController else { return }
+            if let nav = viewController.navigationController,
+               nav.viewControllers.first !== viewController {
+                nav.popViewController(animated: true)
+            } else {
+                viewController.dismiss(animated: true)
+            }
+        }
+        return viewController
     }
 
     /// Primary initializer.

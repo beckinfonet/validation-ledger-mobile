@@ -112,15 +112,22 @@ public final class KYCStatusViewModel {
 
     private let apiClient: APIClient
     private let store: KYCSessionStore
+    /// Phase 6 D6-08 (WARNING-1): the Keychain hand-off for the cached KYC
+    /// status. `fetchStatus()` refreshes `.kycStatus` after a successful
+    /// `GET /kyc/status` so the fail-closed cold-boot `SessionRestoreProbe`
+    /// routes on current truth instead of a stale cached value.
+    private let keychain: KeychainStore
     private let logger: any Logger
 
     public init(
         apiClient: APIClient,
         store: KYCSessionStore,
+        keychain: KeychainStore,
         logger: any Logger
     ) {
         self.apiClient = apiClient
         self.store = store
+        self.keychain = keychain
         self.logger = logger
     }
 
@@ -145,7 +152,37 @@ public final class KYCStatusViewModel {
             ))
             return
         }
+        refreshCachedKYCStatus(response.overallStatus)
         state = mapState(from: response)
+    }
+
+    /// Phase 6 D6-08 (WARNING-1): cache the fresh `overall_status` to Keychain
+    /// `.kycStatus` after a successful `GET /kyc/status`.
+    ///
+    /// Mirrors `OTPViewModel`'s `.kycStatus` write EXACTLY — same key, same
+    /// `.afterFirstUnlockThisDeviceOnly` accessibility (Pattern C) — so the
+    /// fail-closed cold-boot `SessionRestoreProbe` (D-13) routes on current
+    /// truth instead of a stale value. This is a CORRECTNESS fix, NOT a
+    /// relaxation: the probe still fails CLOSED on any non-"verified"/absent
+    /// value; D6-08 only ensures the cached value is fresh. The routing logic
+    /// is unchanged.
+    ///
+    /// A Keychain-write failure must NOT break the status fetch — degrade
+    /// gracefully (log + continue). The status string is a controlled-vocabulary
+    /// value (no PII), so the failure log carries only the event name.
+    private func refreshCachedKYCStatus(_ overallStatus: String) {
+        do {
+            try keychain.set(
+                Data(overallStatus.utf8),
+                for: .kycStatus,
+                accessibility: .afterFirstUnlockThisDeviceOnly
+            )
+        } catch {
+            logger.warn(
+                event: LogEvent("kyc_status_keychain_refresh_failed"),
+                fields: [:]
+            )
+        }
     }
 
     /// Pure mapping from a `KYCStatusEndpoint.Response` to a `State`. Separated

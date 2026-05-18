@@ -106,6 +106,10 @@ struct KYCEndToEndIntegrationTests {
         let statusViewModel = await KYCStatusViewModel(
             apiClient: KYCUploaderTestSupport.makeClient(),
             store: store,
+            // Phase 6 D6-08: KYCStatusViewModel now refreshes the cached
+            // .kycStatus Keychain item after GET /kyc/status. A uniquely-
+            // serviced test KeychainStore isolates this suite's partition.
+            keychain: KeychainStore(service: "vl.test.kyc.e2e.\(UUID().uuidString)"),
             logger: KYCUploaderTestSupport.makeLogger()
         )
         await statusViewModel.fetchStatus()
