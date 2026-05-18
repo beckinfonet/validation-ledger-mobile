@@ -33,13 +33,51 @@
 
 import Foundation
 
+// Phase 6 Plan 03 (D6-10 / WARNING-2): trustTier observation.
+//
+// `AppSession` STAYS a plain `@MainActor final class` — NO SwiftUI
+// `@Observable` / `ObservableObject` (UIKit-first, CLAUDE.md). The observation
+// mechanism is a `Notification.Name` posted from the `trustTier` `didSet`,
+// mirroring the project's existing `.sessionDidInvalidate` precedent (a
+// cross-object UIKit observation channel). `AppCoordinator` subscribes —
+// scoped to its container's `AppSession` instance — so the role-shell
+// `LimitedTrustBanner` re-renders when the heartbeat (D-12) or the first-login
+// consumer mutates the tier, WITHOUT a root-swap and WITHOUT animation
+// (ADR 0002 abrupt-replace posture).
+extension Notification.Name {
+    /// Posted by `AppSession` from the `trustTier` `didSet`. The `object` is the
+    /// posting `AppSession` instance (observers scope to it); `userInfo` carries
+    /// the new tier's `rawValue` under `AppSession.trustTierUserInfoKey`.
+    public static let trustTierDidChange = Notification.Name("validationLedger.trustTierDidChange")
+}
+
 @MainActor
 public final class AppSession {
+
+    /// `userInfo` key for the new `TrustTier.rawValue` on a `.trustTierDidChange`
+    /// post. A `String` rawValue (not the enum) keeps the `userInfo` dictionary
+    /// `Sendable`-clean and avoids leaking a non-`Sendable` payload.
+    public static let trustTierUserInfoKey = "trustTier"
+
     /// Server-returned trust tier. Default is `.softwareOnly` (safe default —
     /// LimitedTrustBanner in Plan 08 renders until backend confirms
     /// `.hardwareAttested`). Set on every `/device/register` +
     /// `/device/heartbeat` response (D-12).
-    public var trustTier: TrustTier
+    ///
+    /// Observable (D6-10): every mutation posts `.trustTierDidChange` so the
+    /// role-shell banner re-renders. `AppContainer` seeds the initial value from
+    /// the persisted `device.trustTier` Keychain item (D6-01 consumer) — that
+    /// initial seed is set through `init` and does NOT post (no observer is
+    /// wired yet at construction time).
+    public var trustTier: TrustTier {
+        didSet {
+            NotificationCenter.default.post(
+                name: .trustTierDidChange,
+                object: self,
+                userInfo: [Self.trustTierUserInfoKey: trustTier.rawValue]
+            )
+        }
+    }
 
     public init(trustTier: TrustTier = .softwareOnly) {
         self.trustTier = trustTier

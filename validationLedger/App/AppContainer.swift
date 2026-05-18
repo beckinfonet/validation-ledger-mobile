@@ -63,16 +63,6 @@ final class AppContainer {
     #if DEBUG
     static var uiTestLocationProvider: (any LocationProvider)?
     static var uiTestCountryGate: (any CountryGate)?
-    // Phase 4 Plan 08 (D-11 / D-12): UI-test override for AppSession.trustTier.
-    // The LimitedTrustBannerTests XCUITests need to drive the role shell
-    // immediately under a specific trustTier without waiting for the real
-    // /device/register response → session.trustTier mutation path (that wiring
-    // is Plan 07's scope). SceneDelegate's -MockOTPTrustTierForUITest handler
-    // sets this override BEFORE AppContainer construction; init seeds
-    // AppSession(trustTier:) from the override when present, else the safe
-    // default `.softwareOnly`. Release builds compile zero bytes for this
-    // path (T-03-12-01 / T-APP-ATTEST-11 mitigation analog).
-    static var uiTestTrustTierOverride: TrustTier?
 
     // Phase 5 Plan 11 (SC-2 / D-08 / D-12 / Test-10): KYC test-seed seam.
     //
@@ -375,7 +365,8 @@ final class AppContainer {
 
         #if DEBUG && targetEnvironment(simulator)
         self.attestationService = SimulatorBypassAttestationService(keychain: self.keychainStore)
-        _ = attestedKeyStore      // retain the constructed store — sim path uses its own
+        // `attestedKeyStore` is still consumed below for the D6-01 trustTier
+        // seed read — no `_ =` retention needed on either build branch.
         #else
         self.attestationService = DCAppAttestAttestationService(
             keyStore: attestedKeyStore,
@@ -383,19 +374,28 @@ final class AppContainer {
         )
         #endif
 
-        // D-12 safe default: .softwareOnly so LimitedTrustBanner (Plan 08) renders
-        // until the first /device/register or /device/heartbeat response lands.
-        // Plan 08 (D-11/D-12) UI-test seam: if SceneDelegate set
-        // `uiTestTrustTierOverride` via the -MockOTPTrustTierForUITest launchArg,
-        // seed AppSession with that tier so XCUITests can drive both
-        // .softwareOnly (banner visible) and .hardwareAttested (banner absent)
-        // code paths deterministically. Production path is unaffected
-        // (override nil → safe default).
-        #if DEBUG
-        self.session = AppSession(trustTier: AppContainer.uiTestTrustTierOverride ?? .softwareOnly)
-        #else
-        self.session = AppSession(trustTier: .softwareOnly)
-        #endif
+        // Phase 6 Plan 03 (D6-01 consumer): seed AppSession.trustTier from the
+        // persisted `device.trustTier` Keychain item. Plan 06-02 wired the
+        // producer — OTPViewModel STEP 5 persists the `/device/register`
+        // response's trustTier via AttestedKeyStore.writeTrustTier. Reading it
+        // back here makes the LimitedTrustBanner correct from frame 1 on BOTH
+        // the post-OTP role shell (the auth-phase trustTier survives the ADR
+        // 0002 abrupt-replace via Keychain) AND a cold-boot session restore.
+        //
+        // Fail-safe: a Keychain read failure or a never-written item both
+        // resolve to `.softwareOnly` — the safe default. The banner
+        // over-showing briefly is preferable to ever missing it (D-12); an
+        // unknown wire value also yields nil from readTrustTier()'s
+        // `TrustTier(rawValue:)` (06-01 D6-02), never `.hardwareAttested`.
+        //
+        // The DEBUG `-MockOTPTrustTierForUITest` UI-test path drives this same
+        // consumer: SceneDelegate's MockOTPRoleFixtureRegistry serves a
+        // `/device/register` response whose `trust_tier` matches the launch
+        // arg, OTPViewModel persists it, and this seed read picks it up — the
+        // fixture path now exercises the real consumer (06-RESEARCH Pitfall 6),
+        // so the prior DEBUG trust-tier static override seam (D6-03) is gone.
+        let seededTrustTier = (try? attestedKeyStore.readTrustTier()) ?? .softwareOnly
+        self.session = AppSession(trustTier: seededTrustTier)
 
         // NET-03: URLSession + NetworkClient construction via the single `makeSession` factory.
         // AppContainer is the ONLY place URLSession is constructed — a grep over `validationLedger/`
