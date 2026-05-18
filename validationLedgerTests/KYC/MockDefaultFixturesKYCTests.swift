@@ -76,6 +76,21 @@ struct MockDefaultFixturesKYCTests {
         #expect(response.overallStatus == "under_review")
     }
 
+    @Test("Gap (Test 9): the device-mock dispatch handler answers GET /kyc/status with 200 + a decodable Response")
+    func mockHandlerAnswersStatus() async throws {
+        // Before plan 05-09 added the (GET, /kyc/status) route, this request
+        // 404'd — `requestThroughMockDefaults` would throw
+        // `NetworkError.httpError(404)` and `KYCStatusViewModel.fetchStatus()`
+        // fell into `.error` ("Couldn't load status"). A non-throwing decode
+        // proves the route now serves a verdict.
+        let response = try await requestThroughMockDefaults(KYCStatusEndpoint())
+        // Must agree with kycSubmitResponseJSON()'s post-submit `under_review`.
+        #expect(response.overallStatus == "under_review")
+        // The device mock cannot read the request body, so it serves no
+        // per-artifact detail.
+        #expect(response.artifacts.isEmpty)
+    }
+
     // MARK: - Full pipeline — all 6 artifacts upload against the device mock
 
     @Test("Issue 2a/2b: every one of the 6 KYC artifacts uploads init→chunk→commit against the device-mock fixtures")
