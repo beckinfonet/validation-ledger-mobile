@@ -473,6 +473,19 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     /// (lines 72-86) and root-swaps to .auth. Future phases replace this with a proper
     /// device re-bind UI; for M1 the "re-bind" is a forced re-auth.
     private func presentBiometricLockIfNeeded(container: AppContainer, over presenter: UIViewController) {
+        #if DEBUG
+        // Phase 5 Plan 11 device-XCUITest seam. A `-KYCTestSeedForUITest` launch seeds a
+        // synthetic session and falls through to the genuine cold-boot `.role` restore
+        // path — which presents BiometricLockViewController and invokes LAContext / Face ID
+        // (SESS-01). A headless XCUITest driver on a real device cannot satisfy that Face ID
+        // prompt; the `com.apple.localauthentication` system alert then blocks every KYC
+        // XCUITest that reaches the role shell (KYCProfileEntryUITests, KYCForceQuitResumeUITests).
+        // Suppress the cold-boot lock when the seam is active. DEBUG-only — Release compiles
+        // this to zero bytes and the production cold-boot biometric lock is unaffected
+        // (consistent with threat T-05-11-01: the entire seam is `#if DEBUG`).
+        if ProcessInfo.processInfo.arguments.contains("-KYCTestSeedForUITest") { return }
+        #endif
+
         // Idempotency: if a lock VC is already up, don't stack another one.
         if presentedLockVC != nil { return }
 
