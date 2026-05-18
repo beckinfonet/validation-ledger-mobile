@@ -55,6 +55,10 @@ final class AuthCoordinator {
             keyStore: container.keyStore,
             biometric: container.biometricService,
             sessionLock: container.sessionLock,
+            // Phase 6 DEV-04: STEP 5 first-login App Attest. AppContainer
+            // selects the concrete impl (DCAppAttest on device /
+            // SimulatorBypass under #if DEBUG && targetEnvironment(simulator)).
+            attestationService: container.attestationService,
             logger: container.logger
         )
         let vc = OTPViewController(viewModel: vm)

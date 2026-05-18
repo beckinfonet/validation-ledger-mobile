@@ -16,7 +16,12 @@ import Testing
 import Foundation
 @testable import validationLedger
 
-@Suite("OTPViewModel — Retry-After countdown + D-27 7-step orchestration + DEV-04 first-login attestation (AUTH-02, AUTH-03, D-02, D-27, DEV-04)")
+// `.serialized` — the STEP 5 behavioural tests drive the global
+// `MockURLProtocol` handler registry. Swift Testing runs `@Test`s in parallel
+// by default; without serialization sibling tests register `AttestBackend`
+// handlers concurrently and stomp each other (the Phase 2 `.serialized @Suite`
+// pattern for suites sharing `MockURLProtocol` global state — see WR-01).
+@Suite("OTPViewModel — Retry-After countdown + D-27 7-step orchestration + DEV-04 first-login attestation (AUTH-02, AUTH-03, D-02, D-27, DEV-04)", .serialized)
 @MainActor
 struct OTPViewModelTests {
 
