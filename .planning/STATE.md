@@ -1,35 +1,33 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: M1 Foundation
-status: Awaiting next milestone
-stopped_at: Milestone v1.0 complete and archived
-last_updated: "2026-05-18T23:30:00.000Z"
-last_activity: 2026-05-18 — Milestone v1.0 completed and archived
+milestone: v1.1
+milestone_name: Load Flows
+status: planning
+last_updated: "2026-05-19T18:16:02.496Z"
+last_activity: 2026-05-19
 progress:
-  total_phases: 6
-  completed_phases: 6
-  total_plans: 55
-  completed_plans: 55
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-18)
+See: .planning/PROJECT.md (updated 2026-05-19)
 
 **Core value:** Identity that cannot be spoofed and a chain-of-trust that cannot be faked.
-**Current focus:** v1.0 "M1 Foundation" shipped — planning M2 "Core Flows" next.
+**Current focus:** v1.1 "Load Flows" — defining requirements.
 
 ## Current Position
 
-Milestone: v1.0 "M1 Foundation" — complete and archived
-Phase: — (all 6 phases shipped)
-Status: Awaiting next milestone
-Next: `/gsd-new-milestone` to scope M2 Core Flows
-Last activity: 2026-05-18 — Milestone v1.0 completed and archived
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-05-19 — Milestone v1.1 started
 
 ## Accumulated Context
 
@@ -37,7 +35,7 @@ Last activity: 2026-05-18 — Milestone v1.0 completed and archived
 
 Full decision log lives in PROJECT.md → Key Decisions. All v1.0 milestone decisions have been folded in with outcomes (5-phase M1 structure, App Attest split to Phase 4, 30% infrastructure-tax budget, foreground KYCUploader with M2 background-session follow-up, manual-shutter selfie capture, audit-driven Phase 6 insertion).
 
-### Open Blockers/Concerns (carried into M2)
+### Open Blockers/Concerns (carried into v1.1)
 
 - **`CameraPermissionViewController` exists but is never presented** — denied camera permission shows inline `.failed` copy instead of the blocking screen plan 05-05 Task 4 specified. Product decision pending (blocking screen vs. inline copy).
 - **Nyquist validation gaps** — Phase 1 `01-VALIDATION.md` is an unfilled draft; Phase 2 has no `VALIDATION.md`. Run `/gsd-validate-phase 1` and `/gsd-validate-phase 2`.
@@ -72,12 +70,14 @@ Full decision log lives in PROJECT.md → Key Decisions. All v1.0 milestone deci
 
 All `verification_gap` and `uat_gap` items are physical-device observation tasks against verified code — they need real hardware and an active self-hosted runner, not code work. The 4 debug sessions are resolved/diagnosed but were never formally closed.
 
+The v1.0 phase directories holding these artifacts were archived at the v1.1 start — find them under `.planning/milestones/v1.0-phases/01-06*/` (e.g. `04-HUMAN-UAT.md`, `01-VERIFICATION.md`).
+
 ## Session Continuity
 
-Last session: 2026-05-18 — `/gsd-audit-milestone` (re-audit, `tech_debt`) then `/gsd-complete-milestone v1.0`.
-Stopped at: Milestone v1.0 archived, tagged, and committed.
-Next command: `/gsd-new-milestone` to scope M2 "Core Flows".
+Last session: 2026-05-19 — `/gsd-new-milestone` started v1.1 "Load Flows".
+Stopped at: PROJECT.md + STATE.md updated; defining requirements next.
+Next command: continue `/gsd-new-milestone` (requirements → roadmap).
 
 ## Operator Next Steps
 
-- Start the next milestone with `/gsd-new-milestone`
+- Define v1.1 requirements, then create the roadmap (continues in `/gsd-new-milestone`).

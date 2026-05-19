@@ -16,7 +16,20 @@ As of v1.0, the app has shipped its M1 Foundation: all five roles can OTP-authen
 
 The foundation is in place: UIKit module layout, the 8 foundational conventions, contract-first mock networking, Secure Enclave device keys, App Attest, 5-role OTP auth + session, and the KYC capture + resumable upload pipeline. ~28,700 LOC of Swift across 207 files. The v1.0 milestone audit closed `tech_debt` — 67/67 requirements satisfied, 6/6 phases verified, 8/8 E2E flows wired, zero critical blockers.
 
-**Next:** M2 "Core Flows" — load list/detail with chain-of-trust visualization, tender/accept/reject, real-time updates, push notifications, and the swap from contract-first JSON stubs to the live backend. Run `/gsd-new-milestone` to scope it.
+**Next:** v1.1 "Load Flows" — the load slice of the original M2 "Core Flows," scoped down to a focused mini-milestone (see Current Milestone below).
+
+## Current Milestone: v1.1 Load Flows
+
+**Goal:** Deliver the load domain end-to-end on iOS — role-filtered load list, load detail with an interactive chain-of-trust graph, and per-role tender/accept/reject — built entirely against `MockURLProtocol` fixtures.
+
+**Target features:**
+- Role-filtered load list — each of the 5 roles sees its relevant loads
+- Load detail screen
+- Interactive chain-of-trust graph — shipper → broker → carrier → dispatch → factoring node-graph with per-party verification state, tappable for each party's verification basis
+- Per-role tender / accept / reject action sets across all 5 roles
+- New load-domain mock endpoints + fixtures, extending M1's contract-first `MockURLProtocol` pattern
+
+**Scope decision:** This is the load slice of the original M2 "Core Flows," deliberately scoped down to a focused mini-milestone. Real backend integration, real-time updates (WebSocket/SSE), APNs push, the analytics/crash-vendor pick, and the file-based background `URLSession` rework are deferred to a later milestone — they all require infrastructure (a running server) that the iOS client builds against mocks without. The production backend remains a separate GSD project.
 
 ## Requirements
 
@@ -45,17 +58,27 @@ v1.0 closed with a `tech_debt` milestone audit — see `.planning/milestones/v1.
 
 ### Active
 
-<!-- M2 "Core Flows" scope — hypotheses until shipped + validated. Detailed when /gsd-new-milestone runs. -->
+<!-- v1.1 "Load Flows" scope — hypotheses until shipped + validated. Detailed in .planning/REQUIREMENTS.md. -->
 
-- [ ] Role-filtered load list + load detail with chain-of-trust visualization (LOAD-*)
-- [ ] Tender / accept / reject actions
+- [ ] Role-filtered load list — each of the 5 roles sees its relevant loads
+- [ ] Load detail screen
+- [ ] Interactive chain-of-trust graph — shipper→broker→carrier→dispatch→factoring node-graph with per-party verification state, tappable for verification basis
+- [ ] Per-role tender / accept / reject action sets across all 5 roles
+- [ ] New load-domain mock endpoints + fixtures (extends M1's contract-first `MockURLProtocol` pattern)
+
+### Deferred from M2 (post-v1.1)
+
+<!-- The rest of the original M2 "Core Flows" scope — needs a running backend, addressed in a later milestone. -->
+
 - [ ] Real-time load updates (WebSocket or SSE)
 - [ ] APNs push registration with deep links + notification categories; Critical Alerts entitlement
 - [ ] Real backend integration — M1's contract-first JSON stubs swap to the live backend
 - [ ] File-based background `URLSession` upload rework (ratified M2 follow-up — M1 shipped the foreground chunk loop + BGProcessingTask continuation)
 - [ ] Crash/analytics vendor pick behind a `CrashReporter` protocol
 
-**Carried tech debt (from the v1.0 audit — address opportunistically or in an M2 cleanup phase):**
+### Carried tech debt
+
+<!-- From the v1.0 audit — not in v1.1 scope; address opportunistically or in a dedicated cleanup phase. -->
 
 - [ ] Nyquist validation gaps — Phase 1 `01-VALIDATION.md` is an unfilled draft, Phase 2 has none (`/gsd-validate-phase 1`, `/gsd-validate-phase 2`)
 - [ ] `OTPViewModel.retryRegister()` re-issues an already-consumed OTP code — recovery-path robustness (06-REVIEW CR-01)
@@ -86,7 +109,7 @@ v1.0 closed with a `tech_debt` milestone audit — see `.planning/milestones/v1.
 - Client-composed BOL PDFs, client-side QR payload validation — anti-features; backend is the sole authority
 - Third-party chat / analytics / marketing SDKs — anti-features; privacy posture is non-negotiable
 
-**Deferred past M1, now scheduled:** real backend integration and APNs/notifications move into M2 Active; liveness detection on KYC capture and the crash/analytics vendor pick move to M3/M4 respectively.
+**Deferred past M1:** v1.1 "Load Flows" takes the load slice (list/detail/trust-graph/tender). Real backend integration, real-time updates, and APNs/notifications are deferred to a post-v1.1 milestone (they need a running server); liveness detection on KYC capture and the crash/analytics vendor pick remain M3/M4 respectively. See Requirements → Deferred from M2.
 
 **Out of this GSD project entirely:**
 
@@ -143,6 +166,8 @@ TechStack.md (in repo root) is the iOS client's detailed technical spec — 13 s
 | Phase 5: `KYCUploader` uses the foreground `APIClient` chunk loop + `BGProcessingTaskRequest`; file-based background `URLSession` deferred | Ratified user decision — ships resumable upload without the background-session rework | — Pending (M2 follow-up) |
 | Phase 5: selfie capture uses a manual shutter, superseding the D-04 hands-free auto-fire | Device debugging showed auto-fire unreliable; Vision gate repurposed to gate shutter-enabled state | ✓ Good |
 | Insert Phase 6 from the v1.0 audit to close DEV-04 / CI-03 gaps before milestone close | The audit found App Attest unwired at first login + Phase 4 unverified | ✓ Good — audit→closure-phase loop worked; re-audit closed `tech_debt` |
+| Scope the original M2 "Core Flows" down to v1.1 "Load Flows" — load list/detail/trust-graph/tender only; defer real backend, real-time, push, analytics, background `URLSession` | M2 was too large for a focused cycle; the load domain is a coherent vertical slice buildable against M1's `MockURLProtocol` pattern with zero backend dependency | — Pending |
+| Build v1.1 against `MockURLProtocol` fixtures; keep the production backend a separate GSD project | M1 proved contract-first iOS dev needs no running server; upholds the documented iOS/backend separation | — Pending |
 
 ## Evolution
 
@@ -162,4 +187,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-18 after v1.0 "M1 Foundation" milestone*
+*Last updated: 2026-05-19 — milestone v1.1 "Load Flows" started*
