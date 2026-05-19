@@ -49,10 +49,15 @@ Full v1.0 phase goals, success criteria, requirement mappings, and plan lists ar
   3. The `Core/Load/` value types (`Load`, `ChainOfTrust`, `TrustNode`, `LoadStatus`, `LoadAction`, `RoleLoadPolicy`) are pure `Decodable & Sendable` types carrying a server-supplied `verificationState` and `chainIntegrity` (no client-derived trust field).
   4. `MockURLProtocol` supports injectable latency and forced-failure responses, exercised by a test.
   5. The one-line mock/live network swap still compiles and passes with the new endpoints registered — no change to `APIClient` or `MockURLProtocol` core.
-**Plans**: TBD
+**Plans**: 6 plans
 
 Plans:
-- [ ] 07-01: TBD
+- [ ] 07-01-PLAN.md — Core/Load/ leaf enums (LoadStatus, LoadAction, VerificationState, ChainIntegrity, DeviceBindingStatus, USDOTAuthorityStatus) + fail-closed decoder tests
+- [ ] 07-02-PLAN.md — Core/Load/ aggregates (LoadStatusEvent, ChainOfTrust, Load) + RoleLoadPolicy + 5×13 matrix tests
+- [ ] 07-03-PLAN.md — 3 typed APIEndpoint conformers (LoadList, LoadDetail, LoadAction) + endpoint-shape tests
+- [ ] 07-04-PLAN.md — Additive MockURLProtocol latency + forced-failure injection + 8 verification tests
+- [ ] 07-05-PLAN.md — 22 JSON fixtures (12 named loads + 5 role lists + empty + 4 action outcomes) + 3 decode-coverage test suites
+- [ ] 07-06-PLAN.md — MockLoadFixtureRegistry + AppContainer.init wiring + SC #5 mock/live swap smoke test
 
 ### Phase 8: Role-Filtered Load List
 **Goal**: Give every one of the 5 roles a working "Loads" tab that fetches and renders only its own loads from the mock contract, with the standard freight row, the reusable verification badge, the empty/loading/error states, and pull-to-refresh as the v1.1 state-propagation path.
@@ -111,7 +116,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10
 | 4. App Attest & Physical-Device CI Hardening | v1.0 | 11/11 | Complete | 2026-05-16 |
 | 5. KYC Capture & Upload Pipeline | v1.0 | 13/13 | Complete | 2026-05-18 |
 | 6. Close gap: DEV-04 + trustTier + Phase 4 verification | v1.0 | 4/4 | Complete | 2026-05-18 |
-| 7. Load Domain Model & Mock Contract | v1.1 | 0/TBD | Not started | - |
+| 7. Load Domain Model & Mock Contract | v1.1 | 0/6 | Planned | - |
 | 8. Role-Filtered Load List | v1.1 | 0/TBD | Not started | - |
 | 9. Load Detail & Chain-of-Trust Graph | v1.1 | 0/TBD | Not started | - |
 | 10. Per-Role Tender / Accept / Reject | v1.1 | 0/TBD | Not started | - |
