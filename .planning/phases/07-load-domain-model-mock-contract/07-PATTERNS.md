@@ -50,7 +50,7 @@
 | `validationLedgerTests/Load/VerificationStateDecoderTests.swift` | test | transform | `validationLedgerTests/KYC/RejectionReasonCodeTests.swift` | role-match (closed-enum decode + unknown-input branch coverage) |
 | `validationLedgerTests/Load/RoleLoadPolicyTests.swift` | test | request-response (function) | `validationLedgerTests/KYC/RejectionReasonCodeTests.swift` (exhaustive `CaseIterable` sweep) | role-match (exhaustive sweep across `Role.allCases × LoadStatus.allCases`) |
 | `validationLedgerTests/Load/ChainOfTrustDecodeTests.swift` | test | transform | `DeviceChallengeEndpointTests.swift` + `RejectionReasonCodeTests.swift` | role-match |
-| `validationLedgerTests/Load/LoadStateMachineSanityTests.swift` | test | request-response | `RejectionReasonCodeTests.swift` (exhaustive vocabulary coverage) | role-match |
+| `validationLedgerTests/Load/LoadStateHistoryTests.swift` | test | request-response | `RejectionReasonCodeTests.swift` (exhaustive vocabulary coverage) | role-match |
 | `validationLedgerTests/Networking/LoadEndpointsTests.swift` | test | request-response | `validationLedgerTests/Networking/DeviceChallengeEndpointTests.swift` | exact (shape-assert + fixture-decode triple test pattern) |
 | `validationLedgerTests/Networking/MockURLProtocolLatencyTests.swift` | test | request-response | `validationLedgerTests/Networking/MockURLProtocolRegistryTests.swift` | exact (`.serialized` suite + register-then-session-fetch pattern) |
 | `validationLedgerTests/Networking/MockURLProtocolForcedFailureTests.swift` | test | request-response | `validationLedgerTests/Networking/MockURLProtocolRegistryTests.swift` | exact |
