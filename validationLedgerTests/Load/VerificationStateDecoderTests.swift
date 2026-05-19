@@ -72,3 +72,85 @@ struct VerificationStateDecoderTests {
         #expect(cases.contains(.flagged))
     }
 }
+
+// MARK: - ChainIntegrity.Verdict (Plan 07-01 Task 3)
+
+/// Appended suite — Plan 07-01 Task 3. ChainIntegrity.Verdict mirrors
+/// VerificationState's fail-closed pattern but degrades unknown values to
+/// `.compromised` (most-suspicious) rather than `.unverified` (least-trusted).
+/// The intent is the same: an unknown server superstring NEVER softens the
+/// trust signal on this client. See D-09 parity note in ChainIntegrity.swift.
+@Suite("ChainIntegrity.Verdict fail-closed-to-suspicious decoder (D-09 parity)")
+struct ChainIntegrityVerdictDecoderTests {
+
+    @Test("Known wire value decodes to matching verdict (every CaseIterable case)")
+    func knownVerdictDecodes() throws {
+        let decoder = JSONDecoder()
+        for kase in ChainIntegrity.Verdict.allCases {
+            let json = Data("\"\(kase.rawValue)\"".utf8)
+            let decoded = try decoder.decode(ChainIntegrity.Verdict.self, from: json)
+            #expect(decoded == kase, "Expected \(kase.rawValue) to decode to \(kase) but got \(decoded)")
+        }
+    }
+
+    @Test("Unknown wire value decodes to .compromised (fail-closed-to-suspicious)")
+    func unknownVerdictFailsClosed() throws {
+        let decoder = JSONDecoder()
+        // Plausible future verdicts — must NEVER soften to .clean or .caution.
+        #expect(try decoder.decode(ChainIntegrity.Verdict.self, from: Data("\"quarantined\"".utf8)) == .compromised)
+        #expect(try decoder.decode(ChainIntegrity.Verdict.self, from: Data("\"investigating\"".utf8)) == .compromised)
+        #expect(try decoder.decode(ChainIntegrity.Verdict.self, from: Data("\"trusted\"".utf8)) == .compromised)
+    }
+
+    @Test("ChainIntegrity decodes a full payload with verdict=.clean and empty implicated arrays")
+    func fullPayloadCleanCase() throws {
+        let json = Data(#"""
+        {"verdict":"clean","reason":"all good","implicated_node_ids":[],"implicated_edge_ids":[]}
+        """#.utf8)
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let decoded = try decoder.decode(ChainIntegrity.self, from: json)
+        #expect(decoded.verdict == .clean)
+        #expect(decoded.reason == "all good")
+        #expect(decoded.implicatedNodeIDs.isEmpty)
+        #expect(decoded.implicatedEdgeIDs.isEmpty)
+    }
+
+    @Test("ChainIntegrity decodes a full payload with unknown verdict → .compromised (fail-closed)")
+    func fullPayloadUnknownVerdictDegrades() throws {
+        let json = Data(#"""
+        {"verdict":"quarantined","reason":"future-superstring","implicated_node_ids":["party-x"],"implicated_edge_ids":[]}
+        """#.utf8)
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let decoded = try decoder.decode(ChainIntegrity.self, from: json)
+        #expect(decoded.verdict == .compromised)
+        #expect(decoded.implicatedNodeIDs == ["party-x"])
+        #expect(decoded.implicatedEdgeIDs.isEmpty)
+    }
+
+    @Test("ChainIntegrity decodes implicatedNodeIDs / implicatedEdgeIDs via the acronym CodingKeys bridge")
+    func acronymBridgeWorks() throws {
+        // The wire payload uses the post-.convertFromSnakeCase form
+        // (implicatedNodeIds / implicatedEdgeIds) — NOT the trailing-acronym
+        // form. The explicit CodingKeys in ChainIntegrity.swift bridge the gap.
+        let json = Data(#"""
+        {"verdict":"caution","reason":"check","implicated_node_ids":["a","b"],"implicated_edge_ids":["e1"]}
+        """#.utf8)
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let decoded = try decoder.decode(ChainIntegrity.self, from: json)
+        #expect(decoded.verdict == .caution)
+        #expect(decoded.implicatedNodeIDs == ["a", "b"])
+        #expect(decoded.implicatedEdgeIDs == ["e1"])
+    }
+
+    @Test("ChainIntegrity.Verdict exposes exactly 3 closed cases")
+    func closedVerdictCaseSet() {
+        let cases = ChainIntegrity.Verdict.allCases
+        #expect(cases.count == 3)
+        #expect(cases.contains(.clean))
+        #expect(cases.contains(.caution))
+        #expect(cases.contains(.compromised))
+    }
+}
