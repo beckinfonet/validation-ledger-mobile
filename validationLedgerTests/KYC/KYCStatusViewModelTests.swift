@@ -34,11 +34,21 @@ struct KYCStatusViewModelTests {
         }
     }
 
+    /// A fresh, uniquely-serviced `KeychainStore` per test so the `.kycStatus`
+    /// refresh write (Phase 6 D6-08) lands in an isolated keychain partition.
+    private func makeKeychain() -> KeychainStore {
+        KeychainStore(service: "vl.test.kyc.status.\(UUID().uuidString)")
+    }
+
     @MainActor
-    private func makeViewModel(store: KYCSessionStore) -> KYCStatusViewModel {
+    private func makeViewModel(
+        store: KYCSessionStore,
+        keychain: KeychainStore? = nil
+    ) -> KYCStatusViewModel {
         KYCStatusViewModel(
             apiClient: KYCUploaderTestSupport.makeClient(),
             store: store,
+            keychain: keychain ?? makeKeychain(),
             logger: KYCUploaderTestSupport.makeLogger()
         )
     }
@@ -200,5 +210,76 @@ struct KYCStatusViewModelTests {
         #expect(KYCStatusViewModel.artifactType(forID: "art-plate-006") == .plate)
         // An unrecognized ID shape returns nil — that row simply has no Retake target.
         #expect(KYCStatusViewModel.artifactType(forID: "opaque-uuid-xyz") == nil)
+    }
+
+    // MARK: - Phase 6 D6-08 — kycStatus Keychain refresh after GET /kyc/status
+
+    /// Read back the cached `.kycStatus` string from a test keychain.
+    private func cachedKYCStatus(in keychain: KeychainStore) -> String? {
+        guard let data = try? keychain.get(.kycStatus) else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    @Test("D6-08: a verified fetch refreshes Keychain .kycStatus to \"verified\"")
+    func verifiedFetchRefreshesKeychainStatus() async throws {
+        MockURLProtocol.reset()
+        defer { MockURLProtocol.reset() }
+        try registerStatusFixture("kyc-status-verified")
+
+        let store = try KYCUploaderTestSupport.makeStore()
+        let keychain = makeKeychain()
+        let viewModel = await makeViewModel(store: store, keychain: keychain)
+
+        await viewModel.fetchStatus()
+
+        // D6-08: the fresh backend `overall_status` is now cached so the
+        // fail-closed cold-boot SessionRestoreProbe routes on current truth.
+        #expect(cachedKYCStatus(in: keychain) == "verified",
+                "a verified GET /kyc/status must refresh Keychain .kycStatus to \"verified\"")
+    }
+
+    @Test("D6-08: a non-verified fetch caches the non-verified status verbatim (fail-closed preserved)")
+    func nonVerifiedFetchCachesNonVerifiedStatus() async throws {
+        MockURLProtocol.reset()
+        defer { MockURLProtocol.reset() }
+        try registerStatusFixture("kyc-status-under-review")
+
+        let store = try KYCUploaderTestSupport.makeStore()
+        let keychain = makeKeychain()
+        let viewModel = await makeViewModel(store: store, keychain: keychain)
+
+        await viewModel.fetchStatus()
+
+        // D6-08 is a CORRECTNESS fix, not a relaxation: a non-"verified" status
+        // is cached verbatim. The cold-boot probe still fails CLOSED on any
+        // non-"verified" value — caching `under_review` keeps that gate honest.
+        #expect(cachedKYCStatus(in: keychain) == "under_review",
+                "a non-verified GET /kyc/status must cache the non-verified status verbatim")
+        let state = await viewModel.state
+        #expect(state == .underReview,
+                "the routing/state mapping is unchanged — under_review still maps to .underReview")
+    }
+
+    @Test("D6-08: a fresh status overwrites a stale cached .kycStatus")
+    func freshStatusOverwritesStaleCachedStatus() async throws {
+        MockURLProtocol.reset()
+        defer { MockURLProtocol.reset() }
+        try registerStatusFixture("kyc-status-verified")
+
+        let store = try KYCUploaderTestSupport.makeStore()
+        let keychain = makeKeychain()
+        // Seed a STALE cached status — a prior session's value.
+        try keychain.set(
+            Data("pending".utf8),
+            for: .kycStatus,
+            accessibility: .afterFirstUnlockThisDeviceOnly
+        )
+        #expect(cachedKYCStatus(in: keychain) == "pending", "stale value is seeded")
+
+        let viewModel = await makeViewModel(store: store, keychain: keychain)
+        await viewModel.fetchStatus()
+
+        #expect(cachedKYCStatus(in: keychain) == "verified",
+                "a successful GET /kyc/status must overwrite the stale cached .kycStatus")
     }
 }

@@ -43,6 +43,19 @@ final class AppCoordinator {
     /// SceneDelegate root-swaps to a non-.kyc phase (this AppCoordinator deallocates).
     private var kycCoordinator: KYCCoordinator?
 
+    /// Phase 6 D6-10: strong reference to the `.role`-phase limited-trust banner
+    /// container so the `.trustTierDidChange` observer can re-render the banner
+    /// on a `trustTier` mutation. Non-nil ONLY for the `.role` phase; nil for
+    /// every other phase. Held for the AppCoordinator's full lifetime — released
+    /// when SceneDelegate root-swaps to a fresh AppCoordinator (ADR 0002).
+    private var limitedTrustBannerContainer: LimitedTrustBannerContainerViewController?
+
+    /// Phase 6 D6-10: observer token for `.trustTierDidChange`, scoped to this
+    /// container's `AppSession`. Removed on `deinit` so a root-swapped (dropped)
+    /// AppCoordinator does not keep observing — mirrors the SceneDelegate
+    /// observer-token cleanup discipline.
+    private var trustTierObserver: NSObjectProtocol?
+
     init(container: AppContainer, phase: AppPhase) {
         self.container = container
         self.phase = phase
@@ -67,12 +80,17 @@ final class AppCoordinator {
             self.kycCoordinator = coord
             self.rootViewController = coord.rootViewController
         case .role(let role):
-            // Phase 4 D-11 + D-12: wrap the role tab bar with the non-dismissible
-            // limited-trust banner when container.session.trustTier != .hardwareAttested.
-            // Default AppSession.trustTier is .softwareOnly (Plan 06 safe default), so the
-            // banner shows on first cold-launch before any /device/register or
-            // /device/heartbeat response has confirmed .hardwareAttested (D-12). The
-            // wrapper is idempotent on the hardware-attested branch (returns `self`).
+            // Phase 4 D-11 + D-12 / Phase 6 D6-10: wrap the role tab bar in the
+            // limited-trust banner container. The banner shows when
+            // container.session.trustTier != .hardwareAttested. AppContainer
+            // now seeds session.trustTier from the persisted device.trustTier
+            // Keychain item (D6-01 consumer) so the banner is correct from
+            // frame 1 on both cold-boot restore and post-OTP verify.
+            //
+            // The container is retained in `limitedTrustBannerContainer` so the
+            // `.trustTierDidChange` observer wired below can re-render the
+            // banner when a heartbeat (D-12) or the first-login consumer
+            // mutates the tier mid-session (D6-10).
             //
             // Placement rationale: this is the single construction site for the .role
             // root VC; wrapping here keeps the banner attached to every path that lands
@@ -80,7 +98,10 @@ final class AppCoordinator {
             // NetworkConfig toggle — all funnel through SceneDelegate.presentRoot which
             // constructs a fresh AppCoordinator with a fresh AppContainer per ADR 0002).
             let tabBar = Self.roleCoordinator(for: role, container: container)
-            self.rootViewController = tabBar.wrapWithLimitedTrustBanner(trustTier: container.session.trustTier)
+            let bannerContainer = LimitedTrustBannerContainerViewController(child: tabBar)
+            bannerContainer.update(trustTier: container.session.trustTier)
+            self.limitedTrustBannerContainer = bannerContainer
+            self.rootViewController = bannerContainer
         case .anotherActiveSession:
             self.rootViewController = AnotherActiveSessionViewController(supportEmail: Environment.supportEmail)
         }
@@ -117,10 +138,42 @@ final class AppCoordinator {
                 }
             }
         }
+        // Phase 6 D6-10: observe `.trustTierDidChange` on this container's
+        // `AppSession` so the role-shell limited-trust banner re-renders when a
+        // heartbeat (D-12) or the first-login consumer mutates the tier
+        // mid-session. Scoped to `container.session` as the notification
+        // `object` so a sibling AppSession (a different scene / a dropped
+        // container) cannot drive this coordinator's banner. The observer is
+        // only meaningful for the `.role` phase — `limitedTrustBannerContainer`
+        // is nil for every other phase, so the closure is a guarded no-op
+        // there. `[weak self]` discipline matches the AuthCoordinator /
+        // KYCCoordinator callback wiring above.
+        if self.limitedTrustBannerContainer != nil {
+            self.trustTierObserver = NotificationCenter.default.addObserver(
+                forName: .trustTierDidChange,
+                object: container.session,
+                queue: .main
+            ) { [weak self] note in
+                MainActor.assumeIsolated {
+                    guard let self,
+                          let bannerContainer = self.limitedTrustBannerContainer else { return }
+                    let raw = note.userInfo?[AppSession.trustTierUserInfoKey] as? String
+                    let newTier = raw.flatMap { TrustTier(rawValue: $0) } ?? .softwareOnly
+                    // D6-10 / ADR 0002: re-render the banner with no animation,
+                    // no root-swap — the container toggles the banner in place.
+                    bannerContainer.update(trustTier: newTier)
+                }
+            }
+        }
         container.logger.info(event: .init("app_coordinator_init"), fields: [.event: Self.phaseDescription(phase)])
     }
 
     deinit {
+        // Phase 6 D6-10: drop the `.trustTierDidChange` observer so a
+        // root-swapped (ARC-dropped) AppCoordinator stops observing.
+        if let token = trustTierObserver {
+            NotificationCenter.default.removeObserver(token)
+        }
         container.logger.info(event: .init("app_coordinator_deinit"), fields: [:])
     }
 

@@ -38,4 +38,13 @@ public struct KeychainKey: Hashable, Sendable {
     // by name in downstream plans (03, 06, 07, 09); do NOT rename.
     public static let attestedKeyId    = KeychainKey(rawValue: "device.attestedKeyId")
     public static let lastHeartbeatAt  = KeychainKey(rawValue: "device.lastHeartbeatAt")
+
+    // Phase 6 DEV-04 (D6-01, D6-02): backend-driven trust tier cached at first login.
+    // Written by OTPViewModel (Plan 02) from the `/device/register` response, read by the
+    // role-shell AppContainer (Plan 03) to seed AppSession across the post-OTP container swap.
+    // Lives in the same `device.` attestation key group as attestedKeyId / lastHeartbeatAt.
+    // MUST NOT be a member of KeychainScope.session — D6-02 preserves device.trustTier across
+    // logout exactly like device.attestedKeyId; there is no delete site (no LogoutService wiring).
+    // Raw value is referenced by name in downstream plans (02, 03); do NOT rename.
+    public static let trustTier        = KeychainKey(rawValue: "device.trustTier")
 }

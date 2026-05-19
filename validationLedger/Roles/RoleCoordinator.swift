@@ -71,70 +71,32 @@ public extension RoleCoordinator where Self: UITabBarController {
 
 @MainActor
 public extension UITabBarController {
-    /// Phase 4 D-11 + D-12: conditionally wraps the tab bar controller with a
-    /// non-dismissible limited-trust banner when the backend-returned
-    /// `trustTier` is not `.hardwareAttested`.
+    /// Phase 4 D-11 + D-12 / Phase 6 D6-10: wraps the tab bar controller in a
+    /// `LimitedTrustBannerContainerViewController` and shows the non-dismissible
+    /// limited-trust banner when the backend-returned `trustTier` is not
+    /// `.hardwareAttested`.
     ///
-    /// Returns:
-    /// - `trustTier == .hardwareAttested` → `self` unchanged (no wrapper).
-    /// - `trustTier == .softwareOnly`     → a parent `UIViewController` whose
-    ///   view stack is `[self.view (pinned to safe-area bottom + sides + under
-    ///   banner), LimitedTrustBannerView (pinned to safe-area top)]`. The
-    ///   wrapper becomes the new `window.rootViewController` for the `.role`
-    ///   phase; `SceneDelegate.presentRoot` swaps to this wrapper.
+    /// Always returns a `LimitedTrustBannerContainerViewController` — even on
+    /// the `.hardwareAttested` (banner-absent) branch. Phase 4 returned `self`
+    /// unchanged on that branch, which made the banner un-re-renderable: a
+    /// `trustTier` mutation mid-session could not add a banner because the root
+    /// was a bare tab bar. Phase 6 D6-10 always installs the container so
+    /// `AppCoordinator` can call `container.update(trustTier:)` on a tier
+    /// change — the banner appears on a downgrade and is removed on an upgrade,
+    /// WITHOUT a root-swap and WITHOUT animation (ADR 0002). The container is
+    /// the new `window.rootViewController` for the `.role` phase.
     ///
-    /// Layout (04-RESEARCH.md Pitfall 7): banner pins to the parent container
-    /// view's safe-area top, NOT raw `topAnchor`. This is the discipline that
-    /// survives iPad notch, Dynamic Island, and portrait↔landscape rotation.
-    /// Raw `topAnchor` pinning breaks under the status bar on notched devices.
+    /// Layout (04-RESEARCH.md Pitfall 7): the banner pins to the container
+    /// view's safe-area top, NOT raw `topAnchor` — the discipline that survives
+    /// iPad notch, Dynamic Island, and portrait↔landscape rotation.
     ///
     /// Why the banner is a sibling (NOT a subview of `self.tabBar`):
     /// Apple does not support adding arbitrary subviews to `UITabBarController.tabBar`
-    /// — it breaks on iPad landscape where the tab bar layout changes. Installing the
+    /// — it breaks on iPad landscape where the tab bar layout changes. Hosting the
     /// banner inside a parent container VC sidesteps the constraint entirely.
-    ///
-    /// Re-wrapping semantics: if `trustTier` mutates from `.softwareOnly` →
-    /// `.hardwareAttested` mid-session via a Plan 07 heartbeat (D-12), the
-    /// banner does NOT auto-remove this session. A fresh `presentRoot(.role)`
-    /// call (app relaunch, role switch, logout+login) re-evaluates. This is
-    /// the M1 tradeoff per CLAUDE.md simplicity posture; M2 can introduce a
-    /// reactive update via NotificationCenter if product demands it.
     func wrapWithLimitedTrustBanner(trustTier: TrustTier) -> UIViewController {
-        guard trustTier != .hardwareAttested else {
-            return self
-        }
-
-        let container = UIViewController()
-        container.view.backgroundColor = .systemBackground
-
-        let banner = LimitedTrustBannerView()
-        banner.translatesAutoresizingMaskIntoConstraints = false
-        container.view.addSubview(banner)
-
-        // UIKit parent-child containment discipline (addChild → addSubview → didMove).
-        // Without this, rotation callbacks + size-class propagation would bypass the
-        // child tab bar controller, which would break iPad landscape layout (the exact
-        // scenario Pitfall 7 warns about).
-        container.addChild(self)
-        self.view.translatesAutoresizingMaskIntoConstraints = false
-        container.view.addSubview(self.view)
-        self.didMove(toParent: container)
-
-        NSLayoutConstraint.activate([
-            // Banner pinned to safe-area top (04-RESEARCH.md Pitfall 7).
-            banner.topAnchor.constraint(equalTo: container.view.safeAreaLayoutGuide.topAnchor),
-            banner.leadingAnchor.constraint(equalTo: container.view.leadingAnchor),
-            banner.trailingAnchor.constraint(equalTo: container.view.trailingAnchor),
-
-            // Tab bar controller's view pinned below the banner + to all remaining
-            // edges. The tab bar's own safe-area handling continues to manage the
-            // bottom inset; the banner just steals the top safe-area strip.
-            self.view.topAnchor.constraint(equalTo: banner.bottomAnchor),
-            self.view.leadingAnchor.constraint(equalTo: container.view.leadingAnchor),
-            self.view.trailingAnchor.constraint(equalTo: container.view.trailingAnchor),
-            self.view.bottomAnchor.constraint(equalTo: container.view.bottomAnchor),
-        ])
-
+        let container = LimitedTrustBannerContainerViewController(child: self)
+        container.update(trustTier: trustTier)
         return container
     }
 }

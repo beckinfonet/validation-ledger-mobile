@@ -1,5 +1,6 @@
 // validationLedger/Features/Onboarding/Auth/OTPViewModel.swift
 // Phase 3 Plan 09 — AUTH-02 + AUTH-03 + D-02 + D-06 + D-27.
+// Phase 6 Plan 02 — DEV-04: STEP 5 first-login App Attest orchestration.
 //
 // Drives the OTP verification + post-verify device registration flow.
 // After successful OTPVerify, runs the D-27 7-step orchestration:
@@ -7,10 +8,26 @@
 //   2. Persist sessionToken/role/userID to Keychain (D-06/AUTH-03)
 //   3. generateDeviceIdentityKeys (DEV-01/DEV-02)
 //   4. (combined with 3 — single protocol call)
-//   5. POST /device/register with devicePublicKey + DeviceFingerprint (DEV-05)
+//   5. App Attest + POST /device/register (DEV-04 / Phase 6):
+//      generateKeyIfNeeded() -> GET /device/challenge -> attestKey() -> POST
+//      /device/register with the real attestation payload + DeviceFingerprint
+//      (DEV-05). The captured register response's trustTier is persisted to
+//      Keychain via AttestedKeyStore.writeTrustTier (D6-01).
 //   6. BiometricService.evaluate(reason:fallback: .none) — records initial
 //      evaluatedPolicyDomainState for SESS-03 re-enrollment detection (D-09)
 //   7. Return role via onAuthenticated — AppCoordinator root-swaps to .role(role)
+//
+// STEP 5 attestation postures (Phase 6 / 06-RESEARCH):
+//   - D6-04 graceful skip: a non-.attested / non-.simulatorBypass status is
+//     carried into the register payload with nil attestedKeyId/attestationObject;
+//     login STILL completes (unlike the heartbeat path which returns early).
+//   - D6-05 degrade-and-continue: a transient attestation failure (challenge
+//     fetch throws or attestKey throws) degrades the payload to
+//     attestationStatus = .error with nil fields, and STILL POSTs /device/register.
+//     App Attest is never a login gate.
+//   - D6-06 challengeExpired retry: a `challengeExpired` server error on the
+//     register POST refetches the challenge, re-attests, and retries the POST
+//     exactly ONCE. A second consecutive expiry surfaces as .registerFailed.
 //
 // Rate-limit handling (AUTH-02 / D-02):
 //   - APIClient surfaces HTTP 429 as NetworkError.rateLimited(retryAfter:)
@@ -81,7 +98,19 @@ public final class OTPViewModel {
     private let keyStore: any KeyStoreProtocol
     private let biometric: any BiometricService
     private let sessionLock: any SessionLockService
+    /// Phase 6 DEV-04 (D6-01): App Attest service for the STEP 5 first-login
+    /// orchestration. AppContainer selects the concrete impl (DCAppAttest on
+    /// device / SimulatorBypass under #if DEBUG && targetEnvironment(simulator))
+    /// and injects it through this initializer — OTPViewModel just consumes it.
+    private let attestationService: any AttestationService
     private let logger: any Logger
+
+    /// Phase 6 DEV-04 (D6-01): the Keychain hand-off channel for the
+    /// backend-driven trust tier. Constructed internally from the already-held
+    /// `keychain` — mirrors `SceneDelegate.performHeartbeatIfNeeded`, which
+    /// builds `AttestedKeyStore(keychain:)` the same way rather than injecting
+    /// the store directly.
+    private let attestedKeyStore: AttestedKeyStore
 
     private var countdownTimer: Timer?
 
@@ -92,6 +121,7 @@ public final class OTPViewModel {
         keyStore: any KeyStoreProtocol,
         biometric: any BiometricService,
         sessionLock: any SessionLockService,
+        attestationService: any AttestationService,
         logger: any Logger
     ) {
         self.otpSessionID = otpSessionID
@@ -100,6 +130,8 @@ public final class OTPViewModel {
         self.keyStore = keyStore
         self.biometric = biometric
         self.sessionLock = sessionLock
+        self.attestationService = attestationService
+        self.attestedKeyStore = AttestedKeyStore(keychain: keychain)
         self.logger = logger
     }
 
@@ -184,30 +216,22 @@ public final class OTPViewModel {
             return
         }
 
-        // === STEP 5: POST /device/register (DEV-05 + D-02 three-key payload) ===
-        // Phase 4 (04-04): Endpoint now carries the full three-key contract (D-02)
-        // plus attestationStatus (D-09). Until Plan 03 wires DCAppAttestAttestationService,
-        // OTPViewModel passes attestationStatus: .unsupported with nil attestation fields
-        // — the omission rule (D-09) keeps those fields out of the wire payload.
-        // Plan 06 AppContainer wiring will replace this with an AttestationService call
-        // that returns the real status + optional attestedKeyId/attestationObject.
+        // === STEP 5: App Attest + POST /device/register (DEV-04 + D-02 three-key) ===
+        // Phase 6 fulfills the DEV-04 gap: STEP 5 now fires App Attest before the
+        // register POST. generateKeyIfNeeded() -> GET /device/challenge ->
+        // attestKey() produces the real attestation payload; a non-.attested
+        // status or a transient failure degrades gracefully (D6-04 / D6-05) and
+        // login is never blocked. The captured register response's trustTier is
+        // persisted to Keychain (D6-01). The progress slot stays at 4/6 — the
+        // attestation work folds into the existing STEP 5 slot (06-RESEARCH A3).
         state = .settingUp(progress: 4, total: 6)
+        let fingerprintPayload: DeviceRegisterEndpoint.DeviceFingerprintPayload
         do {
             let fingerprint = try DeviceFingerprint.current(keychain: keychain)
-            let payload = DeviceRegisterEndpoint.DeviceFingerprintPayload(
+            fingerprintPayload = DeviceRegisterEndpoint.DeviceFingerprintPayload(
                 model: fingerprint.model,
                 iosVersion: fingerprint.iosVersion,
                 installUUID: fingerprint.installUUID
-            )
-            _ = try await apiClient.request(
-                DeviceRegisterEndpoint(
-                    devicePublicKey: devicePub.base64EncodedString(),
-                    authorizationPublicKey: authPub.base64EncodedString(),
-                    attestedKeyId: nil,
-                    attestationObject: nil,
-                    attestationStatus: .unsupported,
-                    fingerprint: payload
-                )
             )
         } catch {
             logger.warn(event: .init("device_register_failed"),
@@ -216,6 +240,50 @@ public final class OTPViewModel {
             state = .registerFailed
             return
         }
+
+        // D6-04 / D6-05: build the attestation fields. Never throws — a
+        // non-.attested status or a transient failure both resolve to a
+        // graceful fields tuple (nil keyId/object + a degraded status).
+        var attestation = await buildAttestationFields()
+
+        let registerResponse: DeviceRegisterEndpoint.Response
+        do {
+            do {
+                registerResponse = try await postDeviceRegister(
+                    devicePub: devicePub,
+                    authPub: authPub,
+                    attestation: attestation,
+                    fingerprint: fingerprintPayload
+                )
+            } catch let NetworkError.httpError(_, data)
+                where AttestationErrorResponseInterceptor.extractErrorCode(from: data) == "challengeExpired" {
+                // D6-06: the backend rejected a stale challenge. Refetch the
+                // challenge, re-attest, and retry the register POST exactly ONCE.
+                // A second consecutive challengeExpired (or any other failure on
+                // the retry) is NOT retried again — it surfaces below.
+                logger.warn(event: .init("attestation_first_login_challenge_expired_retry"),
+                            fields: [:])
+                attestation = await buildAttestationFields()
+                registerResponse = try await postDeviceRegister(
+                    devicePub: devicePub,
+                    authPub: authPub,
+                    attestation: attestation,
+                    fingerprint: fingerprintPayload
+                )
+            }
+        } catch {
+            logger.warn(event: .init("device_register_failed"),
+                        fields: [.event: String(describing: error)])
+            // D-27 step 5 failure does NOT clear keychain — retry-able via retryRegister().
+            state = .registerFailed
+            return
+        }
+
+        // D6-01: persist the backend-driven trustTier to Keychain. A Keychain
+        // write failure must NOT block login — `try?` degrades to the safe
+        // `.softwareOnly` default downstream (the role-shell AppContainer
+        // re-hydrates from this key in Plan 03).
+        try? attestedKeyStore.writeTrustTier(registerResponse.trustTier)
 
         // === STEP 6: BiometricService.evaluate — records initial domainState (D-09) ===
         state = .settingUp(progress: 5, total: 6)
@@ -245,6 +313,92 @@ public final class OTPViewModel {
         } else {
             onKYCRequired?(role)
         }
+    }
+
+    // MARK: - STEP 5 attestation orchestration (DEV-04 / Phase 6)
+
+    /// The attestation fields for one `/device/register` POST attempt.
+    private struct AttestationFields {
+        let attestedKeyId: String?
+        let attestationObject: Data?
+        let status: AttestationStatus
+    }
+
+    /// Runs the App Attest orchestration for one register attempt:
+    /// `generateKeyIfNeeded()` -> `GET /device/challenge` -> `attestKey()`.
+    ///
+    /// Never throws — this is the D6-04/D6-05 graceful-skip + degrade boundary.
+    /// Outcomes:
+    ///   - D6-04 graceful skip: a non-.attested / non-.simulatorBypass status
+    ///     yields nil keyId/object + the real status (the backend routes the
+    ///     device to `.softwareOnly`). attestKey is NOT called and no challenge
+    ///     is fetched.
+    ///   - happy path: a usable-key status yields the real attestedKeyId +
+    ///     attestationObject + the status.
+    ///   - D6-05 degrade: a transient failure (challenge fetch throws,
+    ///     base64-decode fails, or attestKey throws) yields nil keyId/object +
+    ///     `status = .error`. Login is never blocked.
+    ///
+    /// PII discipline (D6-07 / Pattern A / T-06-02-01): the attestation log
+    /// calls below carry ONLY the event name + `AttestationStatus.rawValue` (a
+    /// closed-set string) — never `String(describing: error)`, `.userInfo`, or
+    /// `.localizedDescription`.
+    private func buildAttestationFields() async -> AttestationFields {
+        do {
+            // D-01: idempotent, once-per-install — returns the existing key on a hit.
+            let (keyId, status) = try await attestationService.generateKeyIfNeeded()
+
+            // D6-04 graceful skip: no usable key. Carry the status; omit fields.
+            guard status == .attested || status == .simulatorBypass else {
+                logger.warn(event: .init("attestation_first_login_skipped_no_key"),
+                            fields: [.event: status.rawValue])
+                return AttestationFields(attestedKeyId: nil, attestationObject: nil, status: status)
+            }
+
+            // Fetch the challenge (D-05) and base64-decode to raw bytes (D-06).
+            let challengeResponse = try await apiClient.request(DeviceChallengeEndpoint())
+            guard let challengeData = Data(base64Encoded: challengeResponse.challenge) else {
+                // A non-decodable challenge is a degrade, not a login block (D6-05).
+                logger.warn(event: .init("attestation_first_login_degraded"), fields: [:])
+                return AttestationFields(attestedKeyId: nil, attestationObject: nil, status: .error)
+            }
+
+            // Produce the CBOR attestationObject (SHA-256 of challenge inside the service).
+            let attestationObject = try await attestationService.attestKey(
+                keyId: keyId, challenge: challengeData
+            )
+            return AttestationFields(
+                attestedKeyId: keyId,
+                attestationObject: attestationObject,
+                status: status
+            )
+        } catch {
+            // D6-05 transient degrade — challenge fetch OR attestKey threw.
+            // Login still completes with attestationStatus = .error.
+            logger.warn(event: .init("attestation_first_login_degraded"), fields: [:])
+            return AttestationFields(attestedKeyId: nil, attestationObject: nil, status: .error)
+        }
+    }
+
+    /// Issues a single `POST /device/register`. Throws the typed `NetworkError`
+    /// surfaced by `APIClient` so the STEP 5 caller can pattern-match a
+    /// `challengeExpired` body for the D6-06 retry.
+    private func postDeviceRegister(
+        devicePub: Data,
+        authPub: Data,
+        attestation: AttestationFields,
+        fingerprint: DeviceRegisterEndpoint.DeviceFingerprintPayload
+    ) async throws -> DeviceRegisterEndpoint.Response {
+        try await apiClient.request(
+            DeviceRegisterEndpoint(
+                devicePublicKey: devicePub.base64EncodedString(),
+                authorizationPublicKey: authPub.base64EncodedString(),
+                attestedKeyId: attestation.attestedKeyId,
+                attestationObject: attestation.attestationObject,
+                attestationStatus: attestation.status,
+                fingerprint: fingerprint
+            )
+        )
     }
 
     // MARK: - Retry-After countdown (AUTH-02 / D-02)
