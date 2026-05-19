@@ -89,34 +89,40 @@ Which phases cover which requirements. Populated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LOAD-01 | — | Pending |
-| LOAD-02 | — | Pending |
-| LOAD-03 | — | Pending |
-| LOAD-04 | — | Pending |
-| LOAD-05 | — | Pending |
-| LOAD-06 | — | Pending |
-| LOAD-07 | — | Pending |
-| LOAD-08 | — | Pending |
-| TRUST-01 | — | Pending |
-| TRUST-02 | — | Pending |
-| TRUST-03 | — | Pending |
-| TRUST-04 | — | Pending |
-| TRUST-05 | — | Pending |
-| ACTION-01 | — | Pending |
-| ACTION-02 | — | Pending |
-| ACTION-03 | — | Pending |
-| ACTION-04 | — | Pending |
-| ACTION-05 | — | Pending |
-| ACTION-06 | — | Pending |
-| ACTION-07 | — | Pending |
-| ACTION-08 | — | Pending |
-| ACTION-09 | — | Pending |
+| LOAD-01 | Phase 7 | Pending |
+| LOAD-02 | Phase 7 | Pending |
+| LOAD-03 | Phase 8 | Pending |
+| LOAD-04 | Phase 8 | Pending |
+| LOAD-05 | Phase 9 | Pending |
+| LOAD-06 | Phase 9 | Pending |
+| LOAD-07 | Phase 8 | Pending |
+| LOAD-08 | Phase 8 | Pending |
+| TRUST-01 | Phase 9 | Pending |
+| TRUST-02 | Phase 8 | Pending |
+| TRUST-03 | Phase 9 | Pending |
+| TRUST-04 | Phase 9 | Pending |
+| TRUST-05 | Phase 9 | Pending |
+| ACTION-01 | Phase 10 | Pending |
+| ACTION-02 | Phase 10 | Pending |
+| ACTION-03 | Phase 10 | Pending |
+| ACTION-04 | Phase 10 | Pending |
+| ACTION-05 | Phase 10 | Pending |
+| ACTION-06 | Phase 10 | Pending |
+| ACTION-07 | Phase 10 | Pending |
+| ACTION-08 | Phase 10 | Pending |
+| ACTION-09 | Phase 10 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 22 total
-- Mapped to phases: 0 (roadmap not yet created)
-- Unmapped: 22 ⚠️
+- Mapped to phases: 22 ✓
+- Unmapped: 0 ✓
+
+**Per-phase distribution:**
+- Phase 7 (Load Domain Model & Mock Contract): LOAD-01, LOAD-02 — 2 requirements
+- Phase 8 (Role-Filtered Load List): LOAD-03, LOAD-04, LOAD-07, LOAD-08, TRUST-02 — 5 requirements
+- Phase 9 (Load Detail & Chain-of-Trust Graph): LOAD-05, LOAD-06, TRUST-01, TRUST-03, TRUST-04, TRUST-05 — 6 requirements
+- Phase 10 (Per-Role Tender / Accept / Reject): ACTION-01 through ACTION-09 — 9 requirements
 
 ---
 *Requirements defined: 2026-05-19*
-*Last updated: 2026-05-19 after initial v1.1 definition*
+*Last updated: 2026-05-19 — traceability populated against the v1.1 roadmap (Phases 7-10)*
