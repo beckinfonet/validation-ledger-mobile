@@ -57,8 +57,8 @@ Full v1.0 phase goals, success criteria, requirement mappings, and plan lists ar
 Plans:
 **Wave 1**
 
-- [ ] 07-01-PLAN.md — Core/Load/ leaf enums (LoadStatus, LoadAction, VerificationState, ChainIntegrity, DeviceBindingStatus, USDOTAuthorityStatus) + fail-closed decoder tests
-- [ ] 07-04-PLAN.md — Additive MockURLProtocol latency + forced-failure injection + 8 verification tests
+- [x] 07-01-PLAN.md — Core/Load/ leaf enums (LoadStatus, LoadAction, VerificationState, ChainIntegrity, DeviceBindingStatus, USDOTAuthorityStatus) + fail-closed decoder tests
+- [x] 07-04-PLAN.md — Additive MockURLProtocol latency + forced-failure injection + 8 verification tests
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
@@ -143,7 +143,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10
 | 4. App Attest & Physical-Device CI Hardening | v1.0 | 11/11 | Complete | 2026-05-16 |
 | 5. KYC Capture & Upload Pipeline | v1.0 | 13/13 | Complete | 2026-05-18 |
 | 6. Close gap: DEV-04 + trustTier + Phase 4 verification | v1.0 | 4/4 | Complete | 2026-05-18 |
-| 7. Load Domain Model & Mock Contract | v1.1 | 0/6 | Planned | - |
+| 7. Load Domain Model & Mock Contract | v1.1 | 2/6 | In Progress|  |
 | 8. Role-Filtered Load List | v1.1 | 0/TBD | Not started | - |
 | 9. Load Detail & Chain-of-Trust Graph | v1.1 | 0/TBD | Not started | - |
 | 10. Per-Role Tender / Accept / Reject | v1.1 | 0/TBD | Not started | - |
