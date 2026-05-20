@@ -253,6 +253,23 @@ public final class LoadDetailBodyView: UIView {
         ])
     }
 
+    // MARK: - Plan 09 — pinned-header visibility flag (D-01 / I-05 locked path)
+
+    /// When `true`, the embedded `pinnedSummaryHeader` is hidden — the
+    /// `LoadDetailViewController` owns a top-level pinned-header instance
+    /// instead (iPhone composition: header at the top of the VC view, above
+    /// the chain-integrity banner). When `false` (default), the body's
+    /// embedded pinned header is shown (iPad composition: header at the
+    /// top of the right pane). The flag is the LOCKED path per Plan 09
+    /// I-05 — Planner ruled out extracting `PinnedSummaryHeaderView` into
+    /// its own type; the body keeps the pinned-header subview and the VC
+    /// controls visibility through this flag.
+    public var hidesPinnedSummaryHeader: Bool = false {
+        didSet {
+            pinnedSummaryHeader.isHidden = hidesPinnedSummaryHeader
+        }
+    }
+
     // MARK: - Public API — populate the pinned summary header from a Load
 
     /// Populate the pinned summary header content from the Decodable Load.
@@ -274,5 +291,64 @@ public final class LoadDetailBodyView: UIView {
         // fields, preserving the T-09-03 separation locked at this file's
         // top.
         statusTimeline.configure(load: load)
+    }
+
+    /// Plan 09 (D-01 / I-05 locked path) — convenience overload that
+    /// applies the `hidesPinnedSummaryHeader` flag in the same call as the
+    /// Load-driven configure. The VC calls this in its `render(state:)`
+    /// `.loaded(...)` branch after picking the composition layout for the
+    /// current `horizontalSizeClass`.
+    ///
+    /// Equivalent to `hidesPinnedSummaryHeader = hidesPinnedHeader` followed
+    /// by `configure(load:)`, surfaced as a single method so the VC's
+    /// composition-driven configure path is one atomic call instead of two.
+    public func configure(load: Load, hidesPinnedHeader: Bool) {
+        hidesPinnedSummaryHeader = hidesPinnedHeader
+        configure(load: load)
+    }
+
+    // MARK: - Plan 09 — install the chain-integrity verdict block (D-02)
+
+    /// Populate the in-body chain-integrity verdict block from the chain
+    /// integrity payload. Called by `LoadDetailViewController.render(state:)`
+    /// AFTER `configure(load:)` (the VC owns the chainOfTrust storage from
+    /// Plan 07). For `verdict == .clean` the slot collapses to zero height
+    /// (`isHidden = true`); the verdict block view is NOT instantiated.
+    ///
+    /// Per T-09-03: every input (`verdict`, `reason`, `implicatedNodeCount`)
+    /// is server-supplied; no client derivation. Per T-09-04: `reason`
+    /// flows verbatim into the block's body text — no logger touches it.
+    ///
+    /// Idempotent: clears any prior block before re-installing so repeated
+    /// `render(state:)` cycles do not leak views.
+    public func installVerdictBlock(verdict: ChainIntegrity.Verdict,
+                                    reason: String?,
+                                    implicatedNodeCount: Int) {
+        // Clear any prior block — the container survives across render
+        // cycles, only the content is rebuilt.
+        verdictBlockContainer.subviews.forEach { $0.removeFromSuperview() }
+
+        guard verdict != .clean else {
+            // Clean → no block, slot collapses (the parent contentStack
+            // uses .fill alignment, so an empty hidden subview drops out
+            // of layout).
+            verdictBlockContainer.isHidden = true
+            return
+        }
+
+        let block = ChainIntegrityVerdictBlockView(
+            verdict: verdict,
+            reason: reason,
+            implicatedNodeCount: implicatedNodeCount
+        )
+        block.translatesAutoresizingMaskIntoConstraints = false
+        verdictBlockContainer.addSubview(block)
+        NSLayoutConstraint.activate([
+            block.topAnchor.constraint(equalTo: verdictBlockContainer.topAnchor),
+            block.bottomAnchor.constraint(equalTo: verdictBlockContainer.bottomAnchor),
+            block.leadingAnchor.constraint(equalTo: verdictBlockContainer.leadingAnchor),
+            block.trailingAnchor.constraint(equalTo: verdictBlockContainer.trailingAnchor),
+        ])
+        verdictBlockContainer.isHidden = false
     }
 }

@@ -79,8 +79,44 @@ class LoadDetailSkeletonViewSnapshotTests: XCTestCase {
 
     // MARK: - 2. iPad split silhouette — Plan 09 (D-03 iPad split layout)
 
-    func test_iPadSplitSilhouette_rendersExpectedFrame() throws {
-        throw XCTSkip("Wave 6 — populated by Plan 09 (iPad split silhouette)")
+    /// iPad landscape canvas — 1024×768 (iPad mini landscape; the smallest
+    /// regular-width target). The split silhouette renders a left pane
+    /// (skeleton graph circles) + a right pane (skeleton pinned-header
+    /// rectangle + 4 body rows). The iPad mode also leaves the iPhone-only
+    /// pinned-header rectangle inside the right pane (not at the top of the
+    /// view tree).
+    private static let iPadCanvasSize = CGSize(width: 1024, height: 768)
+
+    func test_iPadSplitSilhouette_rendersExpectedFrame() {
+        let view = LoadDetailSkeletonView()
+        view.renderMode = .iPadSplit
+        view.bounds = CGRect(origin: .zero, size: Self.iPadCanvasSize)
+        view.layoutIfNeeded()
+
+        UIKitSnapshot.attach(
+            UIKitSnapshot.image(of: view, size: Self.iPadCanvasSize),
+            name: "LoadDetailSkeleton-iPadSplit", to: self
+        )
+
+        // Structural assertions — UI-SPEC § iPad skeleton lines 503-505:
+        //   * left pane carries 5 role-slot circles (one per Role).
+        //   * right pane carries the pinned-header rectangle.
+        //   * right pane carries ≥ 4 body rows (Plan 09 silhouette guidance).
+        let allSubviews = collectAllSubviews(view)
+        let circles = allSubviews.filter { $0.accessibilityIdentifier == "load-detail.skeleton.circle" }
+        let bodyRows = allSubviews.filter { $0.accessibilityIdentifier == "load-detail.skeleton.body-row" }
+        let pinnedHeaders = allSubviews.filter { $0.accessibilityIdentifier == "load-detail.skeleton.pinned-header" }
+
+        XCTAssertEqual(circles.count, 5,
+                       "iPad split silhouette must render 5 role-slot circles in the left pane (D-06 mirror)")
+        XCTAssertGreaterThanOrEqual(bodyRows.count, 4,
+                                    "iPad split silhouette must render at least 4 grey body rows in the right pane (Plan 09 silhouette)")
+        XCTAssertEqual(pinnedHeaders.count, 1,
+                       "iPad split silhouette must render exactly one pinned-header rectangle at the top of the right pane")
+
+        // Root identifier unchanged across renderMode flips.
+        XCTAssertEqual(view.accessibilityIdentifier, "load-detail.skeleton",
+                       "root identifier survives the renderMode flip")
     }
 
     // MARK: - 3. Shimmer re-attach on layoutSubviews (PATTERNS E9, Pitfall 1)
