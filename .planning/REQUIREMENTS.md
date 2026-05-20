@@ -18,8 +18,8 @@ Requirements for the v1.1 "Load Flows" milestone. Each maps to a roadmap phase
 
 ### Load Domain
 
-- [ ] **LOAD-01**: Load-domain mock endpoints + fixtures — `GET /loads/{role}`, `GET /loads/{id}`, `GET /parties/{id}/verification`, and `POST /loads/{id}/{tender,accept,reject,status,post,cancel}` — extend the contract-first `MockURLProtocol` pattern with per-role and per-state fixtures, including empty, error, latency, and action-failure responses
-- [ ] **LOAD-02**: `Core/Load/` domain model — `Load`, `ChainOfTrust`, `TrustNode`, `LoadStatus`, `LoadAction`, `RoleLoadPolicy` as `Decodable & Sendable` value types implementing the full load state machine
+- [x] **LOAD-01**: Load-domain mock endpoints + fixtures — `GET /loads/{role}`, `GET /loads/{id}`, `GET /parties/{id}/verification`, and `POST /loads/{id}/{tender,accept,reject,status,post,cancel}` — extend the contract-first `MockURLProtocol` pattern with per-role and per-state fixtures, including empty, error, latency, and action-failure responses
+- [x] **LOAD-02**: `Core/Load/` domain model — `Load`, `ChainOfTrust`, `TrustNode`, `LoadStatus`, `LoadAction`, `RoleLoadPolicy` as `Decodable & Sendable` value types implementing the full load state machine
 - [ ] **LOAD-03**: User sees a role-filtered load list — each of the 5 roles sees only the loads relevant to it, filtered server/fixture-side (no client-side re-filtering)
 - [ ] **LOAD-04**: User sees the standard freight field set on each load row — reference #, origin → destination, pickup/delivery dates, equipment, weight, rate, load-status badge, and counterparty verification badge
 - [ ] **LOAD-05**: User can open a load detail screen from a load-list row
@@ -89,8 +89,8 @@ Which phases cover which requirements. Populated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| LOAD-01 | Phase 7 | Pending |
-| LOAD-02 | Phase 7 | Pending |
+| LOAD-01 | Phase 7 | Complete |
+| LOAD-02 | Phase 7 | Complete |
 | LOAD-03 | Phase 8 | Pending |
 | LOAD-04 | Phase 8 | Pending |
 | LOAD-05 | Phase 9 | Pending |
