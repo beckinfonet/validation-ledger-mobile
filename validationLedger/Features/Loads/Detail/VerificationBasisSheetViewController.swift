@@ -511,7 +511,15 @@ public final class VerificationBasisSheetViewController: UIViewController {
 
     private func makeImplicatedBlock(integrity: ChainIntegrity) -> UIView {
         let isCompromised = integrity.verdict == .compromised
-        let tintBase: UIColor = isCompromised ? DS.Colors.destructive : .systemYellow
+        // WR-02 fix (Phase 9 review): the caution branch must use the
+        // shared `DS.Colors.caution` token (introduced in Phase 9 to
+        // consolidate the chain-integrity banner + verdict block +
+        // flagged-edge dash + caution halo). Reaching for `.systemYellow`
+        // directly here bypasses that consolidation, so a future
+        // re-tinting (APCA contrast bump, brand refresh) silently
+        // diverges this implicated block from every other caution
+        // surface in the chain-of-trust UI.
+        let tintBase: UIColor = isCompromised ? DS.Colors.destructive : DS.Colors.caution
         let iconName = isCompromised ? "exclamationmark.octagon.fill" : "exclamationmark.triangle.fill"
 
         let container = UIView()

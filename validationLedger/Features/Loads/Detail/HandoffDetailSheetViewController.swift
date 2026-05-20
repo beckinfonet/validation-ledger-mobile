@@ -336,7 +336,12 @@ public final class HandoffDetailSheetViewController: UIViewController {
 
     private func makeImplicatedBlock(integrity: ChainIntegrity) -> UIView {
         let isCompromised = integrity.verdict == .compromised
-        let tintBase: UIColor = isCompromised ? DS.Colors.destructive : .systemYellow
+        // WR-02 fix (Phase 9 review): use the shared `DS.Colors.caution`
+        // token instead of `.systemYellow` so a future re-tinting (APCA
+        // contrast bump, brand refresh) keeps the handoff implicated block
+        // in lockstep with every other caution surface in the chain-of-
+        // trust UI (banner / verdict block / flagged-edge dash / halo).
+        let tintBase: UIColor = isCompromised ? DS.Colors.destructive : DS.Colors.caution
         let iconName = isCompromised ? "exclamationmark.octagon.fill" : "exclamationmark.triangle.fill"
 
         let container = UIView()
