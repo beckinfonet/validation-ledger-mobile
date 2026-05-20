@@ -319,10 +319,23 @@ public final class LoadDetailViewController: UIViewController {
 
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        // Capture `viewModel` to avoid a [weak self] guard for the simple
-        // single-call case — the VM is owned by `self`, so its lifetime is
-        // bounded by the VC's.
-        Task { [viewModel] in await viewModel.fetchLoadDetail() }
+        // WR-03 fix (Phase 9 review): only fetch when we have no data yet
+        // (.loading or .error). If we're already .loaded, every sheet
+        // dismissal (verification-basis / handoff-detail) would otherwise
+        // re-fire the network request, flash the skeleton over the user's
+        // already-rendered content, and re-replace the chain-of-trust
+        // payload — visible UI churn and unnecessary load on the backend.
+        // Pull-to-refresh + the .error retry CTA remain on the
+        // unconditional fetch path (they call fetchLoadDetail() directly).
+        switch viewModel.state {
+        case .loaded:
+            return
+        case .loading, .error:
+            // Capture `viewModel` to avoid a [weak self] guard for the simple
+            // single-call case — the VM is owned by `self`, so its lifetime is
+            // bounded by the VC's.
+            Task { [viewModel] in await viewModel.fetchLoadDetail() }
+        }
     }
 
     // MARK: - Composition rebuild on size-class flip (Plan 09 / D-03 / Pitfall 1)
