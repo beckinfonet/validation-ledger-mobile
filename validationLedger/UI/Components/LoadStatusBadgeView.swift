@@ -291,6 +291,12 @@ public final class LoadStatusBadgeView: UIView {
         if isTerminalErrorStrikethrough {
             // UI-SPEC §Color status table — terminal-error tones render with
             // strikethrough on the label.
+            //
+            // IMPORTANT: do NOT assign `label.text = nil` after setting
+            // `attributedText`. UILabel's `text` setter (even to nil) clears
+            // the previously-set `attributedText`, which silently strips the
+            // strikethrough at runtime. Setting `attributedText` is enough —
+            // `text` returns the plain string of the attributed payload.
             label.attributedText = NSAttributedString(
                 string: labelText,
                 attributes: [
@@ -298,9 +304,11 @@ public final class LoadStatusBadgeView: UIView {
                     .foregroundColor: foregroundColor,
                 ]
             )
-            label.text = nil
         } else {
             // Reset any prior strikethrough that a recycled cell might carry.
+            // Order matters: clear `attributedText` BEFORE assigning `text`
+            // — otherwise the prior attributedText survives a `text =` set
+            // in some iOS versions (mirror image of the trap above).
             label.attributedText = nil
             label.text = labelText
         }
