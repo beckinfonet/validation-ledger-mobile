@@ -48,25 +48,33 @@ final class FactoringTabBarController: UITabBarController, RoleCoordinator {
         // TAB ITEM TITLE remains `"Invoices"` exactly
         // (RoleShellSmokeTests:151 assertion).
         //
+        // WR-04 — route through the centralized
+        // `ShipperTabBarController.makeLoadsTab(...)` helper with the
+        // Factoring overrides (`title: "Invoices"`, `systemImage:
+        // "doc.text.magnifyingglass"`). Pre-WR-04 this file open-coded the
+        // entire title-override flow inline AND issued a second
+        // `viewControllers?.first?.tabBarItem = UITabBarItem(...)` REPLACEMENT
+        // after `wrapTabsWithNavAndInstallAvatar` — the latter discarded
+        // any `accessibilityIdentifier` the inner VC may have set on its
+        // tab-bar item (and duplicated the role→title mapping logic in a
+        // second place where a future edit could drift). The helper now
+        // mutates `tabBarItem` in place and is the single source of truth for
+        // Loads-tab construction across all 5 roles.
+        //
         // BL-02 — the in-screen nav-bar title is owned by the composition
         // root: `AppContainer.makeLoadListScreen(role:)` threads
         // `navTitle: "Invoices"` for `.factoring` into
         // `LoadListViewController.init`, so the loads VC's `viewDidLoad`
-        // assigns `title = "Invoices"` itself. The pre-BL-02
-        // `invoicesTab.title = "Invoices"` line here was DEAD CODE: it ran
-        // BEFORE the inner VC's `viewDidLoad` (which fires lazily when the
-        // tab is first selected) and was immediately overwritten with the
-        // VC's own `title`. With BL-02 the inner title is now correct in one
-        // place; this line is removed.
-        let invoicesTab: UIViewController = loadListScreenFactory?(role)
-            ?? ShipperTabBarController.makeTab(title: "Invoices", systemImage: "doc.text.magnifyingglass")
-        invoicesTab.tabBarItem = UITabBarItem(
-            title: "Invoices",
-            image: UIImage(systemName: "doc.text.magnifyingglass"),
-            selectedImage: nil
-        )
+        // assigns `title = "Invoices"` itself. `makeLoadsTab` also assigns
+        // `vc.title = title` ("Invoices" here) as a belt-and-braces measure
+        // for any future caller that constructs the tab without the factory.
         viewControllers = [
-            invoicesTab,
+            ShipperTabBarController.makeLoadsTab(
+                loadListScreenFactory: loadListScreenFactory,
+                role: role,
+                title: "Invoices",
+                systemImage: "doc.text.magnifyingglass"
+            ),
             ShipperTabBarController.makeTab(title: "Carriers",  systemImage: "truck.box"),
             ShipperTabBarController.makeTab(title: "Chain",     systemImage: "link"),
             ShipperTabBarController.makeTab(title: "Assistant", systemImage: "sparkles"),
@@ -79,22 +87,14 @@ final class FactoringTabBarController: UITabBarController, RoleCoordinator {
                 kycStatusScreenFactory: self.kycStatusScreenFactory
             )
         }
-        // T-08-12 lock: override the wrapping UINavigationController's
-        // tabBarItem so the tab bar continues to render `"Invoices"` even
-        // after `LoadListViewController.viewDidLoad` sets its `title = "Loads"`
-        // (UIKit propagates `title` into the implicit tabBarItem.title).
-        // Setting tabBarItem here on the OUTER wrapper short-circuits that
-        // inheritance — the wrapper's tabBarItem is independently owned. The
-        // literal string `"Invoices"` appears twice in this file (the inner
-        // VC's tabBarItem above and the wrapper's tabBarItem here), both must
-        // remain in lockstep so a future refactor that touches one still
-        // preserves the locked product surface.
-        if let invoicesNav = viewControllers?.first {
-            invoicesNav.tabBarItem = UITabBarItem(
-                title: "Invoices",
-                image: UIImage(systemName: "doc.text.magnifyingglass"),
-                selectedImage: nil
-            )
-        }
+        // WR-04 — the post-wrap "override the outer nav's tabBarItem" block
+        // is GONE. `makeLoadsTab` set the inner VC's `tabBarItem` properties
+        // in place BEFORE wrapping, and `wrapTabsWithNavAndInstallAvatar`
+        // propagates the inner tabBarItem to the wrapping nav by default
+        // (UIKit's `UINavigationController.tabBarItem` is forwarded from its
+        // root VC unless overridden). T-08-12 stays locked because
+        // `makeLoadsTab(..., title: "Invoices", ...)` is the single source of
+        // truth; `RoleShellSmokeTests:151` continues to assert `tabBars
+        // .buttons["Invoices"]`.
     }
 }

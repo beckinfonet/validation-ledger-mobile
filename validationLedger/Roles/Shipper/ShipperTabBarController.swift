@@ -82,23 +82,51 @@ final class ShipperTabBarController: UITabBarController, RoleCoordinator {
     /// `makeTab(title:systemImage:)` — preserves source compatibility for any
     /// test that constructs a tab bar without injecting the factory.
     ///
-    /// Tab item title is always `"Loads"` (UI-SPEC: tab title is "Loads" —
-    /// never "Broker Loads" etc.). The Factoring caller does NOT route through
-    /// this helper — it has its own inline `"Invoices"` branch in
-    /// `FactoringTabBarController.viewDidLoad()` (PATTERNS Q1; T-08-12) so the
-    /// tab title literal `"Invoices"` is preserved end-to-end.
+    /// WR-04 — `title` / `systemImage` are explicit parameters so the
+    /// Factoring caller can ALSO route through this helper (passing
+    /// `"Invoices"` / `"doc.text.magnifyingglass"`). Pre-WR-04, Factoring
+    /// duplicated the entire title-override flow inline in its own
+    /// `viewDidLoad()` (a fresh `UITabBarItem(title:image:selectedImage:)`
+    /// after `wrapTabsWithNavAndInstallAvatar` that discarded any
+    /// `accessibilityIdentifier` set on the inner VC's tabBarItem). The
+    /// single-place implementation here:
+    ///   1. Mutates the existing `tabBarItem` in place — preserves any
+    ///      `accessibilityIdentifier` set elsewhere (the avatar's
+    ///      `nav-avatar` identifier lives on `navigationItem
+    ///      .rightBarButtonItem`, not on `tabBarItem`, but the principle
+    ///      generalizes: in-place mutation never clobbers identifiers).
+    ///   2. Defaults `title` to `"Loads"` and `systemImage` to `"shippingbox"`
+    ///      so the four existing callers (Broker/Shipper/Carrier/Dispatch)
+    ///      keep their call sites unchanged.
+    ///   3. Centralizes the role→Loads-tab construction so a future edit
+    ///      (icon swap, accessibility-identifier addition) lands in ONE place,
+    ///      not five.
     static func makeLoadsTab(
         loadListScreenFactory: ((Role) -> UIViewController)?,
-        role: Role
+        role: Role,
+        title: String = "Loads",
+        systemImage: String = "shippingbox"
     ) -> UIViewController {
         let vc = loadListScreenFactory?(role)
-            ?? makeTab(title: "Loads", systemImage: "shippingbox")
-        vc.title = "Loads"
-        vc.tabBarItem = UITabBarItem(
-            title: "Loads",
-            image: UIImage(systemName: "shippingbox"),
-            selectedImage: nil
-        )
+            ?? makeTab(title: title, systemImage: systemImage)
+        // Note: `vc.title` drives the IN-SCREEN nav-bar title via UIKit's
+        // implicit propagation. BL-02 owns that string explicitly through
+        // `LoadListViewController.init(viewModel:navTitle:)` for the real
+        // factory path; the fallback `makeTab(...)` path already set
+        // `vc.title = title` itself, so this line is redundant for the
+        // fallback but needed for the factory path to override
+        // `LoadListViewController`'s default "Loads" title when this helper
+        // is invoked with a non-default title (Factoring → "Invoices").
+        vc.title = title
+        // WR-04 — mutate the EXISTING `tabBarItem` instead of replacing it
+        // wholesale. This preserves any `accessibilityIdentifier` /
+        // `accessibilityLabel` future plans may set on the inner VC's
+        // tabBarItem (the avatar's `nav-avatar` is on a different
+        // navigationItem, but the in-place mutation pattern is the
+        // generalizable safe default for tab-bar customization).
+        vc.tabBarItem.title = title
+        vc.tabBarItem.image = UIImage(systemName: systemImage)
+        vc.tabBarItem.selectedImage = nil
         return vc
     }
 }
