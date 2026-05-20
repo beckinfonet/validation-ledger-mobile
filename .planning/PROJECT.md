@@ -187,4 +187,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-19 — Phase 7 (Load Domain Model & Mock Contract) complete; LOAD-01 + LOAD-02 delivered*
+*Last updated: 2026-05-20 — Phase 8 (Role-Filtered Load List) complete; LOAD-03, LOAD-04, LOAD-07, LOAD-08, TRUST-02 delivered (15/15 must-haves verified; 5 device-UAT items pending — see 08-HUMAN-UAT.md)*
