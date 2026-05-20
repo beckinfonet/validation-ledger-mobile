@@ -1,0 +1,87 @@
+{
+  "load": {
+    "id": "VL-1003",
+    "reference_number": "REF-1003-CC",
+    "origin": {
+      "city": "Memphis",
+      "state": "TN",
+      "postal_code": "38103",
+      "country": "US"
+    },
+    "destination": {
+      "city": "Dallas",
+      "state": "TX",
+      "postal_code": "75201",
+      "country": "US"
+    },
+    "equipment": "dry_van",
+    "weight": 40200,
+    "rate": 1875.00,
+    "pickup_at": "2026-04-20T07:00:00Z",
+    "deliver_at": "2026-04-21T18:00:00Z",
+    "status": "posted",
+    "state_history": [
+      {
+        "status": "draft",
+        "timestamp": "2026-04-18T15:00:00Z",
+        "actor": {
+          "party_id": "party-shipper-easternfoods",
+          "role": "shipper",
+          "display_name": "Eastern Foods Distributing"
+        }
+      },
+      {
+        "status": "posted",
+        "timestamp": "2026-04-18T15:45:00Z",
+        "actor": {
+          "party_id": "party-broker-freightwise",
+          "role": "broker",
+          "display_name": "FreightWise Brokerage"
+        }
+      }
+    ],
+    "respond_by_at": null,
+    "tender_eligibility": null
+  },
+  "chain_of_trust": {
+    "nodes": [
+      {
+        "party_id": "party-shipper-easternfoods",
+        "role": "shipper",
+        "display_name": "Eastern Foods Distributing",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-12-01T09:30:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 8
+      },
+      {
+        "party_id": "party-broker-freightwise",
+        "role": "broker",
+        "display_name": "FreightWise Brokerage",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-08-12T09:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 32
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "edge-VL-1003-shipper-broker",
+        "from_party_id": "party-shipper-easternfoods",
+        "to_party_id": "party-broker-freightwise",
+        "relationship_state": "verified",
+        "tender_ref": null
+      }
+    ],
+    "integrity": {
+      "verdict": "clean",
+      "reason": "Awaiting tender; shipper and broker verified.",
+      "implicated_node_ids": [],
+      "implicated_edge_ids": []
+    }
+  }
+}

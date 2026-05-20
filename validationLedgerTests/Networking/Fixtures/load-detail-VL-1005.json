@@ -1,0 +1,127 @@
+{
+  "load": {
+    "id": "VL-1005",
+    "reference_number": "REF-1005-EE",
+    "origin": {
+      "city": "Newark",
+      "state": "NJ",
+      "postal_code": "07102",
+      "country": "US"
+    },
+    "destination": {
+      "city": "Charlotte",
+      "state": "NC",
+      "postal_code": "28202",
+      "country": "US"
+    },
+    "equipment": "dry_van",
+    "weight": 39800,
+    "rate": 2185.00,
+    "pickup_at": "2026-04-24T07:00:00Z",
+    "deliver_at": "2026-04-25T19:00:00Z",
+    "status": "posted",
+    "state_history": [
+      {
+        "status": "draft",
+        "timestamp": "2026-04-18T10:00:00Z",
+        "actor": {
+          "party_id": "party-shipper-easternfoods",
+          "role": "shipper",
+          "display_name": "Eastern Foods Distributing"
+        }
+      },
+      {
+        "status": "posted",
+        "timestamp": "2026-04-18T10:30:00Z",
+        "actor": {
+          "party_id": "party-broker-freightwise",
+          "role": "broker",
+          "display_name": "FreightWise Brokerage"
+        }
+      },
+      {
+        "status": "tendered",
+        "timestamp": "2026-04-19T13:00:00Z",
+        "actor": {
+          "party_id": "party-broker-freightwise",
+          "role": "broker",
+          "display_name": "FreightWise Brokerage"
+        }
+      },
+      {
+        "status": "expired",
+        "timestamp": "2026-04-19T15:00:00Z",
+        "actor": null
+      },
+      {
+        "status": "posted",
+        "timestamp": "2026-04-19T15:00:05Z",
+        "actor": null
+      }
+    ],
+    "respond_by_at": null,
+    "tender_eligibility": {
+      "can_tender": true,
+      "disabled_reason": null
+    }
+  },
+  "chain_of_trust": {
+    "nodes": [
+      {
+        "party_id": "party-shipper-easternfoods",
+        "role": "shipper",
+        "display_name": "Eastern Foods Distributing",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-12-01T09:30:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 8
+      },
+      {
+        "party_id": "party-broker-freightwise",
+        "role": "broker",
+        "display_name": "FreightWise Brokerage",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-08-12T09:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 32
+      },
+      {
+        "party_id": "party-carrier-nationallink",
+        "role": "carrier",
+        "display_name": "National Link Carriers",
+        "verification_state": "pending",
+        "kyc_completed_at": null,
+        "device_binding_status": "unbound",
+        "usdot_number": "1144882",
+        "usdot_authority_status": "active",
+        "prior_relationship_count": 0
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "edge-VL-1005-shipper-broker",
+        "from_party_id": "party-shipper-easternfoods",
+        "to_party_id": "party-broker-freightwise",
+        "relationship_state": "verified",
+        "tender_ref": null
+      },
+      {
+        "edge_id": "edge-VL-1005-broker-carrier",
+        "from_party_id": "party-broker-freightwise",
+        "to_party_id": "party-carrier-nationallink",
+        "relationship_state": "unverified",
+        "tender_ref": "TNDR-1005-A"
+      }
+    ],
+    "integrity": {
+      "verdict": "caution",
+      "reason": "Prior tender expired without response from target carrier; KYC pending.",
+      "implicated_node_ids": ["party-carrier-nationallink"],
+      "implicated_edge_ids": ["edge-VL-1005-broker-carrier"]
+    }
+  }
+}

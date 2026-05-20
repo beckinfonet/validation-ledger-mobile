@@ -1,0 +1,69 @@
+{
+  "load": {
+    "id": "VL-1006",
+    "reference_number": "REF-1006-FF",
+    "origin": {
+      "city": "Stockton",
+      "state": "CA",
+      "postal_code": "95202",
+      "country": "US"
+    },
+    "destination": {
+      "city": "Portland",
+      "state": "OR",
+      "postal_code": "97204",
+      "country": "US"
+    },
+    "equipment": "dry_van",
+    "weight": 41750,
+    "rate": 2675.00,
+    "pickup_at": "2026-04-26T07:00:00Z",
+    "deliver_at": "2026-04-27T18:00:00Z",
+    "status": "draft",
+    "state_history": [
+      {
+        "status": "draft",
+        "timestamp": "2026-04-20T16:00:00Z",
+        "actor": null
+      }
+    ],
+    "respond_by_at": null,
+    "tender_eligibility": {
+      "can_tender": true,
+      "disabled_reason": null
+    }
+  },
+  "chain_of_trust": {
+    "nodes": [
+      {
+        "party_id": "party-shipper-pacificgoods",
+        "role": "shipper",
+        "display_name": "Pacific Goods LLC",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-11-04T15:20:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 14
+      },
+      {
+        "party_id": "party-broker-freightwise",
+        "role": "broker",
+        "display_name": "FreightWise Brokerage",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-08-12T09:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 32
+      }
+    ],
+    "edges": [],
+    "integrity": {
+      "verdict": "clean",
+      "reason": "Draft load; no counterparties tendered yet.",
+      "implicated_node_ids": [],
+      "implicated_edge_ids": []
+    }
+  }
+}

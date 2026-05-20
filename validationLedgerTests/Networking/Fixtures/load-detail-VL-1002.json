@@ -1,0 +1,159 @@
+{
+  "load": {
+    "id": "VL-1002",
+    "reference_number": "REF-1002-BB",
+    "origin": {
+      "city": "Salinas",
+      "state": "CA",
+      "postal_code": "93901",
+      "country": "US"
+    },
+    "destination": {
+      "city": "Chicago",
+      "state": "IL",
+      "postal_code": "60601",
+      "country": "US"
+    },
+    "equipment": "reefer",
+    "weight": 38900,
+    "rate": 5125.50,
+    "pickup_at": "2026-04-14T06:00:00Z",
+    "deliver_at": "2026-04-17T20:00:00Z",
+    "status": "in_transit",
+    "state_history": [
+      {
+        "status": "draft",
+        "timestamp": "2026-04-11T12:00:00Z",
+        "actor": {
+          "party_id": "party-shipper-globalexports",
+          "role": "shipper",
+          "display_name": "Global Exports Co."
+        }
+      },
+      {
+        "status": "posted",
+        "timestamp": "2026-04-11T12:30:00Z",
+        "actor": {
+          "party_id": "party-broker-freightwise",
+          "role": "broker",
+          "display_name": "FreightWise Brokerage"
+        }
+      },
+      {
+        "status": "tendered",
+        "timestamp": "2026-04-12T10:00:00Z",
+        "actor": {
+          "party_id": "party-broker-freightwise",
+          "role": "broker",
+          "display_name": "FreightWise Brokerage"
+        }
+      },
+      {
+        "status": "accepted",
+        "timestamp": "2026-04-12T13:18:00Z",
+        "actor": {
+          "party_id": "party-carrier-redrock",
+          "role": "carrier",
+          "display_name": "Red Rock Carriers"
+        }
+      },
+      {
+        "status": "dispatched",
+        "timestamp": "2026-04-14T05:30:00Z",
+        "actor": {
+          "party_id": "party-dispatch-cornerstone",
+          "role": "dispatch",
+          "display_name": "Cornerstone Dispatch"
+        }
+      },
+      {
+        "status": "in_transit",
+        "timestamp": "2026-04-14T06:25:00Z",
+        "actor": {
+          "party_id": "party-carrier-redrock",
+          "role": "carrier",
+          "display_name": "Red Rock Carriers"
+        }
+      }
+    ],
+    "respond_by_at": null,
+    "tender_eligibility": null
+  },
+  "chain_of_trust": {
+    "nodes": [
+      {
+        "party_id": "party-shipper-globalexports",
+        "role": "shipper",
+        "display_name": "Global Exports Co.",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-06-30T10:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 22
+      },
+      {
+        "party_id": "party-broker-freightwise",
+        "role": "broker",
+        "display_name": "FreightWise Brokerage",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-08-12T09:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 32
+      },
+      {
+        "party_id": "party-carrier-redrock",
+        "role": "carrier",
+        "display_name": "Red Rock Carriers",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-10-18T08:30:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": "0445582",
+        "usdot_authority_status": "active",
+        "prior_relationship_count": 11
+      },
+      {
+        "party_id": "party-dispatch-cornerstone",
+        "role": "dispatch",
+        "display_name": "Cornerstone Dispatch",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-11-22T11:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": "0445582",
+        "usdot_authority_status": "active",
+        "prior_relationship_count": 9
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "edge-VL-1002-shipper-broker",
+        "from_party_id": "party-shipper-globalexports",
+        "to_party_id": "party-broker-freightwise",
+        "relationship_state": "verified",
+        "tender_ref": null
+      },
+      {
+        "edge_id": "edge-VL-1002-broker-carrier",
+        "from_party_id": "party-broker-freightwise",
+        "to_party_id": "party-carrier-redrock",
+        "relationship_state": "verified",
+        "tender_ref": "TNDR-1002-A"
+      },
+      {
+        "edge_id": "edge-VL-1002-carrier-dispatch",
+        "from_party_id": "party-carrier-redrock",
+        "to_party_id": "party-dispatch-cornerstone",
+        "relationship_state": "verified",
+        "tender_ref": null
+      }
+    ],
+    "integrity": {
+      "verdict": "clean",
+      "reason": "All parties verified; reefer load on schedule; no fraud signals.",
+      "implicated_node_ids": [],
+      "implicated_edge_ids": []
+    }
+  }
+}

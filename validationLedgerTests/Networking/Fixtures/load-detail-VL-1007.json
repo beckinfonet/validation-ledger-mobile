@@ -1,0 +1,150 @@
+{
+  "load": {
+    "id": "VL-1007",
+    "reference_number": "REF-1007-GG",
+    "origin": {
+      "city": "Detroit",
+      "state": "MI",
+      "postal_code": "48226",
+      "country": "US"
+    },
+    "destination": {
+      "city": "Indianapolis",
+      "state": "IN",
+      "postal_code": "46204",
+      "country": "US"
+    },
+    "equipment": "dry_van",
+    "weight": 38450,
+    "rate": 1325.00,
+    "pickup_at": "2026-04-21T06:00:00Z",
+    "deliver_at": "2026-04-21T17:00:00Z",
+    "status": "dispatched",
+    "state_history": [
+      {
+        "status": "draft",
+        "timestamp": "2026-04-18T13:00:00Z",
+        "actor": {
+          "party_id": "party-shipper-globalexports",
+          "role": "shipper",
+          "display_name": "Global Exports Co."
+        }
+      },
+      {
+        "status": "posted",
+        "timestamp": "2026-04-18T13:30:00Z",
+        "actor": {
+          "party_id": "party-broker-sunbelt",
+          "role": "broker",
+          "display_name": "Sunbelt Logistics"
+        }
+      },
+      {
+        "status": "tendered",
+        "timestamp": "2026-04-19T09:00:00Z",
+        "actor": {
+          "party_id": "party-broker-sunbelt",
+          "role": "broker",
+          "display_name": "Sunbelt Logistics"
+        }
+      },
+      {
+        "status": "accepted",
+        "timestamp": "2026-04-19T10:15:00Z",
+        "actor": {
+          "party_id": "party-carrier-redrock",
+          "role": "carrier",
+          "display_name": "Red Rock Carriers"
+        }
+      },
+      {
+        "status": "dispatched",
+        "timestamp": "2026-04-21T05:42:00Z",
+        "actor": {
+          "party_id": "party-dispatch-cornerstone",
+          "role": "dispatch",
+          "display_name": "Cornerstone Dispatch"
+        }
+      }
+    ],
+    "respond_by_at": null,
+    "tender_eligibility": null
+  },
+  "chain_of_trust": {
+    "nodes": [
+      {
+        "party_id": "party-shipper-globalexports",
+        "role": "shipper",
+        "display_name": "Global Exports Co.",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-06-30T10:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 22
+      },
+      {
+        "party_id": "party-broker-sunbelt",
+        "role": "broker",
+        "display_name": "Sunbelt Logistics",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-09-08T11:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 21
+      },
+      {
+        "party_id": "party-carrier-redrock",
+        "role": "carrier",
+        "display_name": "Red Rock Carriers",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-10-18T08:30:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": "0445582",
+        "usdot_authority_status": "active",
+        "prior_relationship_count": 11
+      },
+      {
+        "party_id": "party-dispatch-cornerstone",
+        "role": "dispatch",
+        "display_name": "Cornerstone Dispatch",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-11-22T11:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": "0445582",
+        "usdot_authority_status": "active",
+        "prior_relationship_count": 9
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "edge-VL-1007-shipper-broker",
+        "from_party_id": "party-shipper-globalexports",
+        "to_party_id": "party-broker-sunbelt",
+        "relationship_state": "verified",
+        "tender_ref": null
+      },
+      {
+        "edge_id": "edge-VL-1007-broker-carrier",
+        "from_party_id": "party-broker-sunbelt",
+        "to_party_id": "party-carrier-redrock",
+        "relationship_state": "verified",
+        "tender_ref": "TNDR-1007-A"
+      },
+      {
+        "edge_id": "edge-VL-1007-carrier-dispatch",
+        "from_party_id": "party-carrier-redrock",
+        "to_party_id": "party-dispatch-cornerstone",
+        "relationship_state": "verified",
+        "tender_ref": null
+      }
+    ],
+    "integrity": {
+      "verdict": "clean",
+      "reason": "Short-haul dispatch confirmed; all parties verified.",
+      "implicated_node_ids": [],
+      "implicated_edge_ids": []
+    }
+  }
+}
