@@ -116,8 +116,8 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 09-01-PLAN.md — Contract evolution: TrustNode.priorRelationships array (D-12), PriorRelationship value type (D-13), re-author all 12 load-detail-VL-*.json fixtures with fraud-archetype prior-relationship histories (D-14), PriorRelationshipDecodeTests + ChainOfTrustDecodeTests update
-- [ ] 09-02-PLAN.md — Wave 0 test scaffolding: 12 XCTestCase / @Suite shells + the FULL LoadDetailFixtureContractTests (the D-14 contract gate)
+- [x] 09-01-PLAN.md — Contract evolution: TrustNode.priorRelationships array (D-12), PriorRelationship value type (D-13), re-author all 12 load-detail-VL-*.json fixtures with fraud-archetype prior-relationship histories (D-14), PriorRelationshipDecodeTests + ChainOfTrustDecodeTests update
+- [x] 09-02-PLAN.md — Wave 0 test scaffolding: 12 XCTestCase / @Suite shells + the FULL LoadDetailFixtureContractTests (the D-14 contract gate)
 
 **Wave 2** *(blocked on Wave 1)*
 
@@ -177,7 +177,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10
 | 6. Close gap: DEV-04 + trustTier + Phase 4 verification | v1.0 | 4/4 | Complete | 2026-05-18 |
 | 7. Load Domain Model & Mock Contract | v1.1 | 6/6 | Complete    | 2026-05-20 |
 | 8. Role-Filtered Load List | v1.1 | 4/4 | Complete   | 2026-05-20 |
-| 9. Load Detail & Chain-of-Trust Graph | v1.1 | 0/10 | Planned | - |
+| 9. Load Detail & Chain-of-Trust Graph | v1.1 | 2/10 | In Progress|  |
 | 10. Per-Role Tender / Accept / Reject | v1.1 | 0/TBD | Not started | - |
 
 ---
