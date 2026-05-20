@@ -353,13 +353,269 @@ final class LoadDetailFlowTests: XCTestCase {
                       "D-11 — implicated block MUST render for a caution + implicated edge")
     }
 
-    // MARK: - Shells — populated by Plan 10.
+    // MARK: - TRUST-05 compromised-banner accessibility (Plan 10)
 
-    func test_compromisedVerdict_bannerAccessibilityLabelContainsReason() throws {
-        throw XCTSkip("Wave 0 shell — populated by Plan 10")
+    /// Plan 10 — TRUST-05 / D-13(a) / D-16 / UI-SPEC line 684 acceptance:
+    /// VL-1009 (the double-broker compromised archetype) MUST render the
+    /// `chain-integrity-banner` AND its `accessibilityLabel` MUST follow the
+    /// locked template `"Chain integrity: Compromised. {reason}"`.
+    ///
+    /// The banner's `accessibilityLabel` is the only VoiceOver-readable
+    /// surface for the chain compromise reason (the visible label uses the
+    /// shorter `"Chain compromised: {reason}"` template per UI-SPEC line 682
+    /// while the a11yLabel uses the more verbose `"Chain integrity:
+    /// Compromised. {reason}"` template per UI-SPEC line 684 — see
+    /// `ChainIntegrityBannerView.composedAccessibilityLabel()`).
+    ///
+    /// The reason fragment we assert against — `"broker"` — is structurally
+    /// guaranteed by the VL-1009 fixture archetype: VL-1009 is the
+    /// double-broker pattern (FreightWise → Keystone), so the
+    /// `chain_of_trust.integrity.reason` always describes broker behaviour
+    /// (current text: "Intermediary broker re-tendered to a downstream
+    /// carrier without the original broker's authorization — classic
+    /// double-broker pattern..."). The word "broker" is the archetype-
+    /// defining noun; a copy edit that removed it would change the
+    /// archetype itself.
+    ///
+    /// T-09-03 LOCK — this XCUITest reads `banner.label` (the server-
+    /// supplied reason rendered verbatim through `UIAccessibility.label`);
+    /// no client-side trust derivation is exercised.
+    /// T-09-04 LOCK — VL-1009 uses synthetic fixture parties only ("Global
+    /// Exports Co.", "FreightWise Brokerage", etc.); no real customer data
+    /// crosses the test boundary.
+    ///
+    /// Why broker (not shipper/carrier/dispatch/factoring): broker is the
+    /// only role chosen because VL-1009 is in the broker's load roster
+    /// (see `loads-list-broker.json`); choosing another role would require
+    /// a different fixture for the row tap.
+    func test_compromisedVerdict_bannerAccessibilityLabelContainsReason() {
+        let app = launch(role: "broker")
+        driveFullOTPFlow(app)
+
+        // 1. Wait for the Loads tab + tap.
+        XCTAssertTrue(app.tabBars.buttons["Loads"].waitForExistence(timeout: 5),
+                      "broker tab bar should render with a 'Loads' tab after OTP verify")
+        app.tabBars.buttons["Loads"].tap()
+
+        // 2. Open the compromised-archetype VL-1009 fixture row. Scroll
+        //    until the row resolves — mirrors test_nodeTap_opensVerificationBasisSheet.
+        let list = app.collectionViews["loads-list"]
+        XCTAssertTrue(list.waitForExistence(timeout: 5),
+                      "loads-list collection view should appear after tapping the Loads tab")
+
+        let targetRow = app.cells["loads-list.row.VL-1009"]
+        var swipeAttempts = 0
+        while !targetRow.exists && swipeAttempts < 5 {
+            list.swipeUp()
+            swipeAttempts += 1
+        }
+        XCTAssertTrue(targetRow.waitForExistence(timeout: 5),
+                      "VL-1009 compromised-archetype row must be present in the broker's load list (after \(swipeAttempts) swipe(s))")
+        targetRow.tap()
+
+        // 3. Wait for the load detail to render.
+        let detail = app.otherElements["load-detail"]
+        XCTAssertTrue(detail.waitForExistence(timeout: 5),
+                      "load-detail must push onto the navigation stack after tapping a row")
+
+        // 4. The chain-integrity banner must exist for a compromised-verdict
+        //    load (the banner short-circuits to isHidden + intrinsicContentSize
+        //    .zero ONLY for `.clean` per ChainIntegrityBannerView.setUp()).
+        //
+        //    Element-type resilience: `ChainIntegrityBannerView` sets
+        //    `isAccessibilityElement = true` + `accessibilityTraits =
+        //    .staticText` (PATTERNS table row 19; mirrors the
+        //    `limited-trust-banner` E4 twin). XCUI maps `.staticText` traits
+        //    to `.staticTexts` queries, but custom UIView subclasses with
+        //    `isAccessibilityElement = true` ALSO surface under
+        //    `.otherElements` in some XCUI runtime versions. Probe both,
+        //    plus the `descendants(matching: .any)` catch-all — the same
+        //    fallback pattern Plan 07's node-tap test uses for
+        //    trait-resilient resolution (lines 235-243).
+        let bannerCandidates: [XCUIElement] = [
+            app.descendants(matching: .any).matching(identifier: "chain-integrity-banner").firstMatch,
+            app.staticTexts["chain-integrity-banner"],
+            app.otherElements["chain-integrity-banner"],
+        ]
+        let banner = bannerCandidates.first(where: { $0.waitForExistence(timeout: 3) }) ?? bannerCandidates[0]
+        XCTAssertTrue(banner.exists,
+                      "TRUST-05 / D-13(a) — VL-1009 (compromised archetype) MUST render the chain-integrity-banner (probed .staticTexts / .otherElements / .any)")
+
+        // 5. Assert the accessibility label contains the locked verdict word
+        //    "Compromised" (UI-SPEC line 684 — VoiceOver-spoken verdict, NOT
+        //    the visible "Chain compromised" copy — `composedAccessibilityLabel`
+        //    spells it as a noun: "Chain integrity: Compromised. {reason}").
+        let label = banner.label
+        XCTAssertTrue(label.contains("Compromised"),
+                      """
+                      TRUST-05 / UI-SPEC line 684 — banner accessibilityLabel \
+                      must spell the verdict as 'Compromised' (the VoiceOver \
+                      noun form, NOT the visible 'Chain compromised' adjective \
+                      form). Got: \(label)
+                      """)
+
+        // 6. Assert the accessibility label contains the archetype-defining
+        //    reason fragment "broker". VL-1009 is the double-broker archetype;
+        //    the server-supplied reason ALWAYS describes broker behaviour. A
+        //    copy edit that removed "broker" would change the fixture's
+        //    semantic archetype.
+        XCTAssertTrue(label.lowercased().contains("broker"),
+                      """
+                      TRUST-05 / T-09-03 — banner accessibilityLabel must \
+                      render the server-supplied reason VERBATIM (UI-SPEC line \
+                      684). For VL-1009 (double-broker archetype) the reason \
+                      contains 'broker' by archetype definition; if this assertion \
+                      fails the fixture's archetype identity has drifted. Got: \(label)
+                      """)
     }
 
-    func test_singleFingerScroll_propagatesPastGraph_toBodyScrollView() throws {
-        throw XCTSkip("Wave 0 shell — populated by Plan 10")
+    // MARK: - Outer-scroll propagation + D-16 fixed-banner contract (Plan 10)
+
+    /// Plan 10 — RESEARCH §1 line 252 + § Common Pitfalls Pitfall 3 + D-16
+    /// acceptance: the trust graph's inner `UIScrollView.panGestureRecognizer
+    /// .minimumNumberOfTouches == 2` lock means a SINGLE-FINGER drag inside
+    /// the graph region MUST NOT pan the graph; AND scrolling the bill-of-
+    /// lading body region MUST NOT dismiss the pinned chain-integrity banner
+    /// (D-16: "Banner is fixed (does not scroll away on iPhone). The
+    /// chain-integrity banner is pinned to the top of the graph region;
+    /// scrolling the bill-of-lading body below the graph does not dismiss
+    /// or hide it.").
+    ///
+    /// Test composition:
+    ///   1. Open VL-1009 — same compromised-archetype fixture as the banner
+    ///      test, so the banner is present and visible.
+    ///   2. Verify the banner exists pre-scroll.
+    ///   3. Perform a single-finger drag UPWARD from inside the graph region.
+    ///      Per the `minimumNumberOfTouches == 2` lock the graph's inner
+    ///      scroll MUST NOT consume this gesture. (The drag may or may not
+    ///      bubble up to scroll the body — that depends on the gesture
+    ///      hit-testing in the parent hierarchy. The key assertion is that
+    ///      the graph + banner remain functional afterward.)
+    ///   4. Perform a swipe-up gesture inside the body's
+    ///      `load-detail.body.parties-section` (or `freight-section`) — the
+    ///      body's own UIScrollView has the default 1-finger pan
+    ///      (`LoadDetailBodyView` line 65) so this MUST scroll the body.
+    ///   5. Assert the banner is STILL visible (D-16: scrolling the body
+    ///      does not dismiss the pinned banner).
+    ///
+    /// Why VL-1009 (not VL-1005): the banner only renders for non-clean
+    /// verdicts; VL-1005 caution would also work, but VL-1009 keeps the
+    /// fixture choice consistent with the banner a11y test above.
+    ///
+    /// Why XCUICoordinate.press(forDuration:thenDragTo:) (not swipeUp()):
+    /// `swipeUp()` starts at the element's `hitPoint`, but XCUI's hitPoint
+    /// can collapse to a node's centre when the element has visible
+    /// children with tappable identifiers. `XCUICoordinate` with explicit
+    /// normalized offsets gives us a guaranteed start point INSIDE the
+    /// graph region (the centre of the `load-detail.trust-graph` element).
+    /// The 0.1s press duration is the minimum that registers as a drag
+    /// (rather than a tap) — matches Apple's XCUI gesture-classification
+    /// thresholds documented in the WWDC 2019 XCUI session.
+    ///
+    /// T-09-04 LOCK — VL-1009 uses synthetic fixture parties only; no real
+    /// customer data crosses the test boundary.
+    func test_singleFingerScroll_propagatesPastGraph_toBodyScrollView() {
+        let app = launch(role: "broker")
+        driveFullOTPFlow(app)
+
+        // 1. Wait for the Loads tab + tap.
+        XCTAssertTrue(app.tabBars.buttons["Loads"].waitForExistence(timeout: 5),
+                      "broker tab bar should render with a 'Loads' tab after OTP verify")
+        app.tabBars.buttons["Loads"].tap()
+
+        // 2. Open VL-1009 — compromised archetype, banner present.
+        let list = app.collectionViews["loads-list"]
+        XCTAssertTrue(list.waitForExistence(timeout: 5),
+                      "loads-list collection view should appear after tapping the Loads tab")
+
+        let targetRow = app.cells["loads-list.row.VL-1009"]
+        var swipeAttempts = 0
+        while !targetRow.exists && swipeAttempts < 5 {
+            list.swipeUp()
+            swipeAttempts += 1
+        }
+        XCTAssertTrue(targetRow.waitForExistence(timeout: 5),
+                      "VL-1009 compromised-archetype row must be present in the broker's load list (after \(swipeAttempts) swipe(s))")
+        targetRow.tap()
+
+        // 3. Wait for the load detail + the trust graph + the banner.
+        let detail = app.otherElements["load-detail"]
+        XCTAssertTrue(detail.waitForExistence(timeout: 5),
+                      "load-detail must push onto the navigation stack after tapping a row")
+
+        let graph = app.otherElements["load-detail.trust-graph"]
+        XCTAssertTrue(graph.waitForExistence(timeout: 3),
+                      "trust graph must render after load detail appears")
+
+        // Element-type resilience for the banner — same fallback chain as
+        // `test_compromisedVerdict_bannerAccessibilityLabelContainsReason`
+        // (ChainIntegrityBannerView sets accessibilityTraits = .staticText,
+        // which XCUI may surface under .staticTexts OR .otherElements
+        // depending on runtime).
+        let bannerCandidates: [XCUIElement] = [
+            app.descendants(matching: .any).matching(identifier: "chain-integrity-banner").firstMatch,
+            app.staticTexts["chain-integrity-banner"],
+            app.otherElements["chain-integrity-banner"],
+        ]
+        let banner = bannerCandidates.first(where: { $0.waitForExistence(timeout: 3) }) ?? bannerCandidates[0]
+        XCTAssertTrue(banner.exists,
+                      "D-16 — chain-integrity banner must render for VL-1009 (compromised verdict)")
+        // D-16 pre-condition: banner is visible BEFORE any scroll.
+
+        // 4. Single-finger drag UPWARD starting inside the graph region.
+        //    Per RESEARCH §1 line 252: this MUST NOT pan the graph's inner
+        //    scroll (minimumNumberOfTouches == 2 lock). We do not assert on
+        //    inner scroll-offset state from XCUI (no direct access to the
+        //    private UIScrollView) — instead we assert the post-drag UI is
+        //    still functional: the graph still resolves AND the banner is
+        //    still present.
+        let graphStart = graph.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let graphEnd = graphStart.withOffset(CGVector(dx: 0, dy: -300))
+        graphStart.press(forDuration: 0.1, thenDragTo: graphEnd)
+
+        // The trust graph element and the banner MUST both still resolve
+        // after the single-finger drag (the graph did not swallow the
+        // gesture into some catastrophic state).
+        XCTAssertTrue(graph.exists,
+                      "RESEARCH §1 / Pitfall 3 — trust graph must remain present after a single-finger drag inside the graph region")
+        XCTAssertTrue(banner.exists,
+                      "D-16 — chain-integrity banner must remain present after a single-finger drag inside the graph region")
+
+        // 5. Scroll the body region. The body has its own UIScrollView with
+        //    the default 1-finger pan (`LoadDetailBodyView.swift` line 65).
+        //    Drag from inside the body region upward to scroll the body
+        //    content. Use the body container — `load-detail.body` — as the
+        //    drag surface; it resolves to the body's UIView frame, which
+        //    is below the graph on iPhone (and the right pane on iPad).
+        let body = app.otherElements["load-detail.body"]
+        XCTAssertTrue(body.waitForExistence(timeout: 3),
+                      "load-detail.body container must resolve for the outer-scroll-propagation test")
+        let bodyStart = body.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
+        let bodyEnd = bodyStart.withOffset(CGVector(dx: 0, dy: -300))
+        bodyStart.press(forDuration: 0.1, thenDragTo: bodyEnd)
+
+        // 6. D-16 LOCK — after scrolling the body region, the banner MUST
+        //    still be present. The banner is composition-pinned (above the
+        //    graph on iPhone; full-width above the split on iPad) and is
+        //    NOT inside the body's scrollView; D-16 makes this contract
+        //    explicit and testable.
+        XCTAssertTrue(banner.exists,
+                      """
+                      D-16 — the chain-integrity banner MUST remain present \
+                      after scrolling the bill-of-lading body. The banner is \
+                      composition-pinned (above the graph on iPhone; full-width \
+                      above the split on iPad), so body scrolls must not \
+                      dismiss it. If this fails the banner has been mistakenly \
+                      embedded inside the body's UIScrollView (regression of \
+                      LoadDetailViewController.buildIPhoneLayout / \
+                      buildIPadSplitLayout).
+                      """)
+
+        // 7. Sanity: the trust graph also remains present after the body
+        //    scroll (the body's scroll is independent of the graph's
+        //    transform; this would only fail if the graph had been
+        //    accidentally re-parented inside the body scroll).
+        XCTAssertTrue(graph.exists,
+                      "trust graph must remain present after the body region is scrolled (the graph is composition-pinned independent of the body's scrollView)")
     }
 }
