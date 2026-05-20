@@ -1,319 +1,384 @@
 {
   "loads": [
     {
-      "id": "VL-1001",
-      "reference_number": "REF-1001-AA",
-      "origin": {
-        "city": "Anaheim",
-        "state": "CA",
-        "postal_code": "92805",
-        "country": "US"
-      },
-      "destination": {
-        "city": "Atlanta",
-        "state": "GA",
-        "postal_code": "30303",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 42500,
-      "rate": 3850.0,
-      "pickup_at": "2026-04-02T08:00:00Z",
-      "deliver_at": "2026-04-06T17:00:00Z",
-      "status": "delivered",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-03-30T14:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-pacificgoods",
-            "role": "shipper",
-            "display_name": "Pacific Goods LLC"
-          }
+      "load": {
+        "id": "VL-1001",
+        "reference_number": "REF-1001-AA",
+        "origin": {
+          "city": "Anaheim",
+          "state": "CA",
+          "postal_code": "92805",
+          "country": "US"
         },
-        {
-          "status": "posted",
-          "timestamp": "2026-03-30T14:30:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
+        "destination": {
+          "city": "Atlanta",
+          "state": "GA",
+          "postal_code": "30303",
+          "country": "US"
         },
-        {
-          "status": "tendered",
-          "timestamp": "2026-03-31T09:15:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
+        "equipment": "dry_van",
+        "weight": 42500,
+        "rate": 3850.0,
+        "pickup_at": "2026-04-02T08:00:00Z",
+        "deliver_at": "2026-04-06T17:00:00Z",
+        "status": "delivered",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-03-30T14:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-pacificgoods",
+              "role": "shipper",
+              "display_name": "Pacific Goods LLC"
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-03-30T14:30:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-03-31T09:15:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "accepted",
+            "timestamp": "2026-03-31T11:42:00Z",
+            "actor": {
+              "party_id": "party-carrier-acme",
+              "role": "carrier",
+              "display_name": "Acme Trucking Inc."
+            }
+          },
+          {
+            "status": "dispatched",
+            "timestamp": "2026-04-02T07:30:00Z",
+            "actor": {
+              "party_id": "party-dispatch-overland",
+              "role": "dispatch",
+              "display_name": "Overland Dispatch"
+            }
+          },
+          {
+            "status": "in_transit",
+            "timestamp": "2026-04-02T08:45:00Z",
+            "actor": {
+              "party_id": "party-carrier-acme",
+              "role": "carrier",
+              "display_name": "Acme Trucking Inc."
+            }
+          },
+          {
+            "status": "delivered",
+            "timestamp": "2026-04-06T16:48:00Z",
+            "actor": {
+              "party_id": "party-carrier-acme",
+              "role": "carrier",
+              "display_name": "Acme Trucking Inc."
+            }
           }
-        },
-        {
-          "status": "accepted",
-          "timestamp": "2026-03-31T11:42:00Z",
-          "actor": {
-            "party_id": "party-carrier-acme",
-            "role": "carrier",
-            "display_name": "Acme Trucking Inc."
-          }
-        },
-        {
-          "status": "dispatched",
-          "timestamp": "2026-04-02T07:30:00Z",
-          "actor": {
-            "party_id": "party-dispatch-overland",
-            "role": "dispatch",
-            "display_name": "Overland Dispatch"
-          }
-        },
-        {
-          "status": "in_transit",
-          "timestamp": "2026-04-02T08:45:00Z",
-          "actor": {
-            "party_id": "party-carrier-acme",
-            "role": "carrier",
-            "display_name": "Acme Trucking Inc."
-          }
-        },
-        {
-          "status": "delivered",
-          "timestamp": "2026-04-06T16:48:00Z",
-          "actor": {
-            "party_id": "party-carrier-acme",
-            "role": "carrier",
-            "display_name": "Acme Trucking Inc."
-          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": {
+          "can_tender": true,
+          "disabled_reason": null
         }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": {
-        "can_tender": true,
-        "disabled_reason": null
+      },
+      "displayed_counterparty": {
+        "party_id": "party-broker-freightwise",
+        "role": "broker",
+        "display_name": "FreightWise Brokerage",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-08-12T09:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 32
       }
     },
     {
-      "id": "VL-1002",
-      "reference_number": "REF-1002-BB",
-      "origin": {
-        "city": "Salinas",
-        "state": "CA",
-        "postal_code": "93901",
-        "country": "US"
+      "load": {
+        "id": "VL-1002",
+        "reference_number": "REF-1002-BB",
+        "origin": {
+          "city": "Salinas",
+          "state": "CA",
+          "postal_code": "93901",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Chicago",
+          "state": "IL",
+          "postal_code": "60601",
+          "country": "US"
+        },
+        "equipment": "reefer",
+        "weight": 38900,
+        "rate": 5125.5,
+        "pickup_at": "2026-04-14T06:00:00Z",
+        "deliver_at": "2026-04-17T20:00:00Z",
+        "status": "in_transit",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-11T12:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-globalexports",
+              "role": "shipper",
+              "display_name": "Global Exports Co."
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-11T12:30:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-04-12T10:00:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "accepted",
+            "timestamp": "2026-04-12T13:18:00Z",
+            "actor": {
+              "party_id": "party-carrier-redrock",
+              "role": "carrier",
+              "display_name": "Red Rock Carriers"
+            }
+          },
+          {
+            "status": "dispatched",
+            "timestamp": "2026-04-14T05:30:00Z",
+            "actor": {
+              "party_id": "party-dispatch-cornerstone",
+              "role": "dispatch",
+              "display_name": "Cornerstone Dispatch"
+            }
+          },
+          {
+            "status": "in_transit",
+            "timestamp": "2026-04-14T06:25:00Z",
+            "actor": {
+              "party_id": "party-carrier-redrock",
+              "role": "carrier",
+              "display_name": "Red Rock Carriers"
+            }
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": null
       },
-      "destination": {
-        "city": "Chicago",
-        "state": "IL",
-        "postal_code": "60601",
-        "country": "US"
-      },
-      "equipment": "reefer",
-      "weight": 38900,
-      "rate": 5125.5,
-      "pickup_at": "2026-04-14T06:00:00Z",
-      "deliver_at": "2026-04-17T20:00:00Z",
-      "status": "in_transit",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-11T12:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-globalexports",
-            "role": "shipper",
-            "display_name": "Global Exports Co."
-          }
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-11T12:30:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "tendered",
-          "timestamp": "2026-04-12T10:00:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "accepted",
-          "timestamp": "2026-04-12T13:18:00Z",
-          "actor": {
-            "party_id": "party-carrier-redrock",
-            "role": "carrier",
-            "display_name": "Red Rock Carriers"
-          }
-        },
-        {
-          "status": "dispatched",
-          "timestamp": "2026-04-14T05:30:00Z",
-          "actor": {
-            "party_id": "party-dispatch-cornerstone",
-            "role": "dispatch",
-            "display_name": "Cornerstone Dispatch"
-          }
-        },
-        {
-          "status": "in_transit",
-          "timestamp": "2026-04-14T06:25:00Z",
-          "actor": {
-            "party_id": "party-carrier-redrock",
-            "role": "carrier",
-            "display_name": "Red Rock Carriers"
-          }
-        }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": null
-    },
-    {
-      "id": "VL-1003",
-      "reference_number": "REF-1003-CC",
-      "origin": {
-        "city": "Memphis",
-        "state": "TN",
-        "postal_code": "38103",
-        "country": "US"
-      },
-      "destination": {
-        "city": "Dallas",
-        "state": "TX",
-        "postal_code": "75201",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 40200,
-      "rate": 1875.0,
-      "pickup_at": "2026-04-20T07:00:00Z",
-      "deliver_at": "2026-04-21T18:00:00Z",
-      "status": "posted",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-18T15:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-easternfoods",
-            "role": "shipper",
-            "display_name": "Eastern Foods Distributing"
-          }
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-18T15:45:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": null
-    },
-    {
-      "id": "VL-1005",
-      "reference_number": "REF-1005-EE",
-      "origin": {
-        "city": "Newark",
-        "state": "NJ",
-        "postal_code": "07102",
-        "country": "US"
-      },
-      "destination": {
-        "city": "Charlotte",
-        "state": "NC",
-        "postal_code": "28202",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 39800,
-      "rate": 2185.0,
-      "pickup_at": "2026-04-24T07:00:00Z",
-      "deliver_at": "2026-04-25T19:00:00Z",
-      "status": "posted",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-18T10:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-easternfoods",
-            "role": "shipper",
-            "display_name": "Eastern Foods Distributing"
-          }
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-18T10:30:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "tendered",
-          "timestamp": "2026-04-19T13:00:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "expired",
-          "timestamp": "2026-04-19T15:00:00Z",
-          "actor": null
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-19T15:00:05Z",
-          "actor": null
-        }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": {
-        "can_tender": true,
-        "disabled_reason": null
+      "displayed_counterparty": {
+        "party_id": "party-broker-freightwise",
+        "role": "broker",
+        "display_name": "FreightWise Brokerage",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-08-12T09:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 32
       }
     },
     {
-      "id": "VL-1006",
-      "reference_number": "REF-1006-FF",
-      "origin": {
-        "city": "Stockton",
-        "state": "CA",
-        "postal_code": "95202",
-        "country": "US"
+      "load": {
+        "id": "VL-1003",
+        "reference_number": "REF-1003-CC",
+        "origin": {
+          "city": "Memphis",
+          "state": "TN",
+          "postal_code": "38103",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Dallas",
+          "state": "TX",
+          "postal_code": "75201",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 40200,
+        "rate": 1875.0,
+        "pickup_at": "2026-04-20T07:00:00Z",
+        "deliver_at": "2026-04-21T18:00:00Z",
+        "status": "posted",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-18T15:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-easternfoods",
+              "role": "shipper",
+              "display_name": "Eastern Foods Distributing"
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-18T15:45:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": null
       },
-      "destination": {
-        "city": "Portland",
-        "state": "OR",
-        "postal_code": "97204",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 41750,
-      "rate": 2675.0,
-      "pickup_at": "2026-04-26T07:00:00Z",
-      "deliver_at": "2026-04-27T18:00:00Z",
-      "status": "draft",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-20T16:00:00Z",
-          "actor": null
+      "displayed_counterparty": {
+        "party_id": "party-broker-freightwise",
+        "role": "broker",
+        "display_name": "FreightWise Brokerage",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-08-12T09:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 32
+      }
+    },
+    {
+      "load": {
+        "id": "VL-1005",
+        "reference_number": "REF-1005-EE",
+        "origin": {
+          "city": "Newark",
+          "state": "NJ",
+          "postal_code": "07102",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Charlotte",
+          "state": "NC",
+          "postal_code": "28202",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 39800,
+        "rate": 2185.0,
+        "pickup_at": "2026-04-24T07:00:00Z",
+        "deliver_at": "2026-04-25T19:00:00Z",
+        "status": "posted",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-18T10:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-easternfoods",
+              "role": "shipper",
+              "display_name": "Eastern Foods Distributing"
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-18T10:30:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-04-19T13:00:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "expired",
+            "timestamp": "2026-04-19T15:00:00Z",
+            "actor": null
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-19T15:00:05Z",
+            "actor": null
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": {
+          "can_tender": true,
+          "disabled_reason": null
         }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": {
-        "can_tender": true,
-        "disabled_reason": null
+      },
+      "displayed_counterparty": {
+        "party_id": "party-broker-freightwise",
+        "role": "broker",
+        "display_name": "FreightWise Brokerage",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-08-12T09:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 32
+      }
+    },
+    {
+      "load": {
+        "id": "VL-1006",
+        "reference_number": "REF-1006-FF",
+        "origin": {
+          "city": "Stockton",
+          "state": "CA",
+          "postal_code": "95202",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Portland",
+          "state": "OR",
+          "postal_code": "97204",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 41750,
+        "rate": 2675.0,
+        "pickup_at": "2026-04-26T07:00:00Z",
+        "deliver_at": "2026-04-27T18:00:00Z",
+        "status": "draft",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-20T16:00:00Z",
+            "actor": null
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": {
+          "can_tender": true,
+          "disabled_reason": null
+        }
+      },
+      "displayed_counterparty": {
+        "party_id": "party-broker-freightwise",
+        "role": "broker",
+        "display_name": "FreightWise Brokerage",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-08-12T09:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 32
       }
     }
   ],

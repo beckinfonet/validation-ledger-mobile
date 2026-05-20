@@ -163,319 +163,384 @@ enum MockLoadFixtureRegistry {
 {
   "loads": [
     {
-      "id": "VL-1001",
-      "reference_number": "REF-1001-AA",
-      "origin": {
-        "city": "Anaheim",
-        "state": "CA",
-        "postal_code": "92805",
-        "country": "US"
-      },
-      "destination": {
-        "city": "Atlanta",
-        "state": "GA",
-        "postal_code": "30303",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 42500,
-      "rate": 3850.0,
-      "pickup_at": "2026-04-02T08:00:00Z",
-      "deliver_at": "2026-04-06T17:00:00Z",
-      "status": "delivered",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-03-30T14:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-pacificgoods",
-            "role": "shipper",
-            "display_name": "Pacific Goods LLC"
-          }
+      "load": {
+        "id": "VL-1001",
+        "reference_number": "REF-1001-AA",
+        "origin": {
+          "city": "Anaheim",
+          "state": "CA",
+          "postal_code": "92805",
+          "country": "US"
         },
-        {
-          "status": "posted",
-          "timestamp": "2026-03-30T14:30:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
+        "destination": {
+          "city": "Atlanta",
+          "state": "GA",
+          "postal_code": "30303",
+          "country": "US"
         },
-        {
-          "status": "tendered",
-          "timestamp": "2026-03-31T09:15:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
+        "equipment": "dry_van",
+        "weight": 42500,
+        "rate": 3850.0,
+        "pickup_at": "2026-04-02T08:00:00Z",
+        "deliver_at": "2026-04-06T17:00:00Z",
+        "status": "delivered",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-03-30T14:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-pacificgoods",
+              "role": "shipper",
+              "display_name": "Pacific Goods LLC"
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-03-30T14:30:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-03-31T09:15:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "accepted",
+            "timestamp": "2026-03-31T11:42:00Z",
+            "actor": {
+              "party_id": "party-carrier-acme",
+              "role": "carrier",
+              "display_name": "Acme Trucking Inc."
+            }
+          },
+          {
+            "status": "dispatched",
+            "timestamp": "2026-04-02T07:30:00Z",
+            "actor": {
+              "party_id": "party-dispatch-overland",
+              "role": "dispatch",
+              "display_name": "Overland Dispatch"
+            }
+          },
+          {
+            "status": "in_transit",
+            "timestamp": "2026-04-02T08:45:00Z",
+            "actor": {
+              "party_id": "party-carrier-acme",
+              "role": "carrier",
+              "display_name": "Acme Trucking Inc."
+            }
+          },
+          {
+            "status": "delivered",
+            "timestamp": "2026-04-06T16:48:00Z",
+            "actor": {
+              "party_id": "party-carrier-acme",
+              "role": "carrier",
+              "display_name": "Acme Trucking Inc."
+            }
           }
-        },
-        {
-          "status": "accepted",
-          "timestamp": "2026-03-31T11:42:00Z",
-          "actor": {
-            "party_id": "party-carrier-acme",
-            "role": "carrier",
-            "display_name": "Acme Trucking Inc."
-          }
-        },
-        {
-          "status": "dispatched",
-          "timestamp": "2026-04-02T07:30:00Z",
-          "actor": {
-            "party_id": "party-dispatch-overland",
-            "role": "dispatch",
-            "display_name": "Overland Dispatch"
-          }
-        },
-        {
-          "status": "in_transit",
-          "timestamp": "2026-04-02T08:45:00Z",
-          "actor": {
-            "party_id": "party-carrier-acme",
-            "role": "carrier",
-            "display_name": "Acme Trucking Inc."
-          }
-        },
-        {
-          "status": "delivered",
-          "timestamp": "2026-04-06T16:48:00Z",
-          "actor": {
-            "party_id": "party-carrier-acme",
-            "role": "carrier",
-            "display_name": "Acme Trucking Inc."
-          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": {
+          "can_tender": true,
+          "disabled_reason": null
         }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": {
-        "can_tender": true,
-        "disabled_reason": null
+      },
+      "displayed_counterparty": {
+        "party_id": "party-broker-freightwise",
+        "role": "broker",
+        "display_name": "FreightWise Brokerage",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-08-12T09:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 32
       }
     },
     {
-      "id": "VL-1002",
-      "reference_number": "REF-1002-BB",
-      "origin": {
-        "city": "Salinas",
-        "state": "CA",
-        "postal_code": "93901",
-        "country": "US"
+      "load": {
+        "id": "VL-1002",
+        "reference_number": "REF-1002-BB",
+        "origin": {
+          "city": "Salinas",
+          "state": "CA",
+          "postal_code": "93901",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Chicago",
+          "state": "IL",
+          "postal_code": "60601",
+          "country": "US"
+        },
+        "equipment": "reefer",
+        "weight": 38900,
+        "rate": 5125.5,
+        "pickup_at": "2026-04-14T06:00:00Z",
+        "deliver_at": "2026-04-17T20:00:00Z",
+        "status": "in_transit",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-11T12:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-globalexports",
+              "role": "shipper",
+              "display_name": "Global Exports Co."
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-11T12:30:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-04-12T10:00:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "accepted",
+            "timestamp": "2026-04-12T13:18:00Z",
+            "actor": {
+              "party_id": "party-carrier-redrock",
+              "role": "carrier",
+              "display_name": "Red Rock Carriers"
+            }
+          },
+          {
+            "status": "dispatched",
+            "timestamp": "2026-04-14T05:30:00Z",
+            "actor": {
+              "party_id": "party-dispatch-cornerstone",
+              "role": "dispatch",
+              "display_name": "Cornerstone Dispatch"
+            }
+          },
+          {
+            "status": "in_transit",
+            "timestamp": "2026-04-14T06:25:00Z",
+            "actor": {
+              "party_id": "party-carrier-redrock",
+              "role": "carrier",
+              "display_name": "Red Rock Carriers"
+            }
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": null
       },
-      "destination": {
-        "city": "Chicago",
-        "state": "IL",
-        "postal_code": "60601",
-        "country": "US"
-      },
-      "equipment": "reefer",
-      "weight": 38900,
-      "rate": 5125.5,
-      "pickup_at": "2026-04-14T06:00:00Z",
-      "deliver_at": "2026-04-17T20:00:00Z",
-      "status": "in_transit",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-11T12:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-globalexports",
-            "role": "shipper",
-            "display_name": "Global Exports Co."
-          }
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-11T12:30:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "tendered",
-          "timestamp": "2026-04-12T10:00:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "accepted",
-          "timestamp": "2026-04-12T13:18:00Z",
-          "actor": {
-            "party_id": "party-carrier-redrock",
-            "role": "carrier",
-            "display_name": "Red Rock Carriers"
-          }
-        },
-        {
-          "status": "dispatched",
-          "timestamp": "2026-04-14T05:30:00Z",
-          "actor": {
-            "party_id": "party-dispatch-cornerstone",
-            "role": "dispatch",
-            "display_name": "Cornerstone Dispatch"
-          }
-        },
-        {
-          "status": "in_transit",
-          "timestamp": "2026-04-14T06:25:00Z",
-          "actor": {
-            "party_id": "party-carrier-redrock",
-            "role": "carrier",
-            "display_name": "Red Rock Carriers"
-          }
-        }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": null
-    },
-    {
-      "id": "VL-1003",
-      "reference_number": "REF-1003-CC",
-      "origin": {
-        "city": "Memphis",
-        "state": "TN",
-        "postal_code": "38103",
-        "country": "US"
-      },
-      "destination": {
-        "city": "Dallas",
-        "state": "TX",
-        "postal_code": "75201",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 40200,
-      "rate": 1875.0,
-      "pickup_at": "2026-04-20T07:00:00Z",
-      "deliver_at": "2026-04-21T18:00:00Z",
-      "status": "posted",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-18T15:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-easternfoods",
-            "role": "shipper",
-            "display_name": "Eastern Foods Distributing"
-          }
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-18T15:45:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": null
-    },
-    {
-      "id": "VL-1005",
-      "reference_number": "REF-1005-EE",
-      "origin": {
-        "city": "Newark",
-        "state": "NJ",
-        "postal_code": "07102",
-        "country": "US"
-      },
-      "destination": {
-        "city": "Charlotte",
-        "state": "NC",
-        "postal_code": "28202",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 39800,
-      "rate": 2185.0,
-      "pickup_at": "2026-04-24T07:00:00Z",
-      "deliver_at": "2026-04-25T19:00:00Z",
-      "status": "posted",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-18T10:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-easternfoods",
-            "role": "shipper",
-            "display_name": "Eastern Foods Distributing"
-          }
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-18T10:30:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "tendered",
-          "timestamp": "2026-04-19T13:00:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "expired",
-          "timestamp": "2026-04-19T15:00:00Z",
-          "actor": null
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-19T15:00:05Z",
-          "actor": null
-        }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": {
-        "can_tender": true,
-        "disabled_reason": null
+      "displayed_counterparty": {
+        "party_id": "party-broker-freightwise",
+        "role": "broker",
+        "display_name": "FreightWise Brokerage",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-08-12T09:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 32
       }
     },
     {
-      "id": "VL-1006",
-      "reference_number": "REF-1006-FF",
-      "origin": {
-        "city": "Stockton",
-        "state": "CA",
-        "postal_code": "95202",
-        "country": "US"
+      "load": {
+        "id": "VL-1003",
+        "reference_number": "REF-1003-CC",
+        "origin": {
+          "city": "Memphis",
+          "state": "TN",
+          "postal_code": "38103",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Dallas",
+          "state": "TX",
+          "postal_code": "75201",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 40200,
+        "rate": 1875.0,
+        "pickup_at": "2026-04-20T07:00:00Z",
+        "deliver_at": "2026-04-21T18:00:00Z",
+        "status": "posted",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-18T15:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-easternfoods",
+              "role": "shipper",
+              "display_name": "Eastern Foods Distributing"
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-18T15:45:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": null
       },
-      "destination": {
-        "city": "Portland",
-        "state": "OR",
-        "postal_code": "97204",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 41750,
-      "rate": 2675.0,
-      "pickup_at": "2026-04-26T07:00:00Z",
-      "deliver_at": "2026-04-27T18:00:00Z",
-      "status": "draft",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-20T16:00:00Z",
-          "actor": null
+      "displayed_counterparty": {
+        "party_id": "party-broker-freightwise",
+        "role": "broker",
+        "display_name": "FreightWise Brokerage",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-08-12T09:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 32
+      }
+    },
+    {
+      "load": {
+        "id": "VL-1005",
+        "reference_number": "REF-1005-EE",
+        "origin": {
+          "city": "Newark",
+          "state": "NJ",
+          "postal_code": "07102",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Charlotte",
+          "state": "NC",
+          "postal_code": "28202",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 39800,
+        "rate": 2185.0,
+        "pickup_at": "2026-04-24T07:00:00Z",
+        "deliver_at": "2026-04-25T19:00:00Z",
+        "status": "posted",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-18T10:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-easternfoods",
+              "role": "shipper",
+              "display_name": "Eastern Foods Distributing"
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-18T10:30:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-04-19T13:00:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "expired",
+            "timestamp": "2026-04-19T15:00:00Z",
+            "actor": null
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-19T15:00:05Z",
+            "actor": null
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": {
+          "can_tender": true,
+          "disabled_reason": null
         }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": {
-        "can_tender": true,
-        "disabled_reason": null
+      },
+      "displayed_counterparty": {
+        "party_id": "party-broker-freightwise",
+        "role": "broker",
+        "display_name": "FreightWise Brokerage",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-08-12T09:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 32
+      }
+    },
+    {
+      "load": {
+        "id": "VL-1006",
+        "reference_number": "REF-1006-FF",
+        "origin": {
+          "city": "Stockton",
+          "state": "CA",
+          "postal_code": "95202",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Portland",
+          "state": "OR",
+          "postal_code": "97204",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 41750,
+        "rate": 2675.0,
+        "pickup_at": "2026-04-26T07:00:00Z",
+        "deliver_at": "2026-04-27T18:00:00Z",
+        "status": "draft",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-20T16:00:00Z",
+            "actor": null
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": {
+          "can_tender": true,
+          "disabled_reason": null
+        }
+      },
+      "displayed_counterparty": {
+        "party_id": "party-broker-freightwise",
+        "role": "broker",
+        "display_name": "FreightWise Brokerage",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-08-12T09:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 32
       }
     }
   ],
@@ -486,565 +551,662 @@ enum MockLoadFixtureRegistry {
 {
   "loads": [
     {
-      "id": "VL-1001",
-      "reference_number": "REF-1001-AA",
-      "origin": {
-        "city": "Anaheim",
-        "state": "CA",
-        "postal_code": "92805",
-        "country": "US"
-      },
-      "destination": {
-        "city": "Atlanta",
-        "state": "GA",
-        "postal_code": "30303",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 42500,
-      "rate": 3850.0,
-      "pickup_at": "2026-04-02T08:00:00Z",
-      "deliver_at": "2026-04-06T17:00:00Z",
-      "status": "delivered",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-03-30T14:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-pacificgoods",
-            "role": "shipper",
-            "display_name": "Pacific Goods LLC"
-          }
+      "load": {
+        "id": "VL-1001",
+        "reference_number": "REF-1001-AA",
+        "origin": {
+          "city": "Anaheim",
+          "state": "CA",
+          "postal_code": "92805",
+          "country": "US"
         },
-        {
-          "status": "posted",
-          "timestamp": "2026-03-30T14:30:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
+        "destination": {
+          "city": "Atlanta",
+          "state": "GA",
+          "postal_code": "30303",
+          "country": "US"
         },
-        {
-          "status": "tendered",
-          "timestamp": "2026-03-31T09:15:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
+        "equipment": "dry_van",
+        "weight": 42500,
+        "rate": 3850.0,
+        "pickup_at": "2026-04-02T08:00:00Z",
+        "deliver_at": "2026-04-06T17:00:00Z",
+        "status": "delivered",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-03-30T14:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-pacificgoods",
+              "role": "shipper",
+              "display_name": "Pacific Goods LLC"
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-03-30T14:30:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-03-31T09:15:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "accepted",
+            "timestamp": "2026-03-31T11:42:00Z",
+            "actor": {
+              "party_id": "party-carrier-acme",
+              "role": "carrier",
+              "display_name": "Acme Trucking Inc."
+            }
+          },
+          {
+            "status": "dispatched",
+            "timestamp": "2026-04-02T07:30:00Z",
+            "actor": {
+              "party_id": "party-dispatch-overland",
+              "role": "dispatch",
+              "display_name": "Overland Dispatch"
+            }
+          },
+          {
+            "status": "in_transit",
+            "timestamp": "2026-04-02T08:45:00Z",
+            "actor": {
+              "party_id": "party-carrier-acme",
+              "role": "carrier",
+              "display_name": "Acme Trucking Inc."
+            }
+          },
+          {
+            "status": "delivered",
+            "timestamp": "2026-04-06T16:48:00Z",
+            "actor": {
+              "party_id": "party-carrier-acme",
+              "role": "carrier",
+              "display_name": "Acme Trucking Inc."
+            }
           }
-        },
-        {
-          "status": "accepted",
-          "timestamp": "2026-03-31T11:42:00Z",
-          "actor": {
-            "party_id": "party-carrier-acme",
-            "role": "carrier",
-            "display_name": "Acme Trucking Inc."
-          }
-        },
-        {
-          "status": "dispatched",
-          "timestamp": "2026-04-02T07:30:00Z",
-          "actor": {
-            "party_id": "party-dispatch-overland",
-            "role": "dispatch",
-            "display_name": "Overland Dispatch"
-          }
-        },
-        {
-          "status": "in_transit",
-          "timestamp": "2026-04-02T08:45:00Z",
-          "actor": {
-            "party_id": "party-carrier-acme",
-            "role": "carrier",
-            "display_name": "Acme Trucking Inc."
-          }
-        },
-        {
-          "status": "delivered",
-          "timestamp": "2026-04-06T16:48:00Z",
-          "actor": {
-            "party_id": "party-carrier-acme",
-            "role": "carrier",
-            "display_name": "Acme Trucking Inc."
-          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": {
+          "can_tender": true,
+          "disabled_reason": null
         }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": {
-        "can_tender": true,
-        "disabled_reason": null
+      },
+      "displayed_counterparty": {
+        "party_id": "party-carrier-acme",
+        "role": "carrier",
+        "display_name": "Acme Trucking Inc.",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-09-22T13:05:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": "0123456",
+        "usdot_authority_status": "active",
+        "prior_relationship_count": 27
       }
     },
     {
-      "id": "VL-1002",
-      "reference_number": "REF-1002-BB",
-      "origin": {
-        "city": "Salinas",
-        "state": "CA",
-        "postal_code": "93901",
-        "country": "US"
+      "load": {
+        "id": "VL-1002",
+        "reference_number": "REF-1002-BB",
+        "origin": {
+          "city": "Salinas",
+          "state": "CA",
+          "postal_code": "93901",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Chicago",
+          "state": "IL",
+          "postal_code": "60601",
+          "country": "US"
+        },
+        "equipment": "reefer",
+        "weight": 38900,
+        "rate": 5125.5,
+        "pickup_at": "2026-04-14T06:00:00Z",
+        "deliver_at": "2026-04-17T20:00:00Z",
+        "status": "in_transit",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-11T12:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-globalexports",
+              "role": "shipper",
+              "display_name": "Global Exports Co."
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-11T12:30:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-04-12T10:00:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "accepted",
+            "timestamp": "2026-04-12T13:18:00Z",
+            "actor": {
+              "party_id": "party-carrier-redrock",
+              "role": "carrier",
+              "display_name": "Red Rock Carriers"
+            }
+          },
+          {
+            "status": "dispatched",
+            "timestamp": "2026-04-14T05:30:00Z",
+            "actor": {
+              "party_id": "party-dispatch-cornerstone",
+              "role": "dispatch",
+              "display_name": "Cornerstone Dispatch"
+            }
+          },
+          {
+            "status": "in_transit",
+            "timestamp": "2026-04-14T06:25:00Z",
+            "actor": {
+              "party_id": "party-carrier-redrock",
+              "role": "carrier",
+              "display_name": "Red Rock Carriers"
+            }
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": null
       },
-      "destination": {
-        "city": "Chicago",
-        "state": "IL",
-        "postal_code": "60601",
-        "country": "US"
-      },
-      "equipment": "reefer",
-      "weight": 38900,
-      "rate": 5125.5,
-      "pickup_at": "2026-04-14T06:00:00Z",
-      "deliver_at": "2026-04-17T20:00:00Z",
-      "status": "in_transit",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-11T12:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-globalexports",
-            "role": "shipper",
-            "display_name": "Global Exports Co."
-          }
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-11T12:30:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "tendered",
-          "timestamp": "2026-04-12T10:00:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "accepted",
-          "timestamp": "2026-04-12T13:18:00Z",
-          "actor": {
-            "party_id": "party-carrier-redrock",
-            "role": "carrier",
-            "display_name": "Red Rock Carriers"
-          }
-        },
-        {
-          "status": "dispatched",
-          "timestamp": "2026-04-14T05:30:00Z",
-          "actor": {
-            "party_id": "party-dispatch-cornerstone",
-            "role": "dispatch",
-            "display_name": "Cornerstone Dispatch"
-          }
-        },
-        {
-          "status": "in_transit",
-          "timestamp": "2026-04-14T06:25:00Z",
-          "actor": {
-            "party_id": "party-carrier-redrock",
-            "role": "carrier",
-            "display_name": "Red Rock Carriers"
-          }
-        }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": null
-    },
-    {
-      "id": "VL-1003",
-      "reference_number": "REF-1003-CC",
-      "origin": {
-        "city": "Memphis",
-        "state": "TN",
-        "postal_code": "38103",
-        "country": "US"
-      },
-      "destination": {
-        "city": "Dallas",
-        "state": "TX",
-        "postal_code": "75201",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 40200,
-      "rate": 1875.0,
-      "pickup_at": "2026-04-20T07:00:00Z",
-      "deliver_at": "2026-04-21T18:00:00Z",
-      "status": "posted",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-18T15:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-easternfoods",
-            "role": "shipper",
-            "display_name": "Eastern Foods Distributing"
-          }
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-18T15:45:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": null
-    },
-    {
-      "id": "VL-1004",
-      "reference_number": "REF-1004-DD",
-      "origin": {
-        "city": "Phoenix",
-        "state": "AZ",
-        "postal_code": "85003",
-        "country": "US"
-      },
-      "destination": {
-        "city": "Denver",
-        "state": "CO",
-        "postal_code": "80202",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 41200,
-      "rate": 2450.0,
-      "pickup_at": "2026-04-22T09:00:00Z",
-      "deliver_at": "2026-04-23T16:00:00Z",
-      "status": "tendered",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-19T11:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-pacificgoods",
-            "role": "shipper",
-            "display_name": "Pacific Goods LLC"
-          }
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-19T11:25:00Z",
-          "actor": {
-            "party_id": "party-broker-sunbelt",
-            "role": "broker",
-            "display_name": "Sunbelt Logistics"
-          }
-        },
-        {
-          "status": "tendered",
-          "timestamp": "2026-04-20T14:00:00Z",
-          "actor": {
-            "party_id": "party-broker-sunbelt",
-            "role": "broker",
-            "display_name": "Sunbelt Logistics"
-          }
-        }
-      ],
-      "respond_by_at": "2026-04-20T16:00:00Z",
-      "tender_eligibility": {
-        "can_tender": true,
-        "disabled_reason": null
+      "displayed_counterparty": {
+        "party_id": "party-carrier-redrock",
+        "role": "carrier",
+        "display_name": "Red Rock Carriers",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-10-18T08:30:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": "0445582",
+        "usdot_authority_status": "active",
+        "prior_relationship_count": 11
       }
     },
     {
-      "id": "VL-1005",
-      "reference_number": "REF-1005-EE",
-      "origin": {
-        "city": "Newark",
-        "state": "NJ",
-        "postal_code": "07102",
-        "country": "US"
+      "load": {
+        "id": "VL-1003",
+        "reference_number": "REF-1003-CC",
+        "origin": {
+          "city": "Memphis",
+          "state": "TN",
+          "postal_code": "38103",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Dallas",
+          "state": "TX",
+          "postal_code": "75201",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 40200,
+        "rate": 1875.0,
+        "pickup_at": "2026-04-20T07:00:00Z",
+        "deliver_at": "2026-04-21T18:00:00Z",
+        "status": "posted",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-18T15:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-easternfoods",
+              "role": "shipper",
+              "display_name": "Eastern Foods Distributing"
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-18T15:45:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": null
       },
-      "destination": {
-        "city": "Charlotte",
-        "state": "NC",
-        "postal_code": "28202",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 39800,
-      "rate": 2185.0,
-      "pickup_at": "2026-04-24T07:00:00Z",
-      "deliver_at": "2026-04-25T19:00:00Z",
-      "status": "posted",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-18T10:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-easternfoods",
-            "role": "shipper",
-            "display_name": "Eastern Foods Distributing"
+      "displayed_counterparty": null
+    },
+    {
+      "load": {
+        "id": "VL-1004",
+        "reference_number": "REF-1004-DD",
+        "origin": {
+          "city": "Phoenix",
+          "state": "AZ",
+          "postal_code": "85003",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Denver",
+          "state": "CO",
+          "postal_code": "80202",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 41200,
+        "rate": 2450.0,
+        "pickup_at": "2026-04-22T09:00:00Z",
+        "deliver_at": "2026-04-23T16:00:00Z",
+        "status": "tendered",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-19T11:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-pacificgoods",
+              "role": "shipper",
+              "display_name": "Pacific Goods LLC"
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-19T11:25:00Z",
+            "actor": {
+              "party_id": "party-broker-sunbelt",
+              "role": "broker",
+              "display_name": "Sunbelt Logistics"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-04-20T14:00:00Z",
+            "actor": {
+              "party_id": "party-broker-sunbelt",
+              "role": "broker",
+              "display_name": "Sunbelt Logistics"
+            }
           }
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-18T10:30:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "tendered",
-          "timestamp": "2026-04-19T13:00:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "expired",
-          "timestamp": "2026-04-19T15:00:00Z",
-          "actor": null
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-19T15:00:05Z",
-          "actor": null
+        ],
+        "respond_by_at": "2026-04-20T16:00:00Z",
+        "tender_eligibility": {
+          "can_tender": true,
+          "disabled_reason": null
         }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": {
-        "can_tender": true,
-        "disabled_reason": null
+      },
+      "displayed_counterparty": {
+        "party_id": "party-carrier-acme",
+        "role": "carrier",
+        "display_name": "Acme Trucking Inc.",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-09-22T13:05:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": "0123456",
+        "usdot_authority_status": "active",
+        "prior_relationship_count": 27
       }
     },
     {
-      "id": "VL-1006",
-      "reference_number": "REF-1006-FF",
-      "origin": {
-        "city": "Stockton",
-        "state": "CA",
-        "postal_code": "95202",
-        "country": "US"
-      },
-      "destination": {
-        "city": "Portland",
-        "state": "OR",
-        "postal_code": "97204",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 41750,
-      "rate": 2675.0,
-      "pickup_at": "2026-04-26T07:00:00Z",
-      "deliver_at": "2026-04-27T18:00:00Z",
-      "status": "draft",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-20T16:00:00Z",
-          "actor": null
+      "load": {
+        "id": "VL-1005",
+        "reference_number": "REF-1005-EE",
+        "origin": {
+          "city": "Newark",
+          "state": "NJ",
+          "postal_code": "07102",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Charlotte",
+          "state": "NC",
+          "postal_code": "28202",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 39800,
+        "rate": 2185.0,
+        "pickup_at": "2026-04-24T07:00:00Z",
+        "deliver_at": "2026-04-25T19:00:00Z",
+        "status": "posted",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-18T10:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-easternfoods",
+              "role": "shipper",
+              "display_name": "Eastern Foods Distributing"
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-18T10:30:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-04-19T13:00:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "expired",
+            "timestamp": "2026-04-19T15:00:00Z",
+            "actor": null
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-19T15:00:05Z",
+            "actor": null
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": {
+          "can_tender": true,
+          "disabled_reason": null
         }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": {
-        "can_tender": true,
-        "disabled_reason": null
+      },
+      "displayed_counterparty": {
+        "party_id": "party-carrier-nationallink",
+        "role": "carrier",
+        "display_name": "National Link Carriers",
+        "verification_state": "pending",
+        "kyc_completed_at": null,
+        "device_binding_status": "unbound",
+        "usdot_number": "1144882",
+        "usdot_authority_status": "active",
+        "prior_relationship_count": 0
       }
     },
     {
-      "id": "VL-1008",
-      "reference_number": "REF-1008-HH",
-      "origin": {
-        "city": "Houston",
-        "state": "TX",
-        "postal_code": "77002",
-        "country": "US"
-      },
-      "destination": {
-        "city": "Tulsa",
-        "state": "OK",
-        "postal_code": "74103",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 40500,
-      "rate": 1495.0,
-      "pickup_at": "2026-04-23T08:00:00Z",
-      "deliver_at": "2026-04-23T19:00:00Z",
-      "status": "posted",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-19T14:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-easternfoods",
-            "role": "shipper",
-            "display_name": "Eastern Foods Distributing"
-          }
+      "load": {
+        "id": "VL-1006",
+        "reference_number": "REF-1006-FF",
+        "origin": {
+          "city": "Stockton",
+          "state": "CA",
+          "postal_code": "95202",
+          "country": "US"
         },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-19T14:25:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
+        "destination": {
+          "city": "Portland",
+          "state": "OR",
+          "postal_code": "97204",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 41750,
+        "rate": 2675.0,
+        "pickup_at": "2026-04-26T07:00:00Z",
+        "deliver_at": "2026-04-27T18:00:00Z",
+        "status": "draft",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-20T16:00:00Z",
+            "actor": null
           }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": {
+          "can_tender": true,
+          "disabled_reason": null
         }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": {
-        "can_tender": false,
-        "disabled_reason": "Carrier identity not yet verified \u2014 Phase 5 KYC outstanding"
+      },
+      "displayed_counterparty": null
+    },
+    {
+      "load": {
+        "id": "VL-1008",
+        "reference_number": "REF-1008-HH",
+        "origin": {
+          "city": "Houston",
+          "state": "TX",
+          "postal_code": "77002",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Tulsa",
+          "state": "OK",
+          "postal_code": "74103",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 40500,
+        "rate": 1495.0,
+        "pickup_at": "2026-04-23T08:00:00Z",
+        "deliver_at": "2026-04-23T19:00:00Z",
+        "status": "posted",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-19T14:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-easternfoods",
+              "role": "shipper",
+              "display_name": "Eastern Foods Distributing"
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-19T14:25:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": {
+          "can_tender": false,
+          "disabled_reason": "Carrier identity not yet verified \u2014 Phase 5 KYC outstanding"
+        }
+      },
+      "displayed_counterparty": {
+        "party_id": "party-carrier-nationallink",
+        "role": "carrier",
+        "display_name": "National Link Carriers",
+        "verification_state": "unverified",
+        "kyc_completed_at": null,
+        "device_binding_status": "unbound",
+        "usdot_number": "1144882",
+        "usdot_authority_status": "active",
+        "prior_relationship_count": 0
       }
     },
     {
-      "id": "VL-1009",
-      "reference_number": "REF-1009-II",
-      "origin": {
-        "city": "Long Beach",
-        "state": "CA",
-        "postal_code": "90802",
-        "country": "US"
+      "load": {
+        "id": "VL-1009",
+        "reference_number": "REF-1009-II",
+        "origin": {
+          "city": "Long Beach",
+          "state": "CA",
+          "postal_code": "90802",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Phoenix",
+          "state": "AZ",
+          "postal_code": "85003",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 43200,
+        "rate": 3275.0,
+        "pickup_at": "2026-04-18T07:00:00Z",
+        "deliver_at": "2026-04-19T18:00:00Z",
+        "status": "in_transit",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-15T11:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-globalexports",
+              "role": "shipper",
+              "display_name": "Global Exports Co."
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-15T11:45:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-04-16T09:00:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "accepted",
+            "timestamp": "2026-04-16T11:30:00Z",
+            "actor": {
+              "party_id": "party-broker-keystone",
+              "role": "broker",
+              "display_name": "Keystone Freight Group"
+            }
+          },
+          {
+            "status": "dispatched",
+            "timestamp": "2026-04-18T06:30:00Z",
+            "actor": {
+              "party_id": "party-dispatch-overland",
+              "role": "dispatch",
+              "display_name": "Overland Dispatch"
+            }
+          },
+          {
+            "status": "in_transit",
+            "timestamp": "2026-04-18T07:42:00Z",
+            "actor": {
+              "party_id": "party-carrier-redrock",
+              "role": "carrier",
+              "display_name": "Red Rock Carriers"
+            }
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": null
       },
-      "destination": {
-        "city": "Phoenix",
-        "state": "AZ",
-        "postal_code": "85003",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 43200,
-      "rate": 3275.0,
-      "pickup_at": "2026-04-18T07:00:00Z",
-      "deliver_at": "2026-04-19T18:00:00Z",
-      "status": "in_transit",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-15T11:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-globalexports",
-            "role": "shipper",
-            "display_name": "Global Exports Co."
-          }
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-15T11:45:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "tendered",
-          "timestamp": "2026-04-16T09:00:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "accepted",
-          "timestamp": "2026-04-16T11:30:00Z",
-          "actor": {
-            "party_id": "party-broker-keystone",
-            "role": "broker",
-            "display_name": "Keystone Freight Group"
-          }
-        },
-        {
-          "status": "dispatched",
-          "timestamp": "2026-04-18T06:30:00Z",
-          "actor": {
-            "party_id": "party-dispatch-overland",
-            "role": "dispatch",
-            "display_name": "Overland Dispatch"
-          }
-        },
-        {
-          "status": "in_transit",
-          "timestamp": "2026-04-18T07:42:00Z",
-          "actor": {
-            "party_id": "party-carrier-redrock",
-            "role": "carrier",
-            "display_name": "Red Rock Carriers"
-          }
-        }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": null
+      "displayed_counterparty": {
+        "party_id": "party-carrier-redrock",
+        "role": "carrier",
+        "display_name": "Red Rock Carriers",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-10-18T08:30:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": "0445582",
+        "usdot_authority_status": "active",
+        "prior_relationship_count": 11
+      }
     },
     {
-      "id": "VL-1010",
-      "reference_number": "REF-1010-JJ",
-      "origin": {
-        "city": "Miami",
-        "state": "FL",
-        "postal_code": "33130",
-        "country": "US"
+      "load": {
+        "id": "VL-1010",
+        "reference_number": "REF-1010-JJ",
+        "origin": {
+          "city": "Miami",
+          "state": "FL",
+          "postal_code": "33130",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Jacksonville",
+          "state": "FL",
+          "postal_code": "32202",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 39950,
+        "rate": 1685.0,
+        "pickup_at": "2026-04-22T07:00:00Z",
+        "deliver_at": "2026-04-22T19:00:00Z",
+        "status": "accepted",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-19T12:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-easternfoods",
+              "role": "shipper",
+              "display_name": "Eastern Foods Distributing"
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-19T12:30:00Z",
+            "actor": {
+              "party_id": "party-broker-sunbelt",
+              "role": "broker",
+              "display_name": "Sunbelt Logistics"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-04-20T08:00:00Z",
+            "actor": {
+              "party_id": "party-broker-sunbelt",
+              "role": "broker",
+              "display_name": "Sunbelt Logistics"
+            }
+          },
+          {
+            "status": "accepted",
+            "timestamp": "2026-04-20T09:14:00Z",
+            "actor": {
+              "party_id": "party-carrier-phantomline",
+              "role": "carrier",
+              "display_name": "PhantomLine Logistics"
+            }
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": null
       },
-      "destination": {
-        "city": "Jacksonville",
-        "state": "FL",
-        "postal_code": "32202",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 39950,
-      "rate": 1685.0,
-      "pickup_at": "2026-04-22T07:00:00Z",
-      "deliver_at": "2026-04-22T19:00:00Z",
-      "status": "accepted",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-19T12:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-easternfoods",
-            "role": "shipper",
-            "display_name": "Eastern Foods Distributing"
-          }
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-19T12:30:00Z",
-          "actor": {
-            "party_id": "party-broker-sunbelt",
-            "role": "broker",
-            "display_name": "Sunbelt Logistics"
-          }
-        },
-        {
-          "status": "tendered",
-          "timestamp": "2026-04-20T08:00:00Z",
-          "actor": {
-            "party_id": "party-broker-sunbelt",
-            "role": "broker",
-            "display_name": "Sunbelt Logistics"
-          }
-        },
-        {
-          "status": "accepted",
-          "timestamp": "2026-04-20T09:14:00Z",
-          "actor": {
-            "party_id": "party-carrier-phantomline",
-            "role": "carrier",
-            "display_name": "PhantomLine Logistics"
-          }
-        }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": null
+      "displayed_counterparty": {
+        "party_id": "party-carrier-phantomline",
+        "role": "carrier",
+        "display_name": "PhantomLine Logistics",
+        "verification_state": "flagged",
+        "kyc_completed_at": "2026-04-18T22:14:00Z",
+        "device_binding_status": "mismatched",
+        "usdot_number": "3998112",
+        "usdot_authority_status": "revoked",
+        "prior_relationship_count": 0
+      }
     }
   ],
   "next_cursor": null
@@ -1054,445 +1216,523 @@ enum MockLoadFixtureRegistry {
 {
   "loads": [
     {
-      "id": "VL-1001",
-      "reference_number": "REF-1001-AA",
-      "origin": {
-        "city": "Anaheim",
-        "state": "CA",
-        "postal_code": "92805",
-        "country": "US"
-      },
-      "destination": {
-        "city": "Atlanta",
-        "state": "GA",
-        "postal_code": "30303",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 42500,
-      "rate": 3850.0,
-      "pickup_at": "2026-04-02T08:00:00Z",
-      "deliver_at": "2026-04-06T17:00:00Z",
-      "status": "delivered",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-03-30T14:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-pacificgoods",
-            "role": "shipper",
-            "display_name": "Pacific Goods LLC"
-          }
+      "load": {
+        "id": "VL-1001",
+        "reference_number": "REF-1001-AA",
+        "origin": {
+          "city": "Anaheim",
+          "state": "CA",
+          "postal_code": "92805",
+          "country": "US"
         },
-        {
-          "status": "posted",
-          "timestamp": "2026-03-30T14:30:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
+        "destination": {
+          "city": "Atlanta",
+          "state": "GA",
+          "postal_code": "30303",
+          "country": "US"
         },
-        {
-          "status": "tendered",
-          "timestamp": "2026-03-31T09:15:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
+        "equipment": "dry_van",
+        "weight": 42500,
+        "rate": 3850.0,
+        "pickup_at": "2026-04-02T08:00:00Z",
+        "deliver_at": "2026-04-06T17:00:00Z",
+        "status": "delivered",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-03-30T14:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-pacificgoods",
+              "role": "shipper",
+              "display_name": "Pacific Goods LLC"
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-03-30T14:30:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-03-31T09:15:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "accepted",
+            "timestamp": "2026-03-31T11:42:00Z",
+            "actor": {
+              "party_id": "party-carrier-acme",
+              "role": "carrier",
+              "display_name": "Acme Trucking Inc."
+            }
+          },
+          {
+            "status": "dispatched",
+            "timestamp": "2026-04-02T07:30:00Z",
+            "actor": {
+              "party_id": "party-dispatch-overland",
+              "role": "dispatch",
+              "display_name": "Overland Dispatch"
+            }
+          },
+          {
+            "status": "in_transit",
+            "timestamp": "2026-04-02T08:45:00Z",
+            "actor": {
+              "party_id": "party-carrier-acme",
+              "role": "carrier",
+              "display_name": "Acme Trucking Inc."
+            }
+          },
+          {
+            "status": "delivered",
+            "timestamp": "2026-04-06T16:48:00Z",
+            "actor": {
+              "party_id": "party-carrier-acme",
+              "role": "carrier",
+              "display_name": "Acme Trucking Inc."
+            }
           }
-        },
-        {
-          "status": "accepted",
-          "timestamp": "2026-03-31T11:42:00Z",
-          "actor": {
-            "party_id": "party-carrier-acme",
-            "role": "carrier",
-            "display_name": "Acme Trucking Inc."
-          }
-        },
-        {
-          "status": "dispatched",
-          "timestamp": "2026-04-02T07:30:00Z",
-          "actor": {
-            "party_id": "party-dispatch-overland",
-            "role": "dispatch",
-            "display_name": "Overland Dispatch"
-          }
-        },
-        {
-          "status": "in_transit",
-          "timestamp": "2026-04-02T08:45:00Z",
-          "actor": {
-            "party_id": "party-carrier-acme",
-            "role": "carrier",
-            "display_name": "Acme Trucking Inc."
-          }
-        },
-        {
-          "status": "delivered",
-          "timestamp": "2026-04-06T16:48:00Z",
-          "actor": {
-            "party_id": "party-carrier-acme",
-            "role": "carrier",
-            "display_name": "Acme Trucking Inc."
-          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": {
+          "can_tender": true,
+          "disabled_reason": null
         }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": {
-        "can_tender": true,
-        "disabled_reason": null
+      },
+      "displayed_counterparty": {
+        "party_id": "party-broker-freightwise",
+        "role": "broker",
+        "display_name": "FreightWise Brokerage",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-08-12T09:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 32
       }
     },
     {
-      "id": "VL-1002",
-      "reference_number": "REF-1002-BB",
-      "origin": {
-        "city": "Salinas",
-        "state": "CA",
-        "postal_code": "93901",
-        "country": "US"
+      "load": {
+        "id": "VL-1002",
+        "reference_number": "REF-1002-BB",
+        "origin": {
+          "city": "Salinas",
+          "state": "CA",
+          "postal_code": "93901",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Chicago",
+          "state": "IL",
+          "postal_code": "60601",
+          "country": "US"
+        },
+        "equipment": "reefer",
+        "weight": 38900,
+        "rate": 5125.5,
+        "pickup_at": "2026-04-14T06:00:00Z",
+        "deliver_at": "2026-04-17T20:00:00Z",
+        "status": "in_transit",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-11T12:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-globalexports",
+              "role": "shipper",
+              "display_name": "Global Exports Co."
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-11T12:30:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-04-12T10:00:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "accepted",
+            "timestamp": "2026-04-12T13:18:00Z",
+            "actor": {
+              "party_id": "party-carrier-redrock",
+              "role": "carrier",
+              "display_name": "Red Rock Carriers"
+            }
+          },
+          {
+            "status": "dispatched",
+            "timestamp": "2026-04-14T05:30:00Z",
+            "actor": {
+              "party_id": "party-dispatch-cornerstone",
+              "role": "dispatch",
+              "display_name": "Cornerstone Dispatch"
+            }
+          },
+          {
+            "status": "in_transit",
+            "timestamp": "2026-04-14T06:25:00Z",
+            "actor": {
+              "party_id": "party-carrier-redrock",
+              "role": "carrier",
+              "display_name": "Red Rock Carriers"
+            }
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": null
       },
-      "destination": {
-        "city": "Chicago",
-        "state": "IL",
-        "postal_code": "60601",
-        "country": "US"
-      },
-      "equipment": "reefer",
-      "weight": 38900,
-      "rate": 5125.5,
-      "pickup_at": "2026-04-14T06:00:00Z",
-      "deliver_at": "2026-04-17T20:00:00Z",
-      "status": "in_transit",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-11T12:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-globalexports",
-            "role": "shipper",
-            "display_name": "Global Exports Co."
-          }
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-11T12:30:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "tendered",
-          "timestamp": "2026-04-12T10:00:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "accepted",
-          "timestamp": "2026-04-12T13:18:00Z",
-          "actor": {
-            "party_id": "party-carrier-redrock",
-            "role": "carrier",
-            "display_name": "Red Rock Carriers"
-          }
-        },
-        {
-          "status": "dispatched",
-          "timestamp": "2026-04-14T05:30:00Z",
-          "actor": {
-            "party_id": "party-dispatch-cornerstone",
-            "role": "dispatch",
-            "display_name": "Cornerstone Dispatch"
-          }
-        },
-        {
-          "status": "in_transit",
-          "timestamp": "2026-04-14T06:25:00Z",
-          "actor": {
-            "party_id": "party-carrier-redrock",
-            "role": "carrier",
-            "display_name": "Red Rock Carriers"
-          }
-        }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": null
-    },
-    {
-      "id": "VL-1004",
-      "reference_number": "REF-1004-DD",
-      "origin": {
-        "city": "Phoenix",
-        "state": "AZ",
-        "postal_code": "85003",
-        "country": "US"
-      },
-      "destination": {
-        "city": "Denver",
-        "state": "CO",
-        "postal_code": "80202",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 41200,
-      "rate": 2450.0,
-      "pickup_at": "2026-04-22T09:00:00Z",
-      "deliver_at": "2026-04-23T16:00:00Z",
-      "status": "tendered",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-19T11:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-pacificgoods",
-            "role": "shipper",
-            "display_name": "Pacific Goods LLC"
-          }
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-19T11:25:00Z",
-          "actor": {
-            "party_id": "party-broker-sunbelt",
-            "role": "broker",
-            "display_name": "Sunbelt Logistics"
-          }
-        },
-        {
-          "status": "tendered",
-          "timestamp": "2026-04-20T14:00:00Z",
-          "actor": {
-            "party_id": "party-broker-sunbelt",
-            "role": "broker",
-            "display_name": "Sunbelt Logistics"
-          }
-        }
-      ],
-      "respond_by_at": "2026-04-20T16:00:00Z",
-      "tender_eligibility": {
-        "can_tender": true,
-        "disabled_reason": null
+      "displayed_counterparty": {
+        "party_id": "party-broker-freightwise",
+        "role": "broker",
+        "display_name": "FreightWise Brokerage",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-08-12T09:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 32
       }
     },
     {
-      "id": "VL-1007",
-      "reference_number": "REF-1007-GG",
-      "origin": {
-        "city": "Detroit",
-        "state": "MI",
-        "postal_code": "48226",
-        "country": "US"
-      },
-      "destination": {
-        "city": "Indianapolis",
-        "state": "IN",
-        "postal_code": "46204",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 38450,
-      "rate": 1325.0,
-      "pickup_at": "2026-04-21T06:00:00Z",
-      "deliver_at": "2026-04-21T17:00:00Z",
-      "status": "dispatched",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-18T13:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-globalexports",
-            "role": "shipper",
-            "display_name": "Global Exports Co."
-          }
+      "load": {
+        "id": "VL-1004",
+        "reference_number": "REF-1004-DD",
+        "origin": {
+          "city": "Phoenix",
+          "state": "AZ",
+          "postal_code": "85003",
+          "country": "US"
         },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-18T13:30:00Z",
-          "actor": {
-            "party_id": "party-broker-sunbelt",
-            "role": "broker",
-            "display_name": "Sunbelt Logistics"
-          }
+        "destination": {
+          "city": "Denver",
+          "state": "CO",
+          "postal_code": "80202",
+          "country": "US"
         },
-        {
-          "status": "tendered",
-          "timestamp": "2026-04-19T09:00:00Z",
-          "actor": {
-            "party_id": "party-broker-sunbelt",
-            "role": "broker",
-            "display_name": "Sunbelt Logistics"
+        "equipment": "dry_van",
+        "weight": 41200,
+        "rate": 2450.0,
+        "pickup_at": "2026-04-22T09:00:00Z",
+        "deliver_at": "2026-04-23T16:00:00Z",
+        "status": "tendered",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-19T11:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-pacificgoods",
+              "role": "shipper",
+              "display_name": "Pacific Goods LLC"
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-19T11:25:00Z",
+            "actor": {
+              "party_id": "party-broker-sunbelt",
+              "role": "broker",
+              "display_name": "Sunbelt Logistics"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-04-20T14:00:00Z",
+            "actor": {
+              "party_id": "party-broker-sunbelt",
+              "role": "broker",
+              "display_name": "Sunbelt Logistics"
+            }
           }
-        },
-        {
-          "status": "accepted",
-          "timestamp": "2026-04-19T10:15:00Z",
-          "actor": {
-            "party_id": "party-carrier-redrock",
-            "role": "carrier",
-            "display_name": "Red Rock Carriers"
-          }
-        },
-        {
-          "status": "dispatched",
-          "timestamp": "2026-04-21T05:42:00Z",
-          "actor": {
-            "party_id": "party-dispatch-cornerstone",
-            "role": "dispatch",
-            "display_name": "Cornerstone Dispatch"
-          }
+        ],
+        "respond_by_at": "2026-04-20T16:00:00Z",
+        "tender_eligibility": {
+          "can_tender": true,
+          "disabled_reason": null
         }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": null
+      },
+      "displayed_counterparty": {
+        "party_id": "party-broker-sunbelt",
+        "role": "broker",
+        "display_name": "Sunbelt Logistics",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-09-08T11:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 21
+      }
     },
     {
-      "id": "VL-1009",
-      "reference_number": "REF-1009-II",
-      "origin": {
-        "city": "Long Beach",
-        "state": "CA",
-        "postal_code": "90802",
-        "country": "US"
+      "load": {
+        "id": "VL-1007",
+        "reference_number": "REF-1007-GG",
+        "origin": {
+          "city": "Detroit",
+          "state": "MI",
+          "postal_code": "48226",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Indianapolis",
+          "state": "IN",
+          "postal_code": "46204",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 38450,
+        "rate": 1325.0,
+        "pickup_at": "2026-04-21T06:00:00Z",
+        "deliver_at": "2026-04-21T17:00:00Z",
+        "status": "dispatched",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-18T13:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-globalexports",
+              "role": "shipper",
+              "display_name": "Global Exports Co."
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-18T13:30:00Z",
+            "actor": {
+              "party_id": "party-broker-sunbelt",
+              "role": "broker",
+              "display_name": "Sunbelt Logistics"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-04-19T09:00:00Z",
+            "actor": {
+              "party_id": "party-broker-sunbelt",
+              "role": "broker",
+              "display_name": "Sunbelt Logistics"
+            }
+          },
+          {
+            "status": "accepted",
+            "timestamp": "2026-04-19T10:15:00Z",
+            "actor": {
+              "party_id": "party-carrier-redrock",
+              "role": "carrier",
+              "display_name": "Red Rock Carriers"
+            }
+          },
+          {
+            "status": "dispatched",
+            "timestamp": "2026-04-21T05:42:00Z",
+            "actor": {
+              "party_id": "party-dispatch-cornerstone",
+              "role": "dispatch",
+              "display_name": "Cornerstone Dispatch"
+            }
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": null
       },
-      "destination": {
-        "city": "Phoenix",
-        "state": "AZ",
-        "postal_code": "85003",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 43200,
-      "rate": 3275.0,
-      "pickup_at": "2026-04-18T07:00:00Z",
-      "deliver_at": "2026-04-19T18:00:00Z",
-      "status": "in_transit",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-15T11:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-globalexports",
-            "role": "shipper",
-            "display_name": "Global Exports Co."
-          }
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-15T11:45:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "tendered",
-          "timestamp": "2026-04-16T09:00:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "accepted",
-          "timestamp": "2026-04-16T11:30:00Z",
-          "actor": {
-            "party_id": "party-broker-keystone",
-            "role": "broker",
-            "display_name": "Keystone Freight Group"
-          }
-        },
-        {
-          "status": "dispatched",
-          "timestamp": "2026-04-18T06:30:00Z",
-          "actor": {
-            "party_id": "party-dispatch-overland",
-            "role": "dispatch",
-            "display_name": "Overland Dispatch"
-          }
-        },
-        {
-          "status": "in_transit",
-          "timestamp": "2026-04-18T07:42:00Z",
-          "actor": {
-            "party_id": "party-carrier-redrock",
-            "role": "carrier",
-            "display_name": "Red Rock Carriers"
-          }
-        }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": null
+      "displayed_counterparty": {
+        "party_id": "party-broker-sunbelt",
+        "role": "broker",
+        "display_name": "Sunbelt Logistics",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-09-08T11:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 21
+      }
     },
     {
-      "id": "VL-1010",
-      "reference_number": "REF-1010-JJ",
-      "origin": {
-        "city": "Miami",
-        "state": "FL",
-        "postal_code": "33130",
-        "country": "US"
+      "load": {
+        "id": "VL-1009",
+        "reference_number": "REF-1009-II",
+        "origin": {
+          "city": "Long Beach",
+          "state": "CA",
+          "postal_code": "90802",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Phoenix",
+          "state": "AZ",
+          "postal_code": "85003",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 43200,
+        "rate": 3275.0,
+        "pickup_at": "2026-04-18T07:00:00Z",
+        "deliver_at": "2026-04-19T18:00:00Z",
+        "status": "in_transit",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-15T11:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-globalexports",
+              "role": "shipper",
+              "display_name": "Global Exports Co."
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-15T11:45:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-04-16T09:00:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "accepted",
+            "timestamp": "2026-04-16T11:30:00Z",
+            "actor": {
+              "party_id": "party-broker-keystone",
+              "role": "broker",
+              "display_name": "Keystone Freight Group"
+            }
+          },
+          {
+            "status": "dispatched",
+            "timestamp": "2026-04-18T06:30:00Z",
+            "actor": {
+              "party_id": "party-dispatch-overland",
+              "role": "dispatch",
+              "display_name": "Overland Dispatch"
+            }
+          },
+          {
+            "status": "in_transit",
+            "timestamp": "2026-04-18T07:42:00Z",
+            "actor": {
+              "party_id": "party-carrier-redrock",
+              "role": "carrier",
+              "display_name": "Red Rock Carriers"
+            }
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": null
       },
-      "destination": {
-        "city": "Jacksonville",
-        "state": "FL",
-        "postal_code": "32202",
-        "country": "US"
+      "displayed_counterparty": {
+        "party_id": "party-broker-keystone",
+        "role": "broker",
+        "display_name": "Keystone Freight Group",
+        "verification_state": "flagged",
+        "kyc_completed_at": "2025-07-04T08:00:00Z",
+        "device_binding_status": "mismatched",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 1
+      }
+    },
+    {
+      "load": {
+        "id": "VL-1010",
+        "reference_number": "REF-1010-JJ",
+        "origin": {
+          "city": "Miami",
+          "state": "FL",
+          "postal_code": "33130",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Jacksonville",
+          "state": "FL",
+          "postal_code": "32202",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 39950,
+        "rate": 1685.0,
+        "pickup_at": "2026-04-22T07:00:00Z",
+        "deliver_at": "2026-04-22T19:00:00Z",
+        "status": "accepted",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-19T12:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-easternfoods",
+              "role": "shipper",
+              "display_name": "Eastern Foods Distributing"
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-19T12:30:00Z",
+            "actor": {
+              "party_id": "party-broker-sunbelt",
+              "role": "broker",
+              "display_name": "Sunbelt Logistics"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-04-20T08:00:00Z",
+            "actor": {
+              "party_id": "party-broker-sunbelt",
+              "role": "broker",
+              "display_name": "Sunbelt Logistics"
+            }
+          },
+          {
+            "status": "accepted",
+            "timestamp": "2026-04-20T09:14:00Z",
+            "actor": {
+              "party_id": "party-carrier-phantomline",
+              "role": "carrier",
+              "display_name": "PhantomLine Logistics"
+            }
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": null
       },
-      "equipment": "dry_van",
-      "weight": 39950,
-      "rate": 1685.0,
-      "pickup_at": "2026-04-22T07:00:00Z",
-      "deliver_at": "2026-04-22T19:00:00Z",
-      "status": "accepted",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-19T12:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-easternfoods",
-            "role": "shipper",
-            "display_name": "Eastern Foods Distributing"
-          }
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-19T12:30:00Z",
-          "actor": {
-            "party_id": "party-broker-sunbelt",
-            "role": "broker",
-            "display_name": "Sunbelt Logistics"
-          }
-        },
-        {
-          "status": "tendered",
-          "timestamp": "2026-04-20T08:00:00Z",
-          "actor": {
-            "party_id": "party-broker-sunbelt",
-            "role": "broker",
-            "display_name": "Sunbelt Logistics"
-          }
-        },
-        {
-          "status": "accepted",
-          "timestamp": "2026-04-20T09:14:00Z",
-          "actor": {
-            "party_id": "party-carrier-phantomline",
-            "role": "carrier",
-            "display_name": "PhantomLine Logistics"
-          }
-        }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": null
+      "displayed_counterparty": {
+        "party_id": "party-broker-sunbelt",
+        "role": "broker",
+        "display_name": "Sunbelt Logistics",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-09-08T11:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 21
+      }
     }
   ],
   "next_cursor": null
@@ -1502,445 +1742,523 @@ enum MockLoadFixtureRegistry {
 {
   "loads": [
     {
-      "id": "VL-1001",
-      "reference_number": "REF-1001-AA",
-      "origin": {
-        "city": "Anaheim",
-        "state": "CA",
-        "postal_code": "92805",
-        "country": "US"
-      },
-      "destination": {
-        "city": "Atlanta",
-        "state": "GA",
-        "postal_code": "30303",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 42500,
-      "rate": 3850.0,
-      "pickup_at": "2026-04-02T08:00:00Z",
-      "deliver_at": "2026-04-06T17:00:00Z",
-      "status": "delivered",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-03-30T14:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-pacificgoods",
-            "role": "shipper",
-            "display_name": "Pacific Goods LLC"
-          }
+      "load": {
+        "id": "VL-1001",
+        "reference_number": "REF-1001-AA",
+        "origin": {
+          "city": "Anaheim",
+          "state": "CA",
+          "postal_code": "92805",
+          "country": "US"
         },
-        {
-          "status": "posted",
-          "timestamp": "2026-03-30T14:30:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
+        "destination": {
+          "city": "Atlanta",
+          "state": "GA",
+          "postal_code": "30303",
+          "country": "US"
         },
-        {
-          "status": "tendered",
-          "timestamp": "2026-03-31T09:15:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
+        "equipment": "dry_van",
+        "weight": 42500,
+        "rate": 3850.0,
+        "pickup_at": "2026-04-02T08:00:00Z",
+        "deliver_at": "2026-04-06T17:00:00Z",
+        "status": "delivered",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-03-30T14:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-pacificgoods",
+              "role": "shipper",
+              "display_name": "Pacific Goods LLC"
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-03-30T14:30:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-03-31T09:15:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "accepted",
+            "timestamp": "2026-03-31T11:42:00Z",
+            "actor": {
+              "party_id": "party-carrier-acme",
+              "role": "carrier",
+              "display_name": "Acme Trucking Inc."
+            }
+          },
+          {
+            "status": "dispatched",
+            "timestamp": "2026-04-02T07:30:00Z",
+            "actor": {
+              "party_id": "party-dispatch-overland",
+              "role": "dispatch",
+              "display_name": "Overland Dispatch"
+            }
+          },
+          {
+            "status": "in_transit",
+            "timestamp": "2026-04-02T08:45:00Z",
+            "actor": {
+              "party_id": "party-carrier-acme",
+              "role": "carrier",
+              "display_name": "Acme Trucking Inc."
+            }
+          },
+          {
+            "status": "delivered",
+            "timestamp": "2026-04-06T16:48:00Z",
+            "actor": {
+              "party_id": "party-carrier-acme",
+              "role": "carrier",
+              "display_name": "Acme Trucking Inc."
+            }
           }
-        },
-        {
-          "status": "accepted",
-          "timestamp": "2026-03-31T11:42:00Z",
-          "actor": {
-            "party_id": "party-carrier-acme",
-            "role": "carrier",
-            "display_name": "Acme Trucking Inc."
-          }
-        },
-        {
-          "status": "dispatched",
-          "timestamp": "2026-04-02T07:30:00Z",
-          "actor": {
-            "party_id": "party-dispatch-overland",
-            "role": "dispatch",
-            "display_name": "Overland Dispatch"
-          }
-        },
-        {
-          "status": "in_transit",
-          "timestamp": "2026-04-02T08:45:00Z",
-          "actor": {
-            "party_id": "party-carrier-acme",
-            "role": "carrier",
-            "display_name": "Acme Trucking Inc."
-          }
-        },
-        {
-          "status": "delivered",
-          "timestamp": "2026-04-06T16:48:00Z",
-          "actor": {
-            "party_id": "party-carrier-acme",
-            "role": "carrier",
-            "display_name": "Acme Trucking Inc."
-          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": {
+          "can_tender": true,
+          "disabled_reason": null
         }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": {
-        "can_tender": true,
-        "disabled_reason": null
+      },
+      "displayed_counterparty": {
+        "party_id": "party-broker-freightwise",
+        "role": "broker",
+        "display_name": "FreightWise Brokerage",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-08-12T09:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 32
       }
     },
     {
-      "id": "VL-1002",
-      "reference_number": "REF-1002-BB",
-      "origin": {
-        "city": "Salinas",
-        "state": "CA",
-        "postal_code": "93901",
-        "country": "US"
+      "load": {
+        "id": "VL-1002",
+        "reference_number": "REF-1002-BB",
+        "origin": {
+          "city": "Salinas",
+          "state": "CA",
+          "postal_code": "93901",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Chicago",
+          "state": "IL",
+          "postal_code": "60601",
+          "country": "US"
+        },
+        "equipment": "reefer",
+        "weight": 38900,
+        "rate": 5125.5,
+        "pickup_at": "2026-04-14T06:00:00Z",
+        "deliver_at": "2026-04-17T20:00:00Z",
+        "status": "in_transit",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-11T12:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-globalexports",
+              "role": "shipper",
+              "display_name": "Global Exports Co."
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-11T12:30:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-04-12T10:00:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "accepted",
+            "timestamp": "2026-04-12T13:18:00Z",
+            "actor": {
+              "party_id": "party-carrier-redrock",
+              "role": "carrier",
+              "display_name": "Red Rock Carriers"
+            }
+          },
+          {
+            "status": "dispatched",
+            "timestamp": "2026-04-14T05:30:00Z",
+            "actor": {
+              "party_id": "party-dispatch-cornerstone",
+              "role": "dispatch",
+              "display_name": "Cornerstone Dispatch"
+            }
+          },
+          {
+            "status": "in_transit",
+            "timestamp": "2026-04-14T06:25:00Z",
+            "actor": {
+              "party_id": "party-carrier-redrock",
+              "role": "carrier",
+              "display_name": "Red Rock Carriers"
+            }
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": null
       },
-      "destination": {
-        "city": "Chicago",
-        "state": "IL",
-        "postal_code": "60601",
-        "country": "US"
-      },
-      "equipment": "reefer",
-      "weight": 38900,
-      "rate": 5125.5,
-      "pickup_at": "2026-04-14T06:00:00Z",
-      "deliver_at": "2026-04-17T20:00:00Z",
-      "status": "in_transit",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-11T12:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-globalexports",
-            "role": "shipper",
-            "display_name": "Global Exports Co."
-          }
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-11T12:30:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "tendered",
-          "timestamp": "2026-04-12T10:00:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "accepted",
-          "timestamp": "2026-04-12T13:18:00Z",
-          "actor": {
-            "party_id": "party-carrier-redrock",
-            "role": "carrier",
-            "display_name": "Red Rock Carriers"
-          }
-        },
-        {
-          "status": "dispatched",
-          "timestamp": "2026-04-14T05:30:00Z",
-          "actor": {
-            "party_id": "party-dispatch-cornerstone",
-            "role": "dispatch",
-            "display_name": "Cornerstone Dispatch"
-          }
-        },
-        {
-          "status": "in_transit",
-          "timestamp": "2026-04-14T06:25:00Z",
-          "actor": {
-            "party_id": "party-carrier-redrock",
-            "role": "carrier",
-            "display_name": "Red Rock Carriers"
-          }
-        }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": null
-    },
-    {
-      "id": "VL-1004",
-      "reference_number": "REF-1004-DD",
-      "origin": {
-        "city": "Phoenix",
-        "state": "AZ",
-        "postal_code": "85003",
-        "country": "US"
-      },
-      "destination": {
-        "city": "Denver",
-        "state": "CO",
-        "postal_code": "80202",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 41200,
-      "rate": 2450.0,
-      "pickup_at": "2026-04-22T09:00:00Z",
-      "deliver_at": "2026-04-23T16:00:00Z",
-      "status": "tendered",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-19T11:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-pacificgoods",
-            "role": "shipper",
-            "display_name": "Pacific Goods LLC"
-          }
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-19T11:25:00Z",
-          "actor": {
-            "party_id": "party-broker-sunbelt",
-            "role": "broker",
-            "display_name": "Sunbelt Logistics"
-          }
-        },
-        {
-          "status": "tendered",
-          "timestamp": "2026-04-20T14:00:00Z",
-          "actor": {
-            "party_id": "party-broker-sunbelt",
-            "role": "broker",
-            "display_name": "Sunbelt Logistics"
-          }
-        }
-      ],
-      "respond_by_at": "2026-04-20T16:00:00Z",
-      "tender_eligibility": {
-        "can_tender": true,
-        "disabled_reason": null
+      "displayed_counterparty": {
+        "party_id": "party-broker-freightwise",
+        "role": "broker",
+        "display_name": "FreightWise Brokerage",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-08-12T09:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 32
       }
     },
     {
-      "id": "VL-1007",
-      "reference_number": "REF-1007-GG",
-      "origin": {
-        "city": "Detroit",
-        "state": "MI",
-        "postal_code": "48226",
-        "country": "US"
-      },
-      "destination": {
-        "city": "Indianapolis",
-        "state": "IN",
-        "postal_code": "46204",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 38450,
-      "rate": 1325.0,
-      "pickup_at": "2026-04-21T06:00:00Z",
-      "deliver_at": "2026-04-21T17:00:00Z",
-      "status": "dispatched",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-18T13:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-globalexports",
-            "role": "shipper",
-            "display_name": "Global Exports Co."
-          }
+      "load": {
+        "id": "VL-1004",
+        "reference_number": "REF-1004-DD",
+        "origin": {
+          "city": "Phoenix",
+          "state": "AZ",
+          "postal_code": "85003",
+          "country": "US"
         },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-18T13:30:00Z",
-          "actor": {
-            "party_id": "party-broker-sunbelt",
-            "role": "broker",
-            "display_name": "Sunbelt Logistics"
-          }
+        "destination": {
+          "city": "Denver",
+          "state": "CO",
+          "postal_code": "80202",
+          "country": "US"
         },
-        {
-          "status": "tendered",
-          "timestamp": "2026-04-19T09:00:00Z",
-          "actor": {
-            "party_id": "party-broker-sunbelt",
-            "role": "broker",
-            "display_name": "Sunbelt Logistics"
+        "equipment": "dry_van",
+        "weight": 41200,
+        "rate": 2450.0,
+        "pickup_at": "2026-04-22T09:00:00Z",
+        "deliver_at": "2026-04-23T16:00:00Z",
+        "status": "tendered",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-19T11:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-pacificgoods",
+              "role": "shipper",
+              "display_name": "Pacific Goods LLC"
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-19T11:25:00Z",
+            "actor": {
+              "party_id": "party-broker-sunbelt",
+              "role": "broker",
+              "display_name": "Sunbelt Logistics"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-04-20T14:00:00Z",
+            "actor": {
+              "party_id": "party-broker-sunbelt",
+              "role": "broker",
+              "display_name": "Sunbelt Logistics"
+            }
           }
-        },
-        {
-          "status": "accepted",
-          "timestamp": "2026-04-19T10:15:00Z",
-          "actor": {
-            "party_id": "party-carrier-redrock",
-            "role": "carrier",
-            "display_name": "Red Rock Carriers"
-          }
-        },
-        {
-          "status": "dispatched",
-          "timestamp": "2026-04-21T05:42:00Z",
-          "actor": {
-            "party_id": "party-dispatch-cornerstone",
-            "role": "dispatch",
-            "display_name": "Cornerstone Dispatch"
-          }
+        ],
+        "respond_by_at": "2026-04-20T16:00:00Z",
+        "tender_eligibility": {
+          "can_tender": true,
+          "disabled_reason": null
         }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": null
+      },
+      "displayed_counterparty": {
+        "party_id": "party-broker-sunbelt",
+        "role": "broker",
+        "display_name": "Sunbelt Logistics",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-09-08T11:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 21
+      }
     },
     {
-      "id": "VL-1009",
-      "reference_number": "REF-1009-II",
-      "origin": {
-        "city": "Long Beach",
-        "state": "CA",
-        "postal_code": "90802",
-        "country": "US"
+      "load": {
+        "id": "VL-1007",
+        "reference_number": "REF-1007-GG",
+        "origin": {
+          "city": "Detroit",
+          "state": "MI",
+          "postal_code": "48226",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Indianapolis",
+          "state": "IN",
+          "postal_code": "46204",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 38450,
+        "rate": 1325.0,
+        "pickup_at": "2026-04-21T06:00:00Z",
+        "deliver_at": "2026-04-21T17:00:00Z",
+        "status": "dispatched",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-18T13:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-globalexports",
+              "role": "shipper",
+              "display_name": "Global Exports Co."
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-18T13:30:00Z",
+            "actor": {
+              "party_id": "party-broker-sunbelt",
+              "role": "broker",
+              "display_name": "Sunbelt Logistics"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-04-19T09:00:00Z",
+            "actor": {
+              "party_id": "party-broker-sunbelt",
+              "role": "broker",
+              "display_name": "Sunbelt Logistics"
+            }
+          },
+          {
+            "status": "accepted",
+            "timestamp": "2026-04-19T10:15:00Z",
+            "actor": {
+              "party_id": "party-carrier-redrock",
+              "role": "carrier",
+              "display_name": "Red Rock Carriers"
+            }
+          },
+          {
+            "status": "dispatched",
+            "timestamp": "2026-04-21T05:42:00Z",
+            "actor": {
+              "party_id": "party-dispatch-cornerstone",
+              "role": "dispatch",
+              "display_name": "Cornerstone Dispatch"
+            }
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": null
       },
-      "destination": {
-        "city": "Phoenix",
-        "state": "AZ",
-        "postal_code": "85003",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 43200,
-      "rate": 3275.0,
-      "pickup_at": "2026-04-18T07:00:00Z",
-      "deliver_at": "2026-04-19T18:00:00Z",
-      "status": "in_transit",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-15T11:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-globalexports",
-            "role": "shipper",
-            "display_name": "Global Exports Co."
-          }
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-15T11:45:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "tendered",
-          "timestamp": "2026-04-16T09:00:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "accepted",
-          "timestamp": "2026-04-16T11:30:00Z",
-          "actor": {
-            "party_id": "party-broker-keystone",
-            "role": "broker",
-            "display_name": "Keystone Freight Group"
-          }
-        },
-        {
-          "status": "dispatched",
-          "timestamp": "2026-04-18T06:30:00Z",
-          "actor": {
-            "party_id": "party-dispatch-overland",
-            "role": "dispatch",
-            "display_name": "Overland Dispatch"
-          }
-        },
-        {
-          "status": "in_transit",
-          "timestamp": "2026-04-18T07:42:00Z",
-          "actor": {
-            "party_id": "party-carrier-redrock",
-            "role": "carrier",
-            "display_name": "Red Rock Carriers"
-          }
-        }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": null
+      "displayed_counterparty": {
+        "party_id": "party-broker-sunbelt",
+        "role": "broker",
+        "display_name": "Sunbelt Logistics",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-09-08T11:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 21
+      }
     },
     {
-      "id": "VL-1010",
-      "reference_number": "REF-1010-JJ",
-      "origin": {
-        "city": "Miami",
-        "state": "FL",
-        "postal_code": "33130",
-        "country": "US"
+      "load": {
+        "id": "VL-1009",
+        "reference_number": "REF-1009-II",
+        "origin": {
+          "city": "Long Beach",
+          "state": "CA",
+          "postal_code": "90802",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Phoenix",
+          "state": "AZ",
+          "postal_code": "85003",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 43200,
+        "rate": 3275.0,
+        "pickup_at": "2026-04-18T07:00:00Z",
+        "deliver_at": "2026-04-19T18:00:00Z",
+        "status": "in_transit",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-15T11:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-globalexports",
+              "role": "shipper",
+              "display_name": "Global Exports Co."
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-15T11:45:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-04-16T09:00:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "accepted",
+            "timestamp": "2026-04-16T11:30:00Z",
+            "actor": {
+              "party_id": "party-broker-keystone",
+              "role": "broker",
+              "display_name": "Keystone Freight Group"
+            }
+          },
+          {
+            "status": "dispatched",
+            "timestamp": "2026-04-18T06:30:00Z",
+            "actor": {
+              "party_id": "party-dispatch-overland",
+              "role": "dispatch",
+              "display_name": "Overland Dispatch"
+            }
+          },
+          {
+            "status": "in_transit",
+            "timestamp": "2026-04-18T07:42:00Z",
+            "actor": {
+              "party_id": "party-carrier-redrock",
+              "role": "carrier",
+              "display_name": "Red Rock Carriers"
+            }
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": null
       },
-      "destination": {
-        "city": "Jacksonville",
-        "state": "FL",
-        "postal_code": "32202",
-        "country": "US"
+      "displayed_counterparty": {
+        "party_id": "party-broker-keystone",
+        "role": "broker",
+        "display_name": "Keystone Freight Group",
+        "verification_state": "flagged",
+        "kyc_completed_at": "2025-07-04T08:00:00Z",
+        "device_binding_status": "mismatched",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 1
+      }
+    },
+    {
+      "load": {
+        "id": "VL-1010",
+        "reference_number": "REF-1010-JJ",
+        "origin": {
+          "city": "Miami",
+          "state": "FL",
+          "postal_code": "33130",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Jacksonville",
+          "state": "FL",
+          "postal_code": "32202",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 39950,
+        "rate": 1685.0,
+        "pickup_at": "2026-04-22T07:00:00Z",
+        "deliver_at": "2026-04-22T19:00:00Z",
+        "status": "accepted",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-19T12:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-easternfoods",
+              "role": "shipper",
+              "display_name": "Eastern Foods Distributing"
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-19T12:30:00Z",
+            "actor": {
+              "party_id": "party-broker-sunbelt",
+              "role": "broker",
+              "display_name": "Sunbelt Logistics"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-04-20T08:00:00Z",
+            "actor": {
+              "party_id": "party-broker-sunbelt",
+              "role": "broker",
+              "display_name": "Sunbelt Logistics"
+            }
+          },
+          {
+            "status": "accepted",
+            "timestamp": "2026-04-20T09:14:00Z",
+            "actor": {
+              "party_id": "party-carrier-phantomline",
+              "role": "carrier",
+              "display_name": "PhantomLine Logistics"
+            }
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": null
       },
-      "equipment": "dry_van",
-      "weight": 39950,
-      "rate": 1685.0,
-      "pickup_at": "2026-04-22T07:00:00Z",
-      "deliver_at": "2026-04-22T19:00:00Z",
-      "status": "accepted",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-19T12:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-easternfoods",
-            "role": "shipper",
-            "display_name": "Eastern Foods Distributing"
-          }
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-19T12:30:00Z",
-          "actor": {
-            "party_id": "party-broker-sunbelt",
-            "role": "broker",
-            "display_name": "Sunbelt Logistics"
-          }
-        },
-        {
-          "status": "tendered",
-          "timestamp": "2026-04-20T08:00:00Z",
-          "actor": {
-            "party_id": "party-broker-sunbelt",
-            "role": "broker",
-            "display_name": "Sunbelt Logistics"
-          }
-        },
-        {
-          "status": "accepted",
-          "timestamp": "2026-04-20T09:14:00Z",
-          "actor": {
-            "party_id": "party-carrier-phantomline",
-            "role": "carrier",
-            "display_name": "PhantomLine Logistics"
-          }
-        }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": null
+      "displayed_counterparty": {
+        "party_id": "party-broker-sunbelt",
+        "role": "broker",
+        "display_name": "Sunbelt Logistics",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-09-08T11:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 21
+      }
     }
   ],
   "next_cursor": null
@@ -1950,399 +2268,451 @@ enum MockLoadFixtureRegistry {
 {
   "loads": [
     {
-      "id": "VL-1001",
-      "reference_number": "REF-1001-AA",
-      "origin": {
-        "city": "Anaheim",
-        "state": "CA",
-        "postal_code": "92805",
-        "country": "US"
-      },
-      "destination": {
-        "city": "Atlanta",
-        "state": "GA",
-        "postal_code": "30303",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 42500,
-      "rate": 3850.0,
-      "pickup_at": "2026-04-02T08:00:00Z",
-      "deliver_at": "2026-04-06T17:00:00Z",
-      "status": "delivered",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-03-30T14:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-pacificgoods",
-            "role": "shipper",
-            "display_name": "Pacific Goods LLC"
-          }
+      "load": {
+        "id": "VL-1001",
+        "reference_number": "REF-1001-AA",
+        "origin": {
+          "city": "Anaheim",
+          "state": "CA",
+          "postal_code": "92805",
+          "country": "US"
         },
-        {
-          "status": "posted",
-          "timestamp": "2026-03-30T14:30:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
+        "destination": {
+          "city": "Atlanta",
+          "state": "GA",
+          "postal_code": "30303",
+          "country": "US"
         },
-        {
-          "status": "tendered",
-          "timestamp": "2026-03-31T09:15:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
+        "equipment": "dry_van",
+        "weight": 42500,
+        "rate": 3850.0,
+        "pickup_at": "2026-04-02T08:00:00Z",
+        "deliver_at": "2026-04-06T17:00:00Z",
+        "status": "delivered",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-03-30T14:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-pacificgoods",
+              "role": "shipper",
+              "display_name": "Pacific Goods LLC"
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-03-30T14:30:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-03-31T09:15:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "accepted",
+            "timestamp": "2026-03-31T11:42:00Z",
+            "actor": {
+              "party_id": "party-carrier-acme",
+              "role": "carrier",
+              "display_name": "Acme Trucking Inc."
+            }
+          },
+          {
+            "status": "dispatched",
+            "timestamp": "2026-04-02T07:30:00Z",
+            "actor": {
+              "party_id": "party-dispatch-overland",
+              "role": "dispatch",
+              "display_name": "Overland Dispatch"
+            }
+          },
+          {
+            "status": "in_transit",
+            "timestamp": "2026-04-02T08:45:00Z",
+            "actor": {
+              "party_id": "party-carrier-acme",
+              "role": "carrier",
+              "display_name": "Acme Trucking Inc."
+            }
+          },
+          {
+            "status": "delivered",
+            "timestamp": "2026-04-06T16:48:00Z",
+            "actor": {
+              "party_id": "party-carrier-acme",
+              "role": "carrier",
+              "display_name": "Acme Trucking Inc."
+            }
           }
-        },
-        {
-          "status": "accepted",
-          "timestamp": "2026-03-31T11:42:00Z",
-          "actor": {
-            "party_id": "party-carrier-acme",
-            "role": "carrier",
-            "display_name": "Acme Trucking Inc."
-          }
-        },
-        {
-          "status": "dispatched",
-          "timestamp": "2026-04-02T07:30:00Z",
-          "actor": {
-            "party_id": "party-dispatch-overland",
-            "role": "dispatch",
-            "display_name": "Overland Dispatch"
-          }
-        },
-        {
-          "status": "in_transit",
-          "timestamp": "2026-04-02T08:45:00Z",
-          "actor": {
-            "party_id": "party-carrier-acme",
-            "role": "carrier",
-            "display_name": "Acme Trucking Inc."
-          }
-        },
-        {
-          "status": "delivered",
-          "timestamp": "2026-04-06T16:48:00Z",
-          "actor": {
-            "party_id": "party-carrier-acme",
-            "role": "carrier",
-            "display_name": "Acme Trucking Inc."
-          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": {
+          "can_tender": true,
+          "disabled_reason": null
         }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": {
-        "can_tender": true,
-        "disabled_reason": null
+      },
+      "displayed_counterparty": {
+        "party_id": "party-carrier-acme",
+        "role": "carrier",
+        "display_name": "Acme Trucking Inc.",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-09-22T13:05:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": "0123456",
+        "usdot_authority_status": "active",
+        "prior_relationship_count": 27
       }
     },
     {
-      "id": "VL-1009",
-      "reference_number": "REF-1009-II",
-      "origin": {
-        "city": "Long Beach",
-        "state": "CA",
-        "postal_code": "90802",
-        "country": "US"
+      "load": {
+        "id": "VL-1009",
+        "reference_number": "REF-1009-II",
+        "origin": {
+          "city": "Long Beach",
+          "state": "CA",
+          "postal_code": "90802",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Phoenix",
+          "state": "AZ",
+          "postal_code": "85003",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 43200,
+        "rate": 3275.0,
+        "pickup_at": "2026-04-18T07:00:00Z",
+        "deliver_at": "2026-04-19T18:00:00Z",
+        "status": "in_transit",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-15T11:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-globalexports",
+              "role": "shipper",
+              "display_name": "Global Exports Co."
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-15T11:45:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-04-16T09:00:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "accepted",
+            "timestamp": "2026-04-16T11:30:00Z",
+            "actor": {
+              "party_id": "party-broker-keystone",
+              "role": "broker",
+              "display_name": "Keystone Freight Group"
+            }
+          },
+          {
+            "status": "dispatched",
+            "timestamp": "2026-04-18T06:30:00Z",
+            "actor": {
+              "party_id": "party-dispatch-overland",
+              "role": "dispatch",
+              "display_name": "Overland Dispatch"
+            }
+          },
+          {
+            "status": "in_transit",
+            "timestamp": "2026-04-18T07:42:00Z",
+            "actor": {
+              "party_id": "party-carrier-redrock",
+              "role": "carrier",
+              "display_name": "Red Rock Carriers"
+            }
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": null
       },
-      "destination": {
-        "city": "Phoenix",
-        "state": "AZ",
-        "postal_code": "85003",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 43200,
-      "rate": 3275.0,
-      "pickup_at": "2026-04-18T07:00:00Z",
-      "deliver_at": "2026-04-19T18:00:00Z",
-      "status": "in_transit",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-15T11:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-globalexports",
-            "role": "shipper",
-            "display_name": "Global Exports Co."
-          }
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-15T11:45:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "tendered",
-          "timestamp": "2026-04-16T09:00:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "accepted",
-          "timestamp": "2026-04-16T11:30:00Z",
-          "actor": {
-            "party_id": "party-broker-keystone",
-            "role": "broker",
-            "display_name": "Keystone Freight Group"
-          }
-        },
-        {
-          "status": "dispatched",
-          "timestamp": "2026-04-18T06:30:00Z",
-          "actor": {
-            "party_id": "party-dispatch-overland",
-            "role": "dispatch",
-            "display_name": "Overland Dispatch"
-          }
-        },
-        {
-          "status": "in_transit",
-          "timestamp": "2026-04-18T07:42:00Z",
-          "actor": {
-            "party_id": "party-carrier-redrock",
-            "role": "carrier",
-            "display_name": "Red Rock Carriers"
-          }
-        }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": null
+      "displayed_counterparty": {
+        "party_id": "party-carrier-redrock",
+        "role": "carrier",
+        "display_name": "Red Rock Carriers",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-10-18T08:30:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": "0445582",
+        "usdot_authority_status": "active",
+        "prior_relationship_count": 11
+      }
     },
     {
-      "id": "VL-1011",
-      "reference_number": "REF-1011-KK",
-      "origin": {
-        "city": "Atlanta",
-        "state": "GA",
-        "postal_code": "30303",
-        "country": "US"
+      "load": {
+        "id": "VL-1011",
+        "reference_number": "REF-1011-KK",
+        "origin": {
+          "city": "Atlanta",
+          "state": "GA",
+          "postal_code": "30303",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Birmingham",
+          "state": "AL",
+          "postal_code": "35203",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 40850,
+        "rate": 1245.0,
+        "pickup_at": "2026-04-12T07:00:00Z",
+        "deliver_at": "2026-04-12T15:00:00Z",
+        "status": "invoiced",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-08T10:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-easternfoods",
+              "role": "shipper",
+              "display_name": "Eastern Foods Distributing"
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-08T10:30:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-04-09T11:00:00Z",
+            "actor": {
+              "party_id": "party-broker-freightwise",
+              "role": "broker",
+              "display_name": "FreightWise Brokerage"
+            }
+          },
+          {
+            "status": "accepted",
+            "timestamp": "2026-04-09T13:00:00Z",
+            "actor": {
+              "party_id": "party-broker-keystone",
+              "role": "broker",
+              "display_name": "Keystone Freight Group"
+            }
+          },
+          {
+            "status": "dispatched",
+            "timestamp": "2026-04-12T06:30:00Z",
+            "actor": {
+              "party_id": "party-dispatch-cornerstone",
+              "role": "dispatch",
+              "display_name": "Cornerstone Dispatch"
+            }
+          },
+          {
+            "status": "in_transit",
+            "timestamp": "2026-04-12T07:25:00Z",
+            "actor": {
+              "party_id": "party-carrier-redrock",
+              "role": "carrier",
+              "display_name": "Red Rock Carriers"
+            }
+          },
+          {
+            "status": "delivered",
+            "timestamp": "2026-04-12T14:50:00Z",
+            "actor": {
+              "party_id": "party-carrier-redrock",
+              "role": "carrier",
+              "display_name": "Red Rock Carriers"
+            }
+          },
+          {
+            "status": "pod_captured",
+            "timestamp": "2026-04-12T15:05:00Z",
+            "actor": {
+              "party_id": "party-carrier-redrock",
+              "role": "carrier",
+              "display_name": "Red Rock Carriers"
+            }
+          },
+          {
+            "status": "invoiced",
+            "timestamp": "2026-04-13T09:42:00Z",
+            "actor": {
+              "party_id": "party-factoring-stagepay",
+              "role": "factoring",
+              "display_name": "StagePay Funding"
+            }
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": null
       },
-      "destination": {
-        "city": "Birmingham",
-        "state": "AL",
-        "postal_code": "35203",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 40850,
-      "rate": 1245.0,
-      "pickup_at": "2026-04-12T07:00:00Z",
-      "deliver_at": "2026-04-12T15:00:00Z",
-      "status": "invoiced",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-08T10:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-easternfoods",
-            "role": "shipper",
-            "display_name": "Eastern Foods Distributing"
-          }
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-08T10:30:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "tendered",
-          "timestamp": "2026-04-09T11:00:00Z",
-          "actor": {
-            "party_id": "party-broker-freightwise",
-            "role": "broker",
-            "display_name": "FreightWise Brokerage"
-          }
-        },
-        {
-          "status": "accepted",
-          "timestamp": "2026-04-09T13:00:00Z",
-          "actor": {
-            "party_id": "party-broker-keystone",
-            "role": "broker",
-            "display_name": "Keystone Freight Group"
-          }
-        },
-        {
-          "status": "dispatched",
-          "timestamp": "2026-04-12T06:30:00Z",
-          "actor": {
-            "party_id": "party-dispatch-cornerstone",
-            "role": "dispatch",
-            "display_name": "Cornerstone Dispatch"
-          }
-        },
-        {
-          "status": "in_transit",
-          "timestamp": "2026-04-12T07:25:00Z",
-          "actor": {
-            "party_id": "party-carrier-redrock",
-            "role": "carrier",
-            "display_name": "Red Rock Carriers"
-          }
-        },
-        {
-          "status": "delivered",
-          "timestamp": "2026-04-12T14:50:00Z",
-          "actor": {
-            "party_id": "party-carrier-redrock",
-            "role": "carrier",
-            "display_name": "Red Rock Carriers"
-          }
-        },
-        {
-          "status": "pod_captured",
-          "timestamp": "2026-04-12T15:05:00Z",
-          "actor": {
-            "party_id": "party-carrier-redrock",
-            "role": "carrier",
-            "display_name": "Red Rock Carriers"
-          }
-        },
-        {
-          "status": "invoiced",
-          "timestamp": "2026-04-13T09:42:00Z",
-          "actor": {
-            "party_id": "party-factoring-stagepay",
-            "role": "factoring",
-            "display_name": "StagePay Funding"
-          }
-        }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": null
+      "displayed_counterparty": {
+        "party_id": "party-carrier-redrock",
+        "role": "carrier",
+        "display_name": "Red Rock Carriers",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-10-18T08:30:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": "0445582",
+        "usdot_authority_status": "active",
+        "prior_relationship_count": 11
+      }
     },
     {
-      "id": "VL-1012",
-      "reference_number": "REF-1012-LL",
-      "origin": {
-        "city": "San Diego",
-        "state": "CA",
-        "postal_code": "92101",
-        "country": "US"
+      "load": {
+        "id": "VL-1012",
+        "reference_number": "REF-1012-LL",
+        "origin": {
+          "city": "San Diego",
+          "state": "CA",
+          "postal_code": "92101",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Tucson",
+          "state": "AZ",
+          "postal_code": "85701",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 41100,
+        "rate": 2375.0,
+        "pickup_at": "2026-04-05T07:00:00Z",
+        "deliver_at": "2026-04-05T17:00:00Z",
+        "status": "funded",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-04-01T10:00:00Z",
+            "actor": {
+              "party_id": "party-shipper-pacificgoods",
+              "role": "shipper",
+              "display_name": "Pacific Goods LLC"
+            }
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-04-01T10:30:00Z",
+            "actor": {
+              "party_id": "party-broker-sunbelt",
+              "role": "broker",
+              "display_name": "Sunbelt Logistics"
+            }
+          },
+          {
+            "status": "tendered",
+            "timestamp": "2026-04-02T09:00:00Z",
+            "actor": {
+              "party_id": "party-broker-sunbelt",
+              "role": "broker",
+              "display_name": "Sunbelt Logistics"
+            }
+          },
+          {
+            "status": "accepted",
+            "timestamp": "2026-04-02T11:00:00Z",
+            "actor": {
+              "party_id": "party-carrier-acme",
+              "role": "carrier",
+              "display_name": "Acme Trucking Inc."
+            }
+          },
+          {
+            "status": "dispatched",
+            "timestamp": "2026-04-05T06:30:00Z",
+            "actor": {
+              "party_id": "party-dispatch-overland",
+              "role": "dispatch",
+              "display_name": "Overland Dispatch"
+            }
+          },
+          {
+            "status": "in_transit",
+            "timestamp": "2026-04-05T07:20:00Z",
+            "actor": {
+              "party_id": "party-carrier-acme",
+              "role": "carrier",
+              "display_name": "Acme Trucking Inc."
+            }
+          },
+          {
+            "status": "delivered",
+            "timestamp": "2026-04-05T16:42:00Z",
+            "actor": {
+              "party_id": "party-carrier-acme",
+              "role": "carrier",
+              "display_name": "Acme Trucking Inc."
+            }
+          },
+          {
+            "status": "pod_captured",
+            "timestamp": "2026-04-05T16:58:00Z",
+            "actor": {
+              "party_id": "party-carrier-acme",
+              "role": "carrier",
+              "display_name": "Acme Trucking Inc."
+            }
+          },
+          {
+            "status": "invoiced",
+            "timestamp": "2026-04-06T09:00:00Z",
+            "actor": {
+              "party_id": "party-factoring-bridgecap",
+              "role": "factoring",
+              "display_name": "BridgeCap Capital"
+            }
+          },
+          {
+            "status": "funded",
+            "timestamp": "2026-04-07T13:15:00Z",
+            "actor": {
+              "party_id": "party-factoring-bridgecap",
+              "role": "factoring",
+              "display_name": "BridgeCap Capital"
+            }
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": null
       },
-      "destination": {
-        "city": "Tucson",
-        "state": "AZ",
-        "postal_code": "85701",
-        "country": "US"
-      },
-      "equipment": "dry_van",
-      "weight": 41100,
-      "rate": 2375.0,
-      "pickup_at": "2026-04-05T07:00:00Z",
-      "deliver_at": "2026-04-05T17:00:00Z",
-      "status": "funded",
-      "state_history": [
-        {
-          "status": "draft",
-          "timestamp": "2026-04-01T10:00:00Z",
-          "actor": {
-            "party_id": "party-shipper-pacificgoods",
-            "role": "shipper",
-            "display_name": "Pacific Goods LLC"
-          }
-        },
-        {
-          "status": "posted",
-          "timestamp": "2026-04-01T10:30:00Z",
-          "actor": {
-            "party_id": "party-broker-sunbelt",
-            "role": "broker",
-            "display_name": "Sunbelt Logistics"
-          }
-        },
-        {
-          "status": "tendered",
-          "timestamp": "2026-04-02T09:00:00Z",
-          "actor": {
-            "party_id": "party-broker-sunbelt",
-            "role": "broker",
-            "display_name": "Sunbelt Logistics"
-          }
-        },
-        {
-          "status": "accepted",
-          "timestamp": "2026-04-02T11:00:00Z",
-          "actor": {
-            "party_id": "party-carrier-acme",
-            "role": "carrier",
-            "display_name": "Acme Trucking Inc."
-          }
-        },
-        {
-          "status": "dispatched",
-          "timestamp": "2026-04-05T06:30:00Z",
-          "actor": {
-            "party_id": "party-dispatch-overland",
-            "role": "dispatch",
-            "display_name": "Overland Dispatch"
-          }
-        },
-        {
-          "status": "in_transit",
-          "timestamp": "2026-04-05T07:20:00Z",
-          "actor": {
-            "party_id": "party-carrier-acme",
-            "role": "carrier",
-            "display_name": "Acme Trucking Inc."
-          }
-        },
-        {
-          "status": "delivered",
-          "timestamp": "2026-04-05T16:42:00Z",
-          "actor": {
-            "party_id": "party-carrier-acme",
-            "role": "carrier",
-            "display_name": "Acme Trucking Inc."
-          }
-        },
-        {
-          "status": "pod_captured",
-          "timestamp": "2026-04-05T16:58:00Z",
-          "actor": {
-            "party_id": "party-carrier-acme",
-            "role": "carrier",
-            "display_name": "Acme Trucking Inc."
-          }
-        },
-        {
-          "status": "invoiced",
-          "timestamp": "2026-04-06T09:00:00Z",
-          "actor": {
-            "party_id": "party-factoring-bridgecap",
-            "role": "factoring",
-            "display_name": "BridgeCap Capital"
-          }
-        },
-        {
-          "status": "funded",
-          "timestamp": "2026-04-07T13:15:00Z",
-          "actor": {
-            "party_id": "party-factoring-bridgecap",
-            "role": "factoring",
-            "display_name": "BridgeCap Capital"
-          }
-        }
-      ],
-      "respond_by_at": null,
-      "tender_eligibility": null
+      "displayed_counterparty": {
+        "party_id": "party-carrier-acme",
+        "role": "carrier",
+        "display_name": "Acme Trucking Inc.",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-09-22T13:05:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": "0123456",
+        "usdot_authority_status": "active",
+        "prior_relationship_count": 27
+      }
     }
   ],
   "next_cursor": null
@@ -4300,6 +4670,191 @@ enum MockLoadFixtureRegistry {
       "implicated_edge_ids": []
     }
   }
+}
+"""#.utf8)
+
+    // MARK: - Degraded-counterparty demo lane (DEBUG-only, NOT in registerAppDefaults)
+
+    /// Register a single handler dispatching `GET /loads/degraded` to the
+    /// `loads-list-degraded-counterparty.json` payload. Used by Phase 8 UI tests
+    /// that need to exercise the fail-closed UI path (one row with null counterparty
+    /// + one row with a flagged counterparty, per 08-CONTEXT.md D-04 second half).
+    ///
+    /// === Why a sentinel role suffix (`/loads/degraded`) ===
+    /// 08-RESEARCH.md §Discretion offered two options: an extra registry method or
+    /// an XCUITest `?demo=degraded` query parameter. The existing dispatcher in
+    /// `registerAppDefaults()` matches on URL PATH SUFFIX with no query parsing
+    /// (lines 89-99). A sentinel suffix is the idiomatic addition — it slots into
+    /// the same path-suffix dispatch grammar without any new dispatcher code.
+    ///
+    /// === Test-only invocation (RESEARCH Open Question 2 ratified) ===
+    /// This function is NEVER called from `registerAppDefaults()`. Tests that need
+    /// the degraded scenario call it explicitly AFTER `MockURLProtocol.reset()`.
+    /// Keeping it out of the organic DEBUG tap-through prevents the degraded
+    /// fixture from leaking into the demo flow.
+    static func registerForDegradedDemo() {
+        MockURLProtocol.register { request in
+            guard request.httpMethod == "GET" else { return nil }
+            guard request.url?.path == "/loads/degraded" else { return nil }
+            return make200(body: degradedPayload, url: request.url)
+        }
+    }
+
+    /// Inline payload for `/loads/degraded` (AUTHORITATIVE COPY of
+    /// `validationLedgerTests/Networking/Fixtures/loads-list-degraded-counterparty.json`).
+    /// Drift-mitigation discipline matches the `listPayloads` table above: edits
+    /// to either side MUST be paired.
+    private static let degradedPayload: Data = Data(#"""
+{
+  "loads": [
+    {
+      "load": {
+        "id": "VL-D001",
+        "reference_number": "REF-D001",
+        "origin": {
+          "city": "Anaheim",
+          "state": "CA",
+          "postal_code": "92805",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Atlanta",
+          "state": "GA",
+          "postal_code": "30303",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 40000,
+        "rate": 2500.0,
+        "pickup_at": "2026-04-02T08:00:00Z",
+        "deliver_at": "2026-04-06T17:00:00Z",
+        "status": "posted",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-03-30T14:00:00Z",
+            "actor": null
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-03-30T14:30:00Z",
+            "actor": null
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": {
+          "can_tender": true,
+          "disabled_reason": null
+        }
+      },
+      "displayed_counterparty": null
+    },
+    {
+      "load": {
+        "id": "VL-D002",
+        "reference_number": "REF-D002",
+        "origin": {
+          "city": "Anaheim",
+          "state": "CA",
+          "postal_code": "92805",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Atlanta",
+          "state": "GA",
+          "postal_code": "30303",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 40000,
+        "rate": 2500.0,
+        "pickup_at": "2026-04-02T08:00:00Z",
+        "deliver_at": "2026-04-06T17:00:00Z",
+        "status": "tendered",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-03-30T14:00:00Z",
+            "actor": null
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-03-30T14:30:00Z",
+            "actor": null
+          }
+        ],
+        "respond_by_at": "2026-04-10T16:00:00Z",
+        "tender_eligibility": {
+          "can_tender": true,
+          "disabled_reason": null
+        }
+      },
+      "displayed_counterparty": {
+        "party_id": "party-carrier-phantomline",
+        "role": "carrier",
+        "display_name": "PhantomLine Logistics",
+        "verification_state": "flagged",
+        "kyc_completed_at": "2026-04-01T12:00:00Z",
+        "device_binding_status": "mismatched",
+        "usdot_number": "9999999",
+        "usdot_authority_status": "revoked",
+        "prior_relationship_count": 0
+      }
+    },
+    {
+      "load": {
+        "id": "VL-D003",
+        "reference_number": "REF-D003",
+        "origin": {
+          "city": "Anaheim",
+          "state": "CA",
+          "postal_code": "92805",
+          "country": "US"
+        },
+        "destination": {
+          "city": "Atlanta",
+          "state": "GA",
+          "postal_code": "30303",
+          "country": "US"
+        },
+        "equipment": "dry_van",
+        "weight": 40000,
+        "rate": 2500.0,
+        "pickup_at": "2026-04-02T08:00:00Z",
+        "deliver_at": "2026-04-06T17:00:00Z",
+        "status": "accepted",
+        "state_history": [
+          {
+            "status": "draft",
+            "timestamp": "2026-03-30T14:00:00Z",
+            "actor": null
+          },
+          {
+            "status": "posted",
+            "timestamp": "2026-03-30T14:30:00Z",
+            "actor": null
+          }
+        ],
+        "respond_by_at": null,
+        "tender_eligibility": {
+          "can_tender": true,
+          "disabled_reason": null
+        }
+      },
+      "displayed_counterparty": {
+        "party_id": "party-carrier-acme",
+        "role": "carrier",
+        "display_name": "Acme Trucking Inc.",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-09-22T13:05:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": "0123456",
+        "usdot_authority_status": "active",
+        "prior_relationship_count": 27
+      }
+    }
+  ],
+  "next_cursor": null
 }
 """#.utf8)
 }
