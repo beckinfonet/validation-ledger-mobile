@@ -46,8 +46,18 @@ final class LoadDetailFlowTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        // Warning 5: 30s hard cap per test.
-        executionTimeAllowance = 30
+        // WR-05 fix (Phase 9 review): the 30s cap covered ~3-4 device
+        // OTP-and-row-tap flows; `test_rowTap_pushesDetail` iterates all
+        // 5 role variants (~5-8s each on physical-device CI, which runs
+        // 2-4x slower than the simulator), pushing total runtime to 40s+
+        // and producing spurious timeout failures that masked real
+        // assertion failures with infrastructure noise. Bumped to 90s —
+        // the conservative-allowance option from the review fix
+        // suggestion, sized to absorb 5 device-speed flows + a margin.
+        // Other tests in this file (single-role flows) finish well under
+        // the original 30s budget, so this cap only meaningfully changes
+        // the 5-role test's effective ceiling.
+        executionTimeAllowance = 90
         continueAfterFailure = false
     }
 
