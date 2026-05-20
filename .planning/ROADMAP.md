@@ -66,7 +66,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 07-03-PLAN.md — 3 typed APIEndpoint conformers (LoadList, LoadDetail, LoadAction) + endpoint-shape tests
+- [x] 07-03-PLAN.md — 3 typed APIEndpoint conformers (LoadList, LoadDetail, LoadAction) + endpoint-shape tests
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -143,7 +143,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10
 | 4. App Attest & Physical-Device CI Hardening | v1.0 | 11/11 | Complete | 2026-05-16 |
 | 5. KYC Capture & Upload Pipeline | v1.0 | 13/13 | Complete | 2026-05-18 |
 | 6. Close gap: DEV-04 + trustTier + Phase 4 verification | v1.0 | 4/4 | Complete | 2026-05-18 |
-| 7. Load Domain Model & Mock Contract | v1.1 | 3/6 | In Progress|  |
+| 7. Load Domain Model & Mock Contract | v1.1 | 4/6 | In Progress|  |
 | 8. Role-Filtered Load List | v1.1 | 0/TBD | Not started | - |
 | 9. Load Detail & Chain-of-Trust Graph | v1.1 | 0/TBD | Not started | - |
 | 10. Per-Role Tender / Accept / Reject | v1.1 | 0/TBD | Not started | - |
