@@ -16,12 +16,23 @@ final class CarrierTabBarController: UITabBarController, RoleCoordinator {
     /// screen, forwarded into the modal `ProfileViewController`. `nil` hides the row.
     let kycStatusScreenFactory: (() -> UIViewController)?
 
+    /// Phase 8 LOAD-03 (D-01..D-04). Composition-root factory for the
+    /// role-scoped Loads screen; forwarded by
+    /// `AppCoordinator.roleCoordinator(for:container:)`. The closure is
+    /// parameterized by `Role` so this tab bar invokes
+    /// `loadListScreenFactory?(self.role)` to back the Carrier Loads tab. `nil`
+    /// fallback preserves the v1.1 placeholder for any test that constructs the
+    /// tab bar without injecting the factory.
+    let loadListScreenFactory: ((Role) -> UIViewController)?
+
     init(
         logoutService: any LogoutService,
-        kycStatusScreenFactory: (() -> UIViewController)? = nil
+        kycStatusScreenFactory: (() -> UIViewController)? = nil,
+        loadListScreenFactory: ((Role) -> UIViewController)? = nil
     ) {
         self.logoutService = logoutService
         self.kycStatusScreenFactory = kycStatusScreenFactory
+        self.loadListScreenFactory = loadListScreenFactory
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -30,7 +41,7 @@ final class CarrierTabBarController: UITabBarController, RoleCoordinator {
     override func viewDidLoad() {
         super.viewDidLoad()
         viewControllers = [
-            ShipperTabBarController.makeTab(title: "Loads",     systemImage: "shippingbox"),
+            ShipperTabBarController.makeLoadsTab(loadListScreenFactory: loadListScreenFactory, role: role),
             ShipperTabBarController.makeTab(title: "Drivers",   systemImage: "person.badge.key"),
             ShipperTabBarController.makeTab(title: "Documents", systemImage: "doc.on.doc"),
             ShipperTabBarController.makeTab(title: "Assistant", systemImage: "sparkles"),

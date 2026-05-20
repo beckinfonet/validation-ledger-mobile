@@ -97,6 +97,13 @@ enum MockOTPRoleFixtureRegistry {
             )!
             return (resp, body)
         }
+
+        // Phase 8 LOAD-03 (Plan 04 — RoleLoadsTabSmokeTests dependency).
+        // After the OTP+device-register fixtures are registered, ALSO register
+        // the Phase 7/8 load-domain handlers so the UI-test path serves the
+        // envelope-wrapped role-filtered loads-list fixture when the user
+        // taps the Loads (Invoices on Factoring) tab.
+        MockLoadFixtureRegistry.registerAppDefaults()
     }
 }
 

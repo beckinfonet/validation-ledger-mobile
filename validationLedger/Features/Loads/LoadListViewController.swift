@@ -292,6 +292,26 @@ final class LoadListViewController: UIViewController {
         wireActions()
         bindViewModel()
 
+        // Phase 8 Plan 04 (Rule 1 — bug surfaced by integration wiring):
+        // force `cellRegistration` to initialize HERE in viewDidLoad rather
+        // than lazily inside the dataSource cell provider. iOS 18 added a
+        // runtime guard that asserts when a UICollectionViewCellRegistration
+        // is FIRST instantiated inside `-collectionView:cellForItemAtIndexPath:`
+        // or a `UICollectionViewDiffableDataSource` cell provider:
+        //   "Attempted to dequeue a cell using a registration that was
+        //    created inside -collectionView:cellForItemAtIndexPath: or inside
+        //    a UICollectionViewDiffableDataSource cell provider. Creating a
+        //    new registration each time a cell is requested will prevent
+        //    reuse and cause created cells to remain inaccessible in memory
+        //    for the lifetime of the collection view. Registrations should
+        //    be created up front and reused."
+        // Even though we cache the registration in a `lazy var` (single
+        // instantiation), the LAZY INIT itself happens inside the cell
+        // provider on first call, which trips the iOS 18 guard. Accessing
+        // `cellRegistration` first here forces the lazy init out of the
+        // cell-provider context — the dataSource then dequeues an
+        // already-initialized registration.
+        _ = cellRegistration
         // Force the lazy datasource into existence so the first render
         // doesn't pay the lazy-init cost mid-transition.
         _ = dataSource
