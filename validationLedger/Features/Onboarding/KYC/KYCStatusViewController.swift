@@ -129,6 +129,7 @@ final class KYCStatusViewController: UIViewController {
             comment: "KYC status screen nav-bar title"
         )
         view.backgroundColor = DS.Colors.background
+        navigationItem.hidesBackButton = true  // terminal — no back path (D-14 mitigation)
 
         layoutContent()
         wireActions()
