@@ -322,7 +322,19 @@ public final class VerificationBasisSheetViewController: UIViewController {
         // also gates on .notApplicable per UI-SPEC line 714 (row not rendered).
         guard node.usdotAuthorityStatus != .notApplicable else { return nil }
 
-        let usdot = node.usdotNumber ?? ""
+        // WR-01 fix (Phase 9 review): when usdotNumber is nil but the
+        // authority row is still rendered (Carrier / Dispatch role whose
+        // authority status is active/suspended/revoked but the number
+        // itself is missing from an incomplete server response), the
+        // template "USDOT %@ · Authority …" would render as "USDOT  ·
+        // Authority …" — a leading double-space + bullet ahead of an
+        // empty number. Substitute the locked em-dash placeholder so the
+        // row still reads cleanly while making the missing data visible.
+        let usdot = node.usdotNumber ?? NSLocalizedString(
+            "loads.detail.sheet.usdot.placeholder",
+            value: "—",
+            comment: "Phase 9 verification-basis sheet — placeholder shown in the USDOT row when the server-supplied usdotNumber is nil but the authority row is still rendered (WR-01)."
+        )
         let symbolName: String
         let tintColor: UIColor
         let text: String
