@@ -83,6 +83,15 @@ public final class StatusTimelineView: UIView {
     private var pillViews: [UIView] = []
     private var pillLabels: [UILabel] = []
 
+    /// CR-01 cache: when the most recent event in stateHistory is
+    /// `.cancelled`, this stores the index in `primaryLifecycle` of the
+    /// furthest primary-lifecycle status reached BEFORE the cancel — so
+    /// the stepper can render completed pills as "done" + the pre-cancel
+    /// pill as "current," instead of regressing every pill to "future"
+    /// (which hid the load's actual progress prior to cancellation).
+    /// `nil` whenever currentStatus != .cancelled.
+    private var priorPrimaryForCancelledIdx: Int?
+
     // MARK: - Card subviews (current-state expanded card)
 
     private let cardView: UIView = {
@@ -271,6 +280,22 @@ public final class StatusTimelineView: UIView {
         let currentStatus = Self.pickCurrentStatus(from: load.stateHistory)
         let currentEvent = load.stateHistory.last { $0.status == currentStatus }
 
+        // CR-01: when current is .cancelled, find the index of the
+        // furthest primary-lifecycle status reached BEFORE the cancel so
+        // applyPillStates can mark prior pills as completed + the
+        // pre-cancel pill as current. Resolved here (where stateHistory is
+        // in scope) so applyPillStates stays history-agnostic.
+        if currentStatus == .cancelled {
+            let priorPrimary = load.stateHistory
+                .reversed()
+                .first(where: { Self.primaryLifecycle.contains($0.status) })?.status
+            priorPrimaryForCancelledIdx = priorPrimary.flatMap {
+                Self.primaryLifecycle.firstIndex(of: $0)
+            }
+        } else {
+            priorPrimaryForCancelledIdx = nil
+        }
+
         applyPillStates(currentStatus: currentStatus)
         configureRow1(currentStatus: currentStatus, event: currentEvent)
         configureRow2(event: currentEvent)
@@ -320,20 +345,36 @@ public final class StatusTimelineView: UIView {
         // the stepper highlights `.dispatched` as current. The cancelled
         // signal lives in the card copy, NOT the pill highlight.
         //
-        // This implementation picks the currentStatus index against
-        // primaryLifecycle. .cancelled is not in primaryLifecycle, so it
-        // returns nil — we then fall through to highlighting the prior
-        // primary status. For other primary statuses, the index resolves
-        // directly.
+        // CR-01 fix (Phase 9 review): when currentStatus is .cancelled, we
+        // CANNOT fall through to "all pills future" — that hides every
+        // primary stage the load definitively passed through before the
+        // cancel. .cancelled is a terminal event, not a current pipeline
+        // position; we treat it as "after all prior stages." For non-
+        // primary fallback (e.g. a malformed history that leaves us with
+        // some side-state), keep the original -1 fallback so all pills go
+        // future and the bad-data signal is visible.
         let currentIdx: Int
         if let i = Self.primaryLifecycle.firstIndex(of: currentStatus) {
             currentIdx = i
+        } else if currentStatus == .cancelled {
+            // Walk the configured history off the view? We don't have it
+            // here — but pickCurrentStatus's contract guarantees that when
+            // .cancelled is the most recent event the stepper should mark
+            // the last-non-cancelled primary as the visual "current"
+            // position. configure(load:) stores the picked status; the
+            // history walk lives there. We re-derive the furthest primary
+            // index from priorPrimary the same way pickCurrentStatus does
+            // — but applyPillStates is intentionally history-agnostic.
+            // The clean separation: when currentStatus == .cancelled, the
+            // furthest primary index is exposed via the cached
+            // `priorPrimaryForCancelledIdx` set by configure(load:).
+            currentIdx = priorPrimaryForCancelledIdx ?? -1
         } else {
-            // .cancelled (or fallback): no primary pill is "current" —
-            // the stepper renders all primaries as future. The card's
-            // Row 1 badge (with strikethrough) carries the cancelled
-            // signal. Set currentIdx to -1 so the for-loop below makes
-            // every pill "future."
+            // Other non-primary fallback (.draft / .rejected / .expired /
+            // .podCaptured / .invoiced / .funded): no primary pill is
+            // "current" — render all primaries as future. Per D-18 these
+            // statuses shouldn't be returned by pickCurrentStatus, but if
+            // a malformed history pierces that contract, fail visibly.
             currentIdx = -1
         }
 
