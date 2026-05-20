@@ -1,43 +1,133 @@
 // validationLedgerTests/Loads/Snapshot/TrustNodeViewSnapshotTests.swift
 //
-// Phase 9 Plan 02 Task 1 — Wave 0 shell.
+// Phase 9 Plan 06 Task 1 — populates the Wave 0 shell from Plan 02.
 //
 // Locked targets:
-//   - VALIDATION.md line 69 (Wave 0 list).
-//   - PATTERNS.md table row line 35 — closest analog
-//     `Loads/Snapshot/VerificationBadgeViewSnapshotTests.swift` (PATTERNS E8).
-//
-// Shell with `XCTSkip`-stubbed methods covering 4-6 representative
-// (verification-state × role) configurations. Populated by Plan 06 when the
-// `TrustNodeView` production type lands.
+//   - 09-06-PLAN.md Task 1 (4 representative verification-state × role frames).
+//   - 09-PATTERNS.md E5 — TrustNodeView composes VerificationBadgeView.
+//   - 09-UI-SPEC.md § Node visuals lines 167-184 (chrome + badge + role label
+//     + displayName label).
+//   - 09-CONTEXT.md D-15 dim-others rule (alpha == 0.5 when chain verdict !=
+//     clean AND this node is not implicated).
 //
 // === Why XCTest, not Swift Testing ===
-// `UIKitSnapshot.attach(_:name:to:)` requires `XCTestCase.add(_:)`; see
-// VerificationBadgeViewSnapshotTests file header for the locked precedent.
+// `UIKitSnapshot.attach(_:name:to:)` requires `XCTestCase.add(_:)`; mirrors
+// VerificationBadgeViewSnapshotTests precedent.
 //
-// === T-09-04 (PII) / T-09-05 (no client-trust derivation) ===
-// Wave 0 shells contain no data; XCTSkip stubs never execute.
+// === T-09-04 (PII) / T-09-03 (no client-trust derivation) ===
+// Tests construct nodes with synthetic VL-9xxx-style party IDs and synthetic
+// display names. Every visual treatment is driven directly by the configured
+// VerificationState + the isImplicated/isDimmed inputs — never derived.
 
 import XCTest
 @testable import validationLedger
 
 class TrustNodeViewSnapshotTests: XCTestCase {
 
-    // MARK: - Per (verification-state × role) shells — populated by Plan 06.
+    // MARK: - Helpers
 
-    func test_verifiedCarrierNode_rendersExpectedFrame() throws {
-        throw XCTSkip("Wave 0 shell — populated by Plan 06")
+    /// Default chrome size — square 100×100pt mirrors the iPhone fit-all-
+    /// nodes-tight rendering (≈90pt node chrome at default zoom).
+    private static let chromeSize = CGSize(width: 100, height: 100)
+
+    private func makeNode(
+        role: Role,
+        state: VerificationState,
+        partyID: String
+    ) -> TrustNode {
+        TrustNode(
+            partyID: partyID,
+            role: role,
+            displayName: "Synthetic \(role.displayName)",
+            verificationState: state,
+            kycCompletedAt: nil,
+            deviceBindingStatus: .bound,
+            usdotNumber: nil,
+            usdotAuthorityStatus: role == .carrier || role == .dispatch ? .active : .notApplicable,
+            priorRelationships: []
+        )
     }
 
-    func test_flaggedCarrierNode_compromised_rendersExpectedFrame() throws {
-        throw XCTSkip("Wave 0 shell — populated by Plan 06")
+    private func renderedNode(
+        node: TrustNode,
+        isImplicated: Bool = false,
+        isDimmed: Bool = false
+    ) -> TrustNodeView {
+        let v = TrustNodeView()
+        v.bounds = CGRect(origin: .zero, size: Self.chromeSize)
+        v.configure(node: node, isImplicated: isImplicated, isDimmed: isDimmed)
+        v.layoutIfNeeded()
+        return v
     }
 
-    func test_pendingBrokerNode_rendersExpectedFrame() throws {
-        throw XCTSkip("Wave 0 shell — populated by Plan 06")
+    // MARK: - 4 representative (verification-state × role) snapshots
+
+    func test_verifiedCarrierNode_rendersExpectedFrame() {
+        let view = renderedNode(
+            node: makeNode(role: .carrier, state: .verified, partyID: "party-carrier-VL-9001")
+        )
+
+        XCTAssertEqual(view.layer.cornerRadius, 12,
+                       "TrustNodeView chrome cornerRadius must be 12pt (UI-SPEC § Node visuals).")
+        XCTAssertEqual(view.alpha, 1.0,
+                       "Verified carrier on a clean chain must render at full alpha (no dim-others).")
+        XCTAssertEqual(view.accessibilityIdentifier, "load-detail.trust-graph.node.party-carrier-VL-9001",
+                       "Node identifier must follow load-detail.trust-graph.node.{partyID} convention.")
+
+        UIKitSnapshot.attach(
+            UIKitSnapshot.image(of: view, size: Self.chromeSize),
+            name: "TrustNode-verified-carrier", to: self
+        )
     }
 
-    func test_unverifiedShipperNode_rendersExpectedFrame() throws {
-        throw XCTSkip("Wave 0 shell — populated by Plan 06")
+    /// Dim-others rule — a flagged carrier on a compromised chain when this
+    /// node is NOT itself implicated renders at alpha 0.5.
+    func test_flaggedCarrierNode_compromised_rendersExpectedFrame() {
+        let view = renderedNode(
+            node: makeNode(role: .carrier, state: .flagged, partyID: "party-carrier-VL-9002"),
+            isImplicated: false,
+            isDimmed: true
+        )
+
+        XCTAssertEqual(view.alpha, 0.5, accuracy: 0.001,
+                       "isDimmed=true must render at alpha 0.5 (D-15 dim-others).")
+
+        UIKitSnapshot.attach(
+            UIKitSnapshot.image(of: view, size: Self.chromeSize),
+            name: "TrustNode-flagged-carrier-dimmed", to: self
+        )
+    }
+
+    func test_pendingBrokerNode_rendersExpectedFrame() {
+        let view = renderedNode(
+            node: makeNode(role: .broker, state: .pending, partyID: "party-broker-VL-9003")
+        )
+
+        UIKitSnapshot.attach(
+            UIKitSnapshot.image(of: view, size: Self.chromeSize),
+            name: "TrustNode-pending-broker", to: self
+        )
+    }
+
+    func test_unverifiedShipperNode_rendersExpectedFrame() {
+        let view = renderedNode(
+            node: makeNode(role: .shipper, state: .unverified, partyID: "party-shipper-VL-9004")
+        )
+
+        UIKitSnapshot.attach(
+            UIKitSnapshot.image(of: view, size: Self.chromeSize),
+            name: "TrustNode-unverified-shipper", to: self
+        )
+    }
+}
+
+private extension XCTestCase {
+    /// XCTAssertEqual overload with `accuracy:` for CGFloat — the standard
+    /// XCTAssertEqual(_:_:accuracy:) is BinaryFloatingPoint-only and the
+    /// stdlib overload requires both sides be the same concrete type.
+    func XCTAssertEqual(_ lhs: CGFloat, _ rhs: CGFloat, accuracy: CGFloat,
+                        _ message: @autoclosure () -> String = "",
+                        file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertEqual(Double(lhs), Double(rhs), accuracy: Double(accuracy), message(), file: file, line: line)
     }
 }
