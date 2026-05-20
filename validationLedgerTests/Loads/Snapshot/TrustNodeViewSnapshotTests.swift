@@ -89,7 +89,7 @@ class TrustNodeViewSnapshotTests: XCTestCase {
             isDimmed: true
         )
 
-        XCTAssertEqual(view.alpha, 0.5, accuracy: 0.001,
+        XCTAssertEqual(Double(view.alpha), 0.5, accuracy: 0.001,
                        "isDimmed=true must render at alpha 0.5 (D-15 dim-others).")
 
         UIKitSnapshot.attach(
@@ -121,13 +121,3 @@ class TrustNodeViewSnapshotTests: XCTestCase {
     }
 }
 
-private extension XCTestCase {
-    /// XCTAssertEqual overload with `accuracy:` for CGFloat — the standard
-    /// XCTAssertEqual(_:_:accuracy:) is BinaryFloatingPoint-only and the
-    /// stdlib overload requires both sides be the same concrete type.
-    func XCTAssertEqual(_ lhs: CGFloat, _ rhs: CGFloat, accuracy: CGFloat,
-                        _ message: @autoclosure () -> String = "",
-                        file: StaticString = #filePath, line: UInt = #line) {
-        XCTAssertEqual(Double(lhs), Double(rhs), accuracy: Double(accuracy), message(), file: file, line: line)
-    }
-}
