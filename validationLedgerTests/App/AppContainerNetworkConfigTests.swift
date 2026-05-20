@@ -131,3 +131,173 @@ struct AppContainerNetworkConfigTests {
         }
     }
 }
+
+// MARK: - Phase 7 LOAD-01 (Plan 07-06) — SC #5 mock/live swap tests for the 3 new Load endpoints
+//
+// Roadmap SC #5: "the one-line swap to .live config still compiles + passes
+// with the new endpoints registered." These tests pin three claims:
+//
+//   1. With .mock config, the new MockLoadFixtureRegistry handlers (Plan 07-06
+//      Task 1) are wired through AppContainer.init's DEBUG block (Task 2) and
+//      the 3 new Load endpoints flow end-to-end through apiClient.request<E>
+//      (compile + run + decode).
+//   2. With .live config, AppContainer's apiClient accepts the new endpoint
+//      types at the request<E> call site (compile-clean — the request itself
+//      may not be invoked because .live routes through PinningSessionDelegate
+//      against a baseURL that does not resolve in test environments).
+//   3. The .mock-config end-to-end pipeline produces semantically correct
+//      Response values for each of the 3 endpoints — proves the entire stack
+//      composes (registry → MockURLProtocol → APIClient → endpoint Decodable
+//      Response → Plan 01 fail-closed decoders).
+//
+// .serialized — shares MockURLProtocol's global handler registry with the
+// sibling .mock tests; parallelism here would thrash the handler list.
+
+@Suite("AppContainer — Phase 7 load endpoints config swap (Plan 07-06 SC #5)", .serialized)
+struct AppContainerLoadEndpointsConfigSwapTests {
+
+    // MARK: - Helpers
+
+    private func debugEnv(baseURL: URL? = nil) -> Environment {
+        Environment(name: "test", keychainAccessGroup: nil, apiBaseURL: baseURL)
+    }
+
+    /// Helper that registers the Plan 07-06 MockLoadFixtureRegistry handlers
+    /// after a clean MockURLProtocol reset. The .mock AppContainer DEBUG-block
+    /// wiring path requires going through the AppContainer initializer (which
+    /// already does this); in tests we replicate that wiring by hand so the
+    /// test sees the same handler set even with an explicit reset at top.
+    private func registerLoadFixtures() {
+        MockURLProtocol.reset()
+        MockLoadFixtureRegistry.registerAppDefaults()
+    }
+
+    // MARK: - Test 1 — .mock-config end-to-end swap
+
+    @Test("loadEndpointsConfigSwap: with .mock config + load-fixture registry, the 3 Load endpoints flow through apiClient.request<E> end-to-end")
+    func mockConfigEndToEndSwap() async throws {
+        registerLoadFixtures()
+        defer { MockURLProtocol.reset() }
+
+        let container = AppContainer(
+            env: debugEnv(baseURL: nil),
+            networkConfig: .mock,
+            isSecureEnclaveAvailable: true
+        )
+
+        // List — broker fixture has 9 loads (Plan 07-05 SUMMARY).
+        let listResponse = try await container.apiClient.request(LoadListEndpoint(role: .broker))
+        #expect(listResponse.loads.count == 9, "broker list fixture is the 9-load fixture from Plan 07-05")
+
+        // Detail — VL-1001 is the clean verified delivered load.
+        let detailResponse = try await container.apiClient.request(LoadDetailEndpoint(loadID: "VL-1001"))
+        #expect(detailResponse.load.id == "VL-1001")
+        #expect(detailResponse.chainOfTrust.integrity.verdict == .clean)
+
+        // Action — POST /loads/VL-1004/accept returns the canonical success body.
+        let actionBody = LoadActionEndpoint.RequestBody(
+            actorRole: .carrier,
+            targetPartyID: nil,
+            respondByAt: nil,
+            note: nil
+        )
+        let actionResponse = try await container.apiClient.request(
+            LoadActionEndpoint(loadID: "VL-1004", action: .accept, body: actionBody)
+        )
+        #expect(actionResponse.load.id.hasPrefix("VL-"))
+    }
+
+    // MARK: - Test 2 — .live-config compile-clean swap (SC #5)
+
+    @Test("loadEndpointsConfigSwap: with .live config, apiClient.request<E> accepts all 3 new Load endpoints at the call site (compile-clean — SC #5)")
+    func liveConfigCompileCleanSwap() async throws {
+        // Roadmap SC #5: the .live config must compile + accept the new
+        // endpoint types at the apiClient.request<E> call site, even though
+        // PinningSessionDelegate's pinned URLSession on .live cannot resolve
+        // https://api.validationledger.com from the simulator. We assert
+        // construction-shape only — the existing liveOverrideAcceptsBaseURL
+        // test (above) sets the precedent.
+        let baseURL = URL(string: "https://api.validationledger.com")!
+        let container = AppContainer(
+            env: debugEnv(baseURL: baseURL),
+            networkConfig: .live(baseURL: baseURL),
+            isSecureEnclaveAvailable: true
+        )
+
+        // Compile-time proof that apiClient.request<E> accepts the 3 new
+        // endpoint TYPES. We construct each endpoint and bind it to its
+        // protocol-existential surface (`any APIEndpoint`); the Swift
+        // typechecker rejects a struct that doesn't conform to APIEndpoint
+        // at this assignment. We DELIBERATELY do not invoke `request<E>` on
+        // .live because PinningSessionDelegate's pinned session cannot
+        // resolve the staging baseURL from the simulator — SC #5 is a
+        // COMPILE-time guarantee, not a network round-trip guarantee.
+        let listEndpoint: any APIEndpoint = LoadListEndpoint(role: .broker)
+        let detailEndpoint: any APIEndpoint = LoadDetailEndpoint(loadID: "VL-1001")
+        let actionEndpoint: any APIEndpoint = LoadActionEndpoint(
+            loadID: "VL-1004",
+            action: .accept,
+            body: LoadActionEndpoint.RequestBody(
+                actorRole: .carrier,
+                targetPartyID: nil,
+                respondByAt: nil,
+                note: nil
+            )
+        )
+        // Compile-shape assertions: each endpoint's path encodes the route
+        // the apiClient.request<E> stack will build URLRequests against.
+        #expect(listEndpoint.path == "/loads/broker")
+        #expect(detailEndpoint.path == "/loads/VL-1001")
+        #expect(actionEndpoint.path == "/loads/VL-1004/accept")
+
+        // Smoke: the container's apiClient is wired (existing-test precedent).
+        _ = container.apiClient
+        #expect(container.networkClient is URLSessionNetworkClient)
+    }
+
+    // MARK: - Test 3 — end-to-end Response decoding for each of the 3 endpoints
+
+    @Test("loadEndpointsConfigSwap: .mock pipeline decodes each endpoint's Response into the correct typed value (registry → MockURLProtocol → APIClient → Decodable)")
+    func mockConfigEndToEndDecode() async throws {
+        registerLoadFixtures()
+        defer { MockURLProtocol.reset() }
+
+        let container = AppContainer(
+            env: debugEnv(baseURL: nil),
+            networkConfig: .mock,
+            isSecureEnclaveAvailable: true
+        )
+
+        // VL-1009 is the double-broker fraud archetype — chainIntegrity.verdict
+        // == .compromised exercises the fail-closed VerificationState / ChainIntegrity
+        // decoder pipeline end-to-end (Plan 07-01 D-09).
+        let detail = try await container.apiClient.request(LoadDetailEndpoint(loadID: "VL-1009"))
+        #expect(detail.load.id == "VL-1009")
+        #expect(detail.chainOfTrust.integrity.verdict == .compromised,
+                "VL-1009 is the double-broker archetype — compromised verdict pins the full fail-closed decode pipeline")
+
+        // List for carrier — Plan 07-05 confirms 6 loads.
+        let list = try await container.apiClient.request(LoadListEndpoint(role: .carrier))
+        #expect(list.loads.count == 6, "carrier list fixture is the 6-load fixture from Plan 07-05")
+        // Pagination envelope decodes cleanly even when nextCursor is null.
+        #expect(list.nextCursor == nil)
+
+        // Action — verifies POST round-trip + RequestBody encoding + Response
+        // decoding all compose. The fixture body is the VL-1004 post-accept
+        // response; the chain's integrity.verdict is .clean (Plan 07-05).
+        let action = try await container.apiClient.request(
+            LoadActionEndpoint(
+                loadID: "VL-1004",
+                action: .accept,
+                body: LoadActionEndpoint.RequestBody(
+                    actorRole: .carrier,
+                    targetPartyID: nil,
+                    respondByAt: nil,
+                    note: nil
+                )
+            )
+        )
+        #expect(action.load.id == "VL-1004")
+        #expect(action.chainOfTrust.integrity.verdict == .clean)
+    }
+}
