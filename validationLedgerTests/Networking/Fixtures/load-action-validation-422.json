@@ -1,0 +1,4 @@
+{
+  "error_code": "load.invalid_transition",
+  "message": "Cannot accept a load that is not currently tendered"
+}

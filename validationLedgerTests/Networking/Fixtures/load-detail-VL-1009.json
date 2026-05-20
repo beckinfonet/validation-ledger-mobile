@@ -1,0 +1,195 @@
+{
+  "load": {
+    "id": "VL-1009",
+    "reference_number": "REF-1009-II",
+    "origin": {
+      "city": "Long Beach",
+      "state": "CA",
+      "postal_code": "90802",
+      "country": "US"
+    },
+    "destination": {
+      "city": "Phoenix",
+      "state": "AZ",
+      "postal_code": "85003",
+      "country": "US"
+    },
+    "equipment": "dry_van",
+    "weight": 43200,
+    "rate": 3275.00,
+    "pickup_at": "2026-04-18T07:00:00Z",
+    "deliver_at": "2026-04-19T18:00:00Z",
+    "status": "in_transit",
+    "state_history": [
+      {
+        "status": "draft",
+        "timestamp": "2026-04-15T11:00:00Z",
+        "actor": {
+          "party_id": "party-shipper-globalexports",
+          "role": "shipper",
+          "display_name": "Global Exports Co."
+        }
+      },
+      {
+        "status": "posted",
+        "timestamp": "2026-04-15T11:45:00Z",
+        "actor": {
+          "party_id": "party-broker-freightwise",
+          "role": "broker",
+          "display_name": "FreightWise Brokerage"
+        }
+      },
+      {
+        "status": "tendered",
+        "timestamp": "2026-04-16T09:00:00Z",
+        "actor": {
+          "party_id": "party-broker-freightwise",
+          "role": "broker",
+          "display_name": "FreightWise Brokerage"
+        }
+      },
+      {
+        "status": "accepted",
+        "timestamp": "2026-04-16T11:30:00Z",
+        "actor": {
+          "party_id": "party-broker-keystone",
+          "role": "broker",
+          "display_name": "Keystone Freight Group"
+        }
+      },
+      {
+        "status": "dispatched",
+        "timestamp": "2026-04-18T06:30:00Z",
+        "actor": {
+          "party_id": "party-dispatch-overland",
+          "role": "dispatch",
+          "display_name": "Overland Dispatch"
+        }
+      },
+      {
+        "status": "in_transit",
+        "timestamp": "2026-04-18T07:42:00Z",
+        "actor": {
+          "party_id": "party-carrier-redrock",
+          "role": "carrier",
+          "display_name": "Red Rock Carriers"
+        }
+      }
+    ],
+    "respond_by_at": null,
+    "tender_eligibility": null
+  },
+  "chain_of_trust": {
+    "nodes": [
+      {
+        "party_id": "party-shipper-globalexports",
+        "role": "shipper",
+        "display_name": "Global Exports Co.",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-06-30T10:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 22
+      },
+      {
+        "party_id": "party-broker-freightwise",
+        "role": "broker",
+        "display_name": "FreightWise Brokerage",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-08-12T09:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 32
+      },
+      {
+        "party_id": "party-broker-keystone",
+        "role": "broker",
+        "display_name": "Keystone Freight Group",
+        "verification_state": "flagged",
+        "kyc_completed_at": "2025-07-04T08:00:00Z",
+        "device_binding_status": "mismatched",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 1
+      },
+      {
+        "party_id": "party-carrier-redrock",
+        "role": "carrier",
+        "display_name": "Red Rock Carriers",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-10-18T08:30:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": "0445582",
+        "usdot_authority_status": "active",
+        "prior_relationship_count": 11
+      },
+      {
+        "party_id": "party-dispatch-overland",
+        "role": "dispatch",
+        "display_name": "Overland Dispatch",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-10-01T10:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": "0987654",
+        "usdot_authority_status": "active",
+        "prior_relationship_count": 19
+      },
+      {
+        "party_id": "party-factoring-bridgecap",
+        "role": "factoring",
+        "display_name": "BridgeCap Capital",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-07-18T14:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 41
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "edge-VL-1009-shipper-broker",
+        "from_party_id": "party-shipper-globalexports",
+        "to_party_id": "party-broker-freightwise",
+        "relationship_state": "verified",
+        "tender_ref": null
+      },
+      {
+        "edge_id": "edge-VL-1009-broker-broker",
+        "from_party_id": "party-broker-freightwise",
+        "to_party_id": "party-broker-keystone",
+        "relationship_state": "flagged",
+        "tender_ref": "TNDR-1009-A"
+      },
+      {
+        "edge_id": "edge-VL-1009-broker-carrier",
+        "from_party_id": "party-broker-keystone",
+        "to_party_id": "party-carrier-redrock",
+        "relationship_state": "flagged",
+        "tender_ref": "TNDR-1009-B"
+      },
+      {
+        "edge_id": "edge-VL-1009-carrier-dispatch",
+        "from_party_id": "party-carrier-redrock",
+        "to_party_id": "party-dispatch-overland",
+        "relationship_state": "verified",
+        "tender_ref": null
+      },
+      {
+        "edge_id": "edge-VL-1009-carrier-factoring",
+        "from_party_id": "party-carrier-redrock",
+        "to_party_id": "party-factoring-bridgecap",
+        "relationship_state": "verified",
+        "tender_ref": null
+      }
+    ],
+    "integrity": {
+      "verdict": "compromised",
+      "reason": "Intermediary broker re-tendered to a downstream carrier without the original broker's authorization — classic double-broker pattern. Recommend re-tender directly to the carrier and freeze payment to the intermediary.",
+      "implicated_node_ids": ["party-broker-keystone"],
+      "implicated_edge_ids": ["edge-VL-1009-broker-broker", "edge-VL-1009-broker-carrier"]
+    }
+  }
+}

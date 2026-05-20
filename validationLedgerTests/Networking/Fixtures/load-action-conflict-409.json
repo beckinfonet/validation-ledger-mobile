@@ -1,0 +1,4 @@
+{
+  "error_code": "load.stale_state",
+  "message": "This load has already been actioned by another party"
+}
