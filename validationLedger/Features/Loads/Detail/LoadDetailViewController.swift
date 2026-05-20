@@ -477,6 +477,22 @@ public final class LoadDetailViewController: UIViewController {
         // Right pane is not used on iPhone.
         rightPaneContainer.isHidden = true
 
+        // CR-02 fix (Phase 9 review): re-parent bodyView to bodyContainer
+        // in case we're coming back from an iPad split layout — that path
+        // moved bodyView into `rightPaneContainer` (see buildIPadSplitLayout
+        // lines 556-559). Without this, an iPad→iPhone rotation leaves
+        // bodyView stranded under rightPaneContainer while the iPhone
+        // constraints anchor it to bodyContainer — AutoLayout cannot
+        // satisfy a constraint between two views in different subtrees,
+        // producing runtime "Unable to simultaneously satisfy constraints"
+        // breakages + silently broken iPhone layout after the trait flip.
+        // Mirrors the symmetric re-parent buildIPadSplitLayout already
+        // performs on the iPhone→iPad direction.
+        if bodyView.superview !== bodyContainer {
+            bodyView.removeFromSuperview()
+            bodyContainer.addSubview(bodyView)
+        }
+
         // Body owns NO pinned header on iPhone — the VC owns a top-level one.
         bodyView.hidesPinnedSummaryHeader = true
 
