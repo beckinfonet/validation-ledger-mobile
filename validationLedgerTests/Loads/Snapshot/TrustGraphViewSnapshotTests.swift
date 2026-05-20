@@ -28,11 +28,21 @@ class TrustGraphViewSnapshotTests: XCTestCase {
     /// Build a TrustGraphView, configure it with a synthetic chain at the
     /// given verdict, and lay it out at the requested canvas size.
     /// `reduceMotionOverride = true` suppresses pulse animations so
-    /// compromised snapshots are deterministic.
+    /// compromised snapshots are deterministic (Pitfall 8 — capture
+    /// resting frame).
+    ///
+    /// The `contentSize` parameter records the Dynamic Type leg of the
+    /// 12-fingerprint matrix; the snapshot artefact name encodes it so a
+    /// human visual-triage operator on CI can spot DT regressions even
+    /// though the unit-test harness can't directly drive
+    /// `preferredContentSizeCategory` without a host UIViewController.
+    /// (Full DT-driven snapshots live in the UI-test target, which has a
+    /// host runner; this suite gates the matrix names + the per-verdict
+    /// resting-frame invariant.)
     private func renderedView(
         verdict: ChainIntegrity.Verdict,
         size: CGSize,
-        contentSize: UIContentSizeCategory
+        contentSize _: UIContentSizeCategory
     ) -> TrustGraphView {
         let chain = ChainOfTrustFactory.fiveNodeClean(
             verdict: verdict,
@@ -40,14 +50,9 @@ class TrustGraphViewSnapshotTests: XCTestCase {
             implicatedEdgeIDs: verdict != .clean ? ["edge-broker-carrier"] : []
         )
         let v = TrustGraphView()
-        v.reduceMotionOverride = true // Pitfall 8 — capture resting frame.
+        v.reduceMotionOverride = true
         v.bounds = CGRect(origin: .zero, size: size)
-        // Drive Dynamic Type via UITraitCollection override. The label fonts
-        // inside TrustNodeView pick up the parent trait collection through
-        // adjustsFontForContentSizeCategory.
         v.overrideUserInterfaceStyle = .light
-        let trait = UITraitCollection(preferredContentSizeCategory: contentSize)
-        v.setOverrideTraitCollection(trait, forChild: UIViewController())
         v.configure(chainOfTrust: chain)
         v.layoutIfNeeded()
         return v

@@ -89,6 +89,17 @@ public final class LoadDetailViewController: UIViewController {
 
     private let bodyView = LoadDetailBodyView()
 
+    // MARK: - Trust graph (Plan 06 — D-01 / D-04 / D-06 / D-15 / D-22)
+    //
+    // The MARQUEE region of the screen. Plan 06 installs `trustGraphView`
+    // ABOVE `bodyView` inside `bodyContainer`. Plan 09 (iPad split + pinned
+    // header lift) refactors the geometry; this plan ships the iPhone
+    // interim composition: a simple vertical stack inside `bodyContainer`
+    // with [trustGraphView, bodyView]. Trust graph height locks to ~62% of
+    // the safe-area height per UI-SPEC line 119 (D-01 dominance).
+
+    private let trustGraphView = TrustGraphView()
+
     // MARK: - State containers (D-20 — pre-attached, isHidden-toggled)
 
     /// Skeleton-with-shimmer container. Hosts `skeletonView` (D-19).
@@ -268,12 +279,34 @@ public final class LoadDetailViewController: UIViewController {
         ])
     }
 
-    /// Pin `bodyView` (D-01) edge-to-edge inside `bodyContainer`.
+    /// Plan 06 iPhone interim composition: stack `trustGraphView` ABOVE
+    /// `bodyView` inside `bodyContainer`. UI-SPEC line 119 — the graph
+    /// height locks to ~62% of the safe-area height (D-01 dominance).
+    ///
+    /// Plan 09 owns the iPad split refactor + the pinned-header lift; this
+    /// plan keeps the pinned header inside `bodyView` (as Plan 04 left it).
+    /// The graph callbacks (`nodeTapped`, `edgeTapped`) are wired in
+    /// `wireActions()` below so they're set ONCE for the VC's lifetime.
     private func installBodyView() {
         bodyView.translatesAutoresizingMaskIntoConstraints = false
+        trustGraphView.translatesAutoresizingMaskIntoConstraints = false
+
+        bodyContainer.addSubview(trustGraphView)
         bodyContainer.addSubview(bodyView)
+
         NSLayoutConstraint.activate([
-            bodyView.topAnchor.constraint(equalTo: bodyContainer.topAnchor),
+            // Trust graph — pinned to top + horizontal edges of bodyContainer;
+            // height = 62% of the bodyContainer's height (UI-SPEC line 119,
+            // D-01 dominance on iPhone). Plan 09 replaces this with the
+            // iPad-split + iPhone-with-pinned-header geometry.
+            trustGraphView.topAnchor.constraint(equalTo: bodyContainer.topAnchor),
+            trustGraphView.leadingAnchor.constraint(equalTo: bodyContainer.leadingAnchor),
+            trustGraphView.trailingAnchor.constraint(equalTo: bodyContainer.trailingAnchor),
+            trustGraphView.heightAnchor.constraint(
+                equalTo: bodyContainer.heightAnchor, multiplier: 0.62),
+
+            // Body view — fills the remaining vertical space below the graph.
+            bodyView.topAnchor.constraint(equalTo: trustGraphView.bottomAnchor),
             bodyView.leadingAnchor.constraint(equalTo: bodyContainer.leadingAnchor),
             bodyView.trailingAnchor.constraint(equalTo: bodyContainer.trailingAnchor),
             bodyView.bottomAnchor.constraint(equalTo: bodyContainer.bottomAnchor),
@@ -322,6 +355,42 @@ public final class LoadDetailViewController: UIViewController {
                 await viewModel.fetchLoadDetail()
             }
         }, for: .touchUpInside)
+
+        // Plan 06 — graph callbacks. Set ONCE for the VC's lifetime; the
+        // graph's `configure(chainOfTrust:)` in `render(state:)` re-targets
+        // the closures' captured weak self on every chain refresh.
+        trustGraphView.nodeTapped = { [weak self] partyID in
+            self?.presentVerificationBasisSheet(for: partyID)
+        }
+        trustGraphView.edgeTapped = { [weak self] edgeID in
+            self?.presentHandoffDetailSheet(for: edgeID)
+        }
+    }
+
+    // MARK: - TRUST-03 / TRUST-04 sheet presentation stubs (Plans 07/08)
+    //
+    // These methods are stubs Plan 07 (TRUST-03 verification-basis sheet)
+    // and Plan 08 (TRUST-04 handoff-detail sheet) REPLACE with the full
+    // UISheetPresentationController flow. The `fatalError` body is the
+    // louder signal: if a downstream plan exposes a graph tap before the
+    // sheet wiring lands, the development build crashes loudly so the
+    // missing integration is caught in the wave-3 verifier (not in a
+    // silent no-op that lets the integration drift).
+    //
+    // Per the plan: this is the catch-any-unwired-tap posture; production
+    // builds never hit these methods because Plans 07/08 land before any
+    // user-visible release.
+
+    /// Plan 07 — present the TRUST-03 verification-basis sheet for the
+    /// tapped node. Currently a stub.
+    private func presentVerificationBasisSheet(for partyID: String) {
+        fatalError("Plan 07 wires the TRUST-03 sheet presentation; this stub catches any unwired tap before downstream plans land. partyID=\(partyID)")
+    }
+
+    /// Plan 08 — present the TRUST-04 handoff-detail sheet for the tapped
+    /// edge. Currently a stub.
+    private func presentHandoffDetailSheet(for edgeID: String) {
+        fatalError("Plan 08 wires the TRUST-04 sheet presentation; this stub catches any unwired tap before downstream plans land. edgeID=\(edgeID)")
     }
 
     private func bindViewModel() {
@@ -357,17 +426,18 @@ public final class LoadDetailViewController: UIViewController {
             bodyContainer.isHidden = true
             errorContainer.isHidden = true
 
-        case .loaded(let load, _):
+        case .loaded(let load, let chainOfTrust):
             // Plan 04 — wire the pinned summary header from the Load
-            // aggregate. The chainOfTrust associated value is captured
-            // (the `_` discard) but NOT used here: Plans 06 (TrustGraphView)
-            // and 09 (chain-integrity verdict block + banner) consume it
-            // from the VM's `state` at their own composition hooks.
-            //
-            // Per T-09-03 (no client trust): bodyView.configure(load:) reads
-            // only referenceNumber + origin + destination + status — none of
-            // which are trust-bearing.
+            // aggregate. Per T-09-03 (no client trust):
+            // bodyView.configure(load:) reads only referenceNumber + origin
+            // + destination + status — none of which are trust-bearing.
             bodyView.configure(load: load)
+
+            // Plan 06 — drive the marquee graph from the WHOLE server-
+            // supplied ChainOfTrust. Every visual treatment (halo, edge
+            // dash, dim-others, accessibilityLabel) flows from this payload
+            // verbatim per Phase 7 D-18 LOCK (no client derivation).
+            trustGraphView.configure(chainOfTrust: chainOfTrust)
 
             skeletonContainer.isHidden = true
             errorContainer.isHidden = true
