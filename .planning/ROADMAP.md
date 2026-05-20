@@ -126,7 +126,7 @@ Plans:
 **Wave 3** *(blocked on Wave 2)*
 
 - [x] 09-04-PLAN.md — LoadDetailSkeletonView (D-19 shimmer lifecycle) + LoadDetailBodyView scroll-container shell + LoadDetailViewController error state (hand-rolled per Phase 8 exception, D-20)
-- [ ] 09-05-PLAN.md — StatusTimelineView 6-pill stepper + current-state card (D-17/D-18; LOAD-06; side-states not surfaced)
+- [x] 09-05-PLAN.md — StatusTimelineView 6-pill stepper + current-state card (D-17/D-18; LOAD-06; side-states not surfaced)
 
 **Wave 4** *(blocked on Wave 3)*
 
@@ -134,8 +134,8 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4)*
 
-- [ ] 09-07-PLAN.md — VerificationBasisSheetViewController (TRUST-03; D-07/D-08/D-09/D-10/D-11; UISheetPresentationController detents + largestUndimmedDetentIdentifier=.medium)
-- [ ] 09-08-PLAN.md — HandoffDetailSheetViewController (TRUST-04; same sheet infra as Plan 07; D-07 scope-trim rejected)
+- [x] 09-07-PLAN.md — VerificationBasisSheetViewController (TRUST-03; D-07/D-08/D-09/D-10/D-11; UISheetPresentationController detents + largestUndimmedDetentIdentifier=.medium)
+- [x] 09-08-PLAN.md — HandoffDetailSheetViewController (TRUST-04; same sheet infra as Plan 07; D-07 scope-trim rejected)
 
 **Wave 6** *(blocked on Wave 5)*
 
@@ -177,7 +177,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10
 | 6. Close gap: DEV-04 + trustTier + Phase 4 verification | v1.0 | 4/4 | Complete | 2026-05-18 |
 | 7. Load Domain Model & Mock Contract | v1.1 | 6/6 | Complete    | 2026-05-20 |
 | 8. Role-Filtered Load List | v1.1 | 4/4 | Complete   | 2026-05-20 |
-| 9. Load Detail & Chain-of-Trust Graph | v1.1 | 5/10 | In Progress|  |
+| 9. Load Detail & Chain-of-Trust Graph | v1.1 | 8/10 | In Progress|  |
 | 10. Per-Role Tender / Accept / Reject | v1.1 | 0/TBD | Not started | - |
 
 ---
