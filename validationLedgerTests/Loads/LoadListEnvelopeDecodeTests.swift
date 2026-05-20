@@ -201,7 +201,7 @@ struct LoadListEnvelopeDecodeTests {
                         "device_binding_status": "bound",
                         "usdot_number": null,
                         "usdot_authority_status": "active",
-                        "prior_relationship_count": 0
+                        "prior_relationships": []
                     }
                 }
             ],

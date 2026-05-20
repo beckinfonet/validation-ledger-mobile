@@ -75,7 +75,7 @@
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 14
+        "prior_relationships": []
       },
       {
         "party_id": "party-broker-sunbelt",
@@ -86,7 +86,7 @@
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 21
+        "prior_relationships": []
       },
       {
         "party_id": "party-carrier-acme",
@@ -97,7 +97,7 @@
         "device_binding_status": "bound",
         "usdot_number": "0123456",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 27
+        "prior_relationships": []
       },
       {
         "party_id": "party-dispatch-overland",
@@ -108,7 +108,7 @@
         "device_binding_status": "bound",
         "usdot_number": "0987654",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 19
+        "prior_relationships": []
       }
     ],
     "edges": [

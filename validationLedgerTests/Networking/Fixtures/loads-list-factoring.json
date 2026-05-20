@@ -102,7 +102,7 @@
         "device_binding_status": "bound",
         "usdot_number": "0123456",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 27
+        "prior_relationships": []
       }
     },
     {
@@ -195,7 +195,7 @@
         "device_binding_status": "bound",
         "usdot_number": "0445582",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 11
+        "prior_relationships": []
       }
     },
     {
@@ -315,7 +315,7 @@
         "device_binding_status": "bound",
         "usdot_number": "0445582",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 11
+        "prior_relationships": []
       }
     },
     {
@@ -444,7 +444,7 @@
         "device_binding_status": "bound",
         "usdot_number": "0123456",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 27
+        "prior_relationships": []
       }
     }
   ],

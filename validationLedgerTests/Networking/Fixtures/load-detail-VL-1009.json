@@ -16,7 +16,7 @@
     },
     "equipment": "dry_van",
     "weight": 43200,
-    "rate": 3275.00,
+    "rate": 3275.0,
     "pickup_at": "2026-04-18T07:00:00Z",
     "deliver_at": "2026-04-19T18:00:00Z",
     "status": "in_transit",
@@ -90,7 +90,38 @@
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 22
+        "prior_relationships": [
+          {
+            "load_id": "VL-1019",
+            "occurred_at": "2026-01-12T10:30:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "FreightWise Brokerage"
+          },
+          {
+            "load_id": "VL-1020",
+            "occurred_at": "2026-02-04T14:15:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Sunbelt Logistics"
+          },
+          {
+            "load_id": "VL-1021",
+            "occurred_at": "2026-02-23T08:45:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Keystone Freight Group"
+          },
+          {
+            "load_id": "VL-1022",
+            "occurred_at": "2026-03-15T12:00:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "FreightWise Brokerage"
+          },
+          {
+            "load_id": "VL-1023",
+            "occurred_at": "2026-04-08T09:20:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "National Link Carriers"
+          }
+        ]
       },
       {
         "party_id": "party-broker-freightwise",
@@ -101,7 +132,38 @@
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 32
+        "prior_relationships": [
+          {
+            "load_id": "VL-1015",
+            "occurred_at": "2026-01-12T10:30:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "National Link Carriers"
+          },
+          {
+            "load_id": "VL-1016",
+            "occurred_at": "2026-02-04T14:15:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "PhantomLine Logistics"
+          },
+          {
+            "load_id": "VL-1017",
+            "occurred_at": "2026-02-23T08:45:00Z",
+            "counterparty_role": "shipper",
+            "counterparty_display_name": "Global Exports Co."
+          },
+          {
+            "load_id": "VL-1018",
+            "occurred_at": "2026-03-15T12:00:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "Red Rock Carriers"
+          },
+          {
+            "load_id": "VL-1019",
+            "occurred_at": "2026-04-08T09:20:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "National Link Carriers"
+          }
+        ]
       },
       {
         "party_id": "party-broker-keystone",
@@ -112,7 +174,14 @@
         "device_binding_status": "mismatched",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 1
+        "prior_relationships": [
+          {
+            "load_id": "VL-1013",
+            "occurred_at": "2026-01-12T10:30:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "Acme Trucking Inc."
+          }
+        ]
       },
       {
         "party_id": "party-carrier-redrock",
@@ -123,7 +192,38 @@
         "device_binding_status": "bound",
         "usdot_number": "0445582",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 11
+        "prior_relationships": [
+          {
+            "load_id": "VL-1018",
+            "occurred_at": "2026-01-12T10:30:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Keystone Freight Group"
+          },
+          {
+            "load_id": "VL-1019",
+            "occurred_at": "2026-02-04T14:15:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "FreightWise Brokerage"
+          },
+          {
+            "load_id": "VL-1020",
+            "occurred_at": "2026-02-23T08:45:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Sunbelt Logistics"
+          },
+          {
+            "load_id": "VL-1021",
+            "occurred_at": "2026-03-15T12:00:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Keystone Freight Group"
+          },
+          {
+            "load_id": "VL-1022",
+            "occurred_at": "2026-04-08T09:20:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "FreightWise Brokerage"
+          }
+        ]
       },
       {
         "party_id": "party-dispatch-overland",
@@ -134,7 +234,38 @@
         "device_binding_status": "bound",
         "usdot_number": "0987654",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 19
+        "prior_relationships": [
+          {
+            "load_id": "VL-1018",
+            "occurred_at": "2026-01-12T10:30:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "Red Rock Carriers"
+          },
+          {
+            "load_id": "VL-1019",
+            "occurred_at": "2026-02-04T14:15:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "National Link Carriers"
+          },
+          {
+            "load_id": "VL-1020",
+            "occurred_at": "2026-02-23T08:45:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "PhantomLine Logistics"
+          },
+          {
+            "load_id": "VL-1021",
+            "occurred_at": "2026-03-15T12:00:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "Acme Trucking Inc."
+          },
+          {
+            "load_id": "VL-1022",
+            "occurred_at": "2026-04-08T09:20:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "Red Rock Carriers"
+          }
+        ]
       },
       {
         "party_id": "party-factoring-bridgecap",
@@ -145,7 +276,38 @@
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 41
+        "prior_relationships": [
+          {
+            "load_id": "VL-1015",
+            "occurred_at": "2026-01-12T10:30:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Keystone Freight Group"
+          },
+          {
+            "load_id": "VL-1016",
+            "occurred_at": "2026-02-04T14:15:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "PhantomLine Logistics"
+          },
+          {
+            "load_id": "VL-1017",
+            "occurred_at": "2026-02-23T08:45:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Sunbelt Logistics"
+          },
+          {
+            "load_id": "VL-1018",
+            "occurred_at": "2026-03-15T12:00:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "Red Rock Carriers"
+          },
+          {
+            "load_id": "VL-1019",
+            "occurred_at": "2026-04-08T09:20:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "FreightWise Brokerage"
+          }
+        ]
       }
     ],
     "edges": [
@@ -188,8 +350,13 @@
     "integrity": {
       "verdict": "compromised",
       "reason": "Intermediary broker re-tendered to a downstream carrier without the original broker's authorization — classic double-broker pattern. Recommend re-tender directly to the carrier and freeze payment to the intermediary.",
-      "implicated_node_ids": ["party-broker-keystone"],
-      "implicated_edge_ids": ["edge-VL-1009-broker-broker", "edge-VL-1009-broker-carrier"]
+      "implicated_node_ids": [
+        "party-broker-keystone"
+      ],
+      "implicated_edge_ids": [
+        "edge-VL-1009-broker-broker",
+        "edge-VL-1009-broker-carrier"
+      ]
     }
   }
 }
