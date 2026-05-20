@@ -72,8 +72,18 @@ public final class ChainIntegrityBannerView: UIView {
         let iv = UIImageView()
         iv.translatesAutoresizingMaskIntoConstraints = false
         iv.contentMode = .scaleAspectFit
+        // CR-03 fix (Phase 9 review): icon must scale with Dynamic Type
+        // alongside the .footnote label. Without
+        // adjustsImageSizeForAccessibilityContentSizeCategory, the SF Symbol
+        // stays at default point size while body text grows ~2.4x at
+        // .accessibilityExtraExtraExtraLarge — the icon becomes illegible
+        // relative to the surrounding copy (WCAG 1.4.4 / CLAUDE.md "Dynamic
+        // Type fully supported" mandate).
+        iv.adjustsImageSizeForAccessibilityContentSizeCategory = true
         iv.setContentHuggingPriority(.required, for: .horizontal)
         iv.setContentCompressionResistancePriority(.required, for: .horizontal)
+        iv.setContentHuggingPriority(.required, for: .vertical)
+        iv.setContentCompressionResistancePriority(.required, for: .vertical)
         return iv
     }()
 
@@ -116,7 +126,15 @@ public final class ChainIntegrityBannerView: UIView {
         accessibilityLabel = composedAccessibilityLabel()
 
         // Symbol + text per the verdict-specific copy template.
-        symbolView.image = UIImage(systemName: symbolNameForVerdict())
+        // CR-03: scale the symbol with the .footnote text style so it
+        // tracks the surrounding label under Dynamic Type. Combined with
+        // `adjustsImageSizeForAccessibilityContentSizeCategory = true` on
+        // symbolView, this ensures the icon grows along with the body
+        // text at accessibility-tier content size categories.
+        let symbolConfig = UIImage.SymbolConfiguration(textStyle: .footnote)
+        symbolView.image = UIImage(
+            systemName: symbolNameForVerdict(),
+            withConfiguration: symbolConfig)
         symbolView.tintColor = foregroundColorForVerdict()
         label.textColor = foregroundColorForVerdict()
         label.text = visibleCopyForVerdict()
@@ -140,11 +158,11 @@ public final class ChainIntegrityBannerView: UIView {
                 equalTo: topAnchor, constant: DS.Spacing.sm),
             stack.bottomAnchor.constraint(
                 equalTo: bottomAnchor, constant: -DS.Spacing.sm),
-            // Symbol is fixed-size — 16×16pt (matches .footnote text scale
-            // at default Dynamic Type; scales up via the system symbol
-            // configuration's preferredSymbolConfiguration default).
-            symbolView.widthAnchor.constraint(equalToConstant: 16),
-            symbolView.heightAnchor.constraint(equalToConstant: 16),
+            // CR-03: NO fixed width/height on symbolView — the SF Symbol's
+            // intrinsicContentSize (driven by the textStyle config above
+            // and adjustsImageSizeForAccessibilityContentSizeCategory)
+            // owns sizing. A hard 16x16pt frame failed WCAG 1.4.4 at the
+            // accessibility-tier size categories.
         ])
     }
 
