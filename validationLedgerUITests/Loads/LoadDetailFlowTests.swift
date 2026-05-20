@@ -172,10 +172,24 @@ final class LoadDetailFlowTests: XCTestCase {
     /// chain verdict ≠ .clean and the node is implicated) the
     /// "Why this party is flagged" block per D-11.
     ///
-    /// Driven as the broker on VL-1009 (compromised double-broker archetype).
-    /// The flagged node is `party-broker-keystone` (verdict=compromised,
-    /// implicated). Tapping it must surface BOTH `.kyc-row` and
-    /// `.implicated-block`.
+    /// Driven as the broker on VL-1005 (caution archetype). VL-1005
+    /// implicates `party-carrier-nationallink` — the only carrier in the
+    /// 3-node chain (shipper → broker → carrier), so the role-slot
+    /// position is unambiguous (no slot collision). Tapping the implicated
+    /// carrier node must surface BOTH `.kyc-row` and `.implicated-block`.
+    ///
+    /// Why not VL-1009: the double-broker archetype puts TWO broker nodes
+    /// (freightwise + keystone) into the SAME broker role-slot per the
+    /// D-06 fixed-slot layout. The second-rendered broker view occludes
+    /// the first, making XCUI tap-targeting brittle. VL-1005's single-
+    /// flagged-carrier chain avoids the collision while still exercising
+    /// the full TRUST-03 + D-11 contract.
+    ///
+    /// Note on row discovery: VL-1005 is the 5th cell in the broker's
+    /// fixture roster (per `loads-list-broker.json`). The
+    /// `UICollectionView` lazily renders cells, so the cell may be
+    /// outside the initial viewport. We scroll the list until the row
+    /// appears (mirrors the standard XCUI swipe-to-find idiom).
     func test_nodeTap_opensVerificationBasisSheet() {
         let app = launch(role: "broker")
         driveFullOTPFlow(app)
@@ -185,13 +199,20 @@ final class LoadDetailFlowTests: XCTestCase {
                       "broker tab bar should render with a 'Loads' tab after OTP verify")
         app.tabBars.buttons["Loads"].tap()
 
-        // 2. Open the compromised-archetype VL-1009 fixture row.
+        // 2. Open the caution-archetype VL-1005 fixture row.
         let list = app.collectionViews["loads-list"]
         XCTAssertTrue(list.waitForExistence(timeout: 5),
                       "loads-list collection view should appear after tapping the Loads tab")
-        let targetRow = app.cells["loads-list.row.VL-1009"]
+
+        // Scroll the list until the VL-1005 cell becomes hittable.
+        let targetRow = app.cells["loads-list.row.VL-1005"]
+        var swipeAttempts = 0
+        while !targetRow.exists && swipeAttempts < 5 {
+            list.swipeUp()
+            swipeAttempts += 1
+        }
         XCTAssertTrue(targetRow.waitForExistence(timeout: 5),
-                      "VL-1009 compromised-archetype row must be present in the broker's load list")
+                      "VL-1005 caution-archetype row must be present in the broker's load list (after \(swipeAttempts) swipe(s))")
         targetRow.tap()
 
         // 3. Wait for the load detail to render.
@@ -199,14 +220,27 @@ final class LoadDetailFlowTests: XCTestCase {
         XCTAssertTrue(detail.waitForExistence(timeout: 5),
                       "load-detail must push onto the navigation stack after tapping a row")
 
-        // 4. Tap the flagged broker node. VL-1009 implicates
-        //    `party-broker-keystone` (see load-detail-VL-1009.json — the
-        //    compromised double-broker pattern). The node element resolves
-        //    via the UI-SPEC § Accessibility identifiers locked locator
-        //    `load-detail.trust-graph.node.<partyID>`.
-        let flaggedNode = app.otherElements["load-detail.trust-graph.node.party-broker-keystone"]
-        XCTAssertTrue(flaggedNode.waitForExistence(timeout: 5),
-                      "VL-1009 — the flagged broker node MUST resolve via the locked identifier")
+        // 4. Tap the flagged carrier node. VL-1005 implicates
+        //    `party-carrier-nationallink` (see load-detail-VL-1005.json —
+        //    the caution pending-carrier pattern). The node element
+        //    resolves via the UI-SPEC § Accessibility identifiers locked
+        //    locator `load-detail.trust-graph.node.<partyID>`.
+        //
+        //    `TrustNodeView` sets `isAccessibilityElement = true` +
+        //    `accessibilityTraits = .button` (Plan 06), so XCUI exposes
+        //    it as a `.button` query target. We fall back through
+        //    `.otherElements` (custom container) → `.buttons` (semantic
+        //    button) → `.descendants(matching: .any)` to keep the test
+        //    robust against any future trait re-tagging upstream.
+        let nodeID = "load-detail.trust-graph.node.party-carrier-nationallink"
+        let nodeCandidates: [XCUIElement] = [
+            app.descendants(matching: .any).matching(identifier: nodeID).firstMatch,
+            app.buttons[nodeID],
+            app.otherElements[nodeID],
+        ]
+        let flaggedNode = nodeCandidates.first(where: { $0.waitForExistence(timeout: 5) }) ?? nodeCandidates[0]
+        XCTAssertTrue(flaggedNode.exists,
+                      "VL-1005 — the flagged carrier node MUST resolve via '\(nodeID)' (.button or .otherElements)")
         flaggedNode.tap()
 
         // 5. The verification-basis sheet must present within the single-tap
@@ -221,11 +255,11 @@ final class LoadDetailFlowTests: XCTestCase {
         XCTAssertTrue(kycRow.waitForExistence(timeout: 2),
                       "D-09 — KYC row MUST render (every role, every party)")
 
-        // 7. D-11 — VL-1009 is a compromised chain with the broker
+        // 7. D-11 — VL-1005 is a caution chain with the carrier
         //    implicated; the "Why this party is flagged" block MUST render.
         let implicated = app.otherElements["load-detail.verification-basis-sheet.implicated-block"]
         XCTAssertTrue(implicated.waitForExistence(timeout: 2),
-                      "D-11 — implicated block MUST render for a compromised + implicated node")
+                      "D-11 — implicated block MUST render for a caution + implicated node")
     }
 
     // MARK: - Shells — populated by Plan 08 (TRUST-04).

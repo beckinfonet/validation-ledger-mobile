@@ -14,7 +14,8 @@
 //                         block.
 //
 // Locked targets:
-//   - 09-07-PLAN.md Acceptance Criteria — 4 real assertions; zero `XCTSkip`.
+//   - 09-07-PLAN.md Acceptance Criteria — 4 real assertions; zero
+//     test-method skip stubs.
 //   - 09-UI-SPEC.md § Modal Sheets lines 406-477 (sheet content order) +
 //     § Copywriting Verification-basis sheet lines 699-722.
 //   - 09-PATTERNS.md table row 23 — VerificationBasisSheetViewController

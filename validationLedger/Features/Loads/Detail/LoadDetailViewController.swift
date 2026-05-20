@@ -100,6 +100,18 @@ public final class LoadDetailViewController: UIViewController {
 
     private let trustGraphView = TrustGraphView()
 
+    // MARK: - Cached chain (Plan 07 — node-tap → verification-basis sheet)
+    //
+    // The most recently rendered `ChainOfTrust` from the VM's `.loaded`
+    // state. Cached so `presentVerificationBasisSheet(for:)` can look up
+    // the tapped node by partyID without re-querying the VM. Per T-09-03:
+    // the lookup is a pure equality test on server-supplied IDs — no
+    // client derivation of trust state. Re-assigned every time the VM
+    // emits a new `.loaded(load, chainOfTrust)` so the sheet always
+    // reflects the latest server payload.
+
+    private var cachedChainOfTrust: ChainOfTrust?
+
     // MARK: - State containers (D-20 — pre-attached, isHidden-toggled)
 
     /// Skeleton-with-shimmer container. Hosts `skeletonView` (D-19).
@@ -367,24 +379,55 @@ public final class LoadDetailViewController: UIViewController {
         }
     }
 
-    // MARK: - TRUST-03 / TRUST-04 sheet presentation stubs (Plans 07/08)
+    // MARK: - TRUST-03 / TRUST-04 sheet presentation (Plans 07/08)
     //
-    // These methods are stubs Plan 07 (TRUST-03 verification-basis sheet)
-    // and Plan 08 (TRUST-04 handoff-detail sheet) REPLACE with the full
-    // UISheetPresentationController flow. The `fatalError` body is the
-    // louder signal: if a downstream plan exposes a graph tap before the
-    // sheet wiring lands, the development build crashes loudly so the
-    // missing integration is caught in the wave-3 verifier (not in a
-    // silent no-op that lets the integration drift).
-    //
-    // Per the plan: this is the catch-any-unwired-tap posture; production
-    // builds never hit these methods because Plans 07/08 land before any
-    // user-visible release.
+    // Plan 07 ships the TRUST-03 verification-basis sheet (this file's
+    // `presentVerificationBasisSheet(for:)` is now fully wired). Plan 08
+    // (TRUST-04 handoff-detail sheet) replaces the `edgeID` stub with the
+    // same UISheetPresentationController posture targeting an
+    // `HandoffDetailSheetViewController`.
 
-    /// Plan 07 — present the TRUST-03 verification-basis sheet for the
-    /// tapped node. Currently a stub.
+    /// Plan 07 — TRUST-03 / D-08. Present the verification-basis sheet
+    /// for the tapped node. The graph callback fires with a partyID; we
+    /// look the matching `TrustNode` up inside the cached chain-of-trust
+    /// (set in `render(state:)`) and build the sheet content VC.
+    ///
+    /// Sheet presentation per RESEARCH §5 canonical iOS-17 recipe:
+    ///   * detents [.medium, .large]
+    ///   * selectedDetentIdentifier = .medium (initial rest state)
+    ///   * prefersGrabberVisible = true
+    ///   * largestUndimmedDetentIdentifier = .medium  (D-08 CRITICAL —
+    ///     keeps the graph behind interactive + undimmed at .medium so
+    ///     the user retains chain context while reading)
+    ///   * prefersScrollingExpandsWhenScrolledToEdge = false  (D-10 —
+    ///     long prior-relationships list does not auto-promote to .large
+    ///     mid-scroll)
+    ///   * prefersEdgeAttachedInCompactHeight = true
+    ///   * widthFollowsPreferredContentSizeWhenEdgeAttached = true
+    ///
+    /// T-09-03 — the lookup `chainOfTrust.nodes.first(where:)` is a pure
+    /// equality test on server-supplied IDs; no client trust derivation.
+    /// If no chain is cached yet (race between configure + tap) or the
+    /// partyID does not match any node, the call is a defensive no-op —
+    /// surfacing nothing is better than presenting an empty sheet.
     private func presentVerificationBasisSheet(for partyID: String) {
-        fatalError("Plan 07 wires the TRUST-03 sheet presentation; this stub catches any unwired tap before downstream plans land. partyID=\(partyID)")
+        guard let chainOfTrust = cachedChainOfTrust,
+              let node = chainOfTrust.nodes.first(where: { $0.partyID == partyID }) else {
+            return  // defensive — node disappeared between configure and tap
+        }
+        let sheetVC = VerificationBasisSheetViewController(
+            node: node, integrity: chainOfTrust.integrity)
+        sheetVC.modalPresentationStyle = .pageSheet
+        if let sheet = sheetVC.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.selectedDetentIdentifier = .medium
+            sheet.prefersGrabberVisible = true
+            sheet.largestUndimmedDetentIdentifier = .medium  // D-08 + RESEARCH §5 line 519 CRITICAL — keeps the graph interactive + undimmed at .medium
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = false  // D-10 — long list does not auto-promote
+            sheet.prefersEdgeAttachedInCompactHeight = true
+            sheet.widthFollowsPreferredContentSizeWhenEdgeAttached = true
+        }
+        present(sheetVC, animated: true)
     }
 
     /// Plan 08 — present the TRUST-04 handoff-detail sheet for the tapped
@@ -427,6 +470,12 @@ public final class LoadDetailViewController: UIViewController {
             errorContainer.isHidden = true
 
         case .loaded(let load, let chainOfTrust):
+            // Plan 07 — cache the chain-of-trust BEFORE configuring the
+            // graph so a node-tap that arrives between configure() and the
+            // next render pass can still resolve the node by partyID.
+            // T-09-03: cached payload is server-supplied; no derivation.
+            cachedChainOfTrust = chainOfTrust
+
             // Plan 04 — wire the pinned summary header from the Load
             // aggregate. Per T-09-03 (no client trust):
             // bodyView.configure(load:) reads only referenceNumber + origin
