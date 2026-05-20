@@ -637,3 +637,55 @@ the test.
 _Reviewed: 2026-05-19_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
+
+---
+
+## Fix Log
+
+**Applied:** 2026-05-20
+**Fixer:** Claude (gsd-code-fixer)
+**Scope:** BL-01, BL-02, WR-01..WR-06 (Info IN-01..IN-04 skipped, out of scope)
+
+| Finding | Commit | One-line |
+|---------|--------|----------|
+| BL-01 | `f73bcb7` | `fix(08/BL-01): add cancel-and-replace in-flight guard to LoadListViewModel.fetchLoads()` |
+| BL-02 | `658b80e` | `fix(08/BL-02): thread navTitle through makeLoadListScreen so Factoring nav bar reads 'Invoices'` |
+| WR-01 | `17a807f` | `fix(08/WR-01): make MockLoadFixtureRegistry.registerAppDefaults() idempotent` |
+| WR-02 | `ec0d9e8` | `fix(08/WR-02): fatalError on KYC UI-test seed failure so root cause surfaces` |
+| WR-03 | `b43212c` | `fix(08/WR-03): align LoadRowItem == with its hash and reconfigure rows on payload change` |
+| WR-04 | `b892403` | `fix(08/WR-04): route Factoring through makeLoadsTab and mutate tabBarItem in place` |
+| WR-05 | `2e03da2` | `fix(08/WR-05): reconcile UILabel text/attributedText ordering comments` |
+| WR-06 | `0d94c42` | `fix(08/WR-06): prime initial .loading state in LoadListViewController.bindViewModel` |
+
+### Regression Tests Added
+
+- **BL-01** — `validationLedgerTests/LoadListViewModelTests/Test 8b: BL-01 — concurrent fetchLoads() calls do NOT race; newer wins`. Fires fetch A under 300 ms latency, then fetch B against a swapped EMPTY fixture; asserts terminal state is `.empty` (fetch B owns it), proving the cancel-and-replace guard prevents fetch A's response from overwriting fetch B's terminal state.
+- **BL-02** — `validationLedgerUITests/RoleLoadsTabSmokeTests/assertLoadsTabResolvesList`: step 5 now asserts `app.navigationBars[tabName].waitForExistence(...)` so all 5 roles confirm the nav-bar title matches the tab-item title. The Factoring case asserts `navigationBars["Invoices"]`, locking the BL-02 fix end-to-end.
+
+### Post-Fix Verification
+
+`xcodebuild build` succeeded on iPhone 17 simulator.
+
+Required passing suites — all green:
+
+| Suite | Framework | Tests | Status |
+|-------|-----------|-------|--------|
+| `validationLedgerTests/LoadListViewModelTests` | Swift Testing | 9 (incl. new BL-01 regression) | ✅ |
+| `validationLedgerTests/LoadListEnvelopeDecodeTests` | Swift Testing | 9 | ✅ |
+| `validationLedgerTests/LoadEndpointsTests` | Swift Testing | 6 | ✅ |
+| `validationLedgerTests/LoadRowCellSnapshotTests` | XCTest | 6 | ✅ |
+| `validationLedgerTests/SkeletonLoadRowCellSnapshotTests` | XCTest | 3 | ✅ |
+| `validationLedgerTests/VerificationBadgeViewSnapshotTests` | XCTest | 6 | ✅ |
+| `validationLedgerTests/LoadStatusBadgeViewSnapshotTests` | XCTest | 6 | ✅ |
+| `validationLedgerUITests/RoleLoadsTabSmokeTests` | XCTest UI | 5 (incl. new BL-02 nav-bar assertion) | ✅ |
+| `validationLedgerUITests/RoleShellSmokeTests` | XCTest UI | 5 (T-08-12 lock regression check) | ✅ |
+
+Total: 55 tests passing across 9 suites. Swift Testing and XCTest suites were invoked in separate `xcodebuild` calls per the `ios-test-suite-pitfalls` project memory (combined `-only-testing` invocations silently drop XCTest suites). The scoped simulator-lane command (iPhone 17, `-parallel-testing-enabled NO`, `-skip-testing:validationLedgerDeviceTests`) was used throughout.
+
+### Notes
+
+- BL-02 introduced one new public surface — the `navTitle:` parameter on `LoadListViewController.init`. Default value is `"Loads"` so existing callers (none outside `AppContainer.makeLoadListScreen(role:)`) remain source-compatible.
+- WR-04 broadened `ShipperTabBarController.makeLoadsTab` to accept optional `title` and `systemImage` overrides (defaults preserve every existing call site). This subsumed the inline Factoring overrides from `FactoringTabBarController.viewDidLoad`.
+- WR-03 changed `LoadRowItem.==` semantics from "compare full LoadListItem" to "compare load.id only" — this is the diffable-data-source identifier contract. Content-change detection moved into `render(.loaded)` via `reconfigureItems`. The `LoadListItem == LoadListItem` extension in `LoadListViewModel.swift` is unchanged and continues to drive the VM's `State.loaded` `Equatable` synthesis.
+- Info findings IN-01..IN-04 are out of scope for this fix pass and remain in the report for future attention.
+
