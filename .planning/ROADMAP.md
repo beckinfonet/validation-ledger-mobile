@@ -145,6 +145,16 @@ Plans:
 
 - [x] 09-10-PLAN.md — Cross-cutting verification: populate remaining XCUITest methods (banner-a11y, outer-scroll propagation) + author 09-MANUAL-TESTS.md device-test checklist + update VALIDATION.md Per-Task Verification Map + bump STATE.md to "Executed — pending verify"
 
+### Phase 09.1: Chain-of-Vouches Redesign — vertical attribution tree + everyone-on-load strip (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 9
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 09.1 to break down)
+
 ### Phase 10: Per-Role Tender / Accept / Reject
 
 **Goal**: Make loads actionable — each role sees and can take only its legal actions for the load's current state, every action mutates load state through optimistic UI with a rollback path, and the platform thesis is enforced in the load domain by hard-disabling tender to an unverified counterparty.
@@ -165,7 +175,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 7 → 8 → 9 → 10
+Phases execute in numeric order: 7 → 8 → 9 → 9.1 → 10
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -178,6 +188,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10
 | 7. Load Domain Model & Mock Contract | v1.1 | 6/6 | Complete    | 2026-05-20 |
 | 8. Role-Filtered Load List | v1.1 | 4/4 | Complete   | 2026-05-20 |
 | 9. Load Detail & Chain-of-Trust Graph | v1.1 | 10/10 | Complete   | 2026-05-20 |
+| 9.1. Chain-of-Vouches Redesign (INSERTED — device UAT) | v1.1 | 0/TBD | Not started | - |
 | 10. Per-Role Tender / Accept / Reject | v1.1 | 0/TBD | Not started | - |
 
 ---

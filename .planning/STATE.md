@@ -4,14 +4,14 @@ milestone: v1.1
 milestone_name: Load Flows
 status: executing
 stopped_at: Phase 9 plans created (10 plans across 7 waves)
-last_updated: "2026-05-20T18:11:36.039Z"
+last_updated: "2026-05-20T20:25:38.849Z"
 last_activity: 2026-05-20 -- Phase 09 execution started
 progress:
-  total_phases: 4
-  completed_phases: 2
+  total_phases: 5
+  completed_phases: 3
   total_plans: 20
-  completed_plans: 10
-  percent: 50
+  completed_plans: 20
+  percent: 60
 ---
 
 # Project State
@@ -55,6 +55,10 @@ Progress: [░░░░░░░░░░] 0%
 *Updated after each plan completion. v1.0 metrics archived in `.planning/milestones/`.*
 
 ## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 09.1 inserted after Phase 9: Chain-of-Vouches Redesign — replace 2D trust graph with vertical attribution tree + everyone-on-load strip. Captured from device UAT 2026-05-20. Backlog: .planning/backlog/09.1-chain-of-vouches-redesign.md (c266657). (URGENT)
 
 ### Decisions
 
