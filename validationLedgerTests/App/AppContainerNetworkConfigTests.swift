@@ -162,22 +162,27 @@ struct AppContainerLoadEndpointsConfigSwapTests {
         Environment(name: "test", keychainAccessGroup: nil, apiBaseURL: baseURL)
     }
 
-    /// Helper that registers the Plan 07-06 MockLoadFixtureRegistry handlers
-    /// after a clean MockURLProtocol reset. The .mock AppContainer DEBUG-block
-    /// wiring path requires going through the AppContainer initializer (which
-    /// already does this); in tests we replicate that wiring by hand so the
-    /// test sees the same handler set even with an explicit reset at top.
-    private func registerLoadFixtures() {
+    /// Helper that resets MockURLProtocol state to a clean slate before each
+    /// SC #5 test. Resets BOTH success handlers (via `reset()`) and forced-
+    /// failure handlers (via `resetFailureHandlers()`) — the two are stored
+    /// in independent arrays under separate locks per Plan 07-04's design.
+    ///
+    /// CRITICAL — does NOT call `MockLoadFixtureRegistry.registerAppDefaults()`.
+    /// The whole point of SC #5 is to prove `AppContainer.init`'s DEBUG block
+    /// is the thing wiring up the Load handlers. Pre-registering them here
+    /// would shadow the AppContainer call and produce a false-positive test
+    /// that passes even with `AppContainer.swift` line 455 commented out.
+    private func resetMockURLProtocol() {
         MockURLProtocol.reset()
-        MockLoadFixtureRegistry.registerAppDefaults()
+        MockURLProtocol.resetFailureHandlers()
     }
 
     // MARK: - Test 1 — .mock-config end-to-end swap
 
     @Test("loadEndpointsConfigSwap: with .mock config + load-fixture registry, the 3 Load endpoints flow through apiClient.request<E> end-to-end")
     func mockConfigEndToEndSwap() async throws {
-        registerLoadFixtures()
-        defer { MockURLProtocol.reset() }
+        resetMockURLProtocol()
+        defer { resetMockURLProtocol() }
 
         let container = AppContainer(
             env: debugEnv(baseURL: nil),
@@ -259,8 +264,8 @@ struct AppContainerLoadEndpointsConfigSwapTests {
 
     @Test("loadEndpointsConfigSwap: .mock pipeline decodes each endpoint's Response into the correct typed value (registry → MockURLProtocol → APIClient → Decodable)")
     func mockConfigEndToEndDecode() async throws {
-        registerLoadFixtures()
-        defer { MockURLProtocol.reset() }
+        resetMockURLProtocol()
+        defer { resetMockURLProtocol() }
 
         let container = AppContainer(
             env: debugEnv(baseURL: nil),
