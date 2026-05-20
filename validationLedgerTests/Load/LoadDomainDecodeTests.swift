@@ -77,10 +77,12 @@ struct LoadDomainDecodeTests {
                 response.loads.count == expected,
                 "loads-list-\(role).json MUST decode \(expected) loads (D-11 shared-world roster) but got \(response.loads.count)"
             )
-            // Every load in the list decodes its status via the closed
-            // LoadStatus enum — composition smoke check.
-            for load in response.loads {
-                _ = load.status
+            // Phase 8 D-02: each element is now a LoadListItem envelope.
+            // The embedded Load aggregate is reached via `.load.status`; every
+            // entry decodes its status via the closed LoadStatus enum
+            // (composition smoke check).
+            for item in response.loads {
+                _ = item.load.status
             }
         }
         // The empty-state mechanical fixture decodes to an empty array.

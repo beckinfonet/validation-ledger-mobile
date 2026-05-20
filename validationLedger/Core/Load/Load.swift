@@ -5,7 +5,7 @@
 // every Phase 9 detail screen field, and every Phase 10 action button reads
 // from it. It composes the full Plan 01 leaf-and-aggregate hierarchy
 // (LoadStatus, LoadStatusEvent, TenderEligibility) and is embedded in:
-//   - LoadListEndpoint.Response.loads: [Load]            (Plan 03)
+//   - LoadListEndpoint.Response.loads: [LoadListItem]    (Plan 03 + Phase 8 D-02 — each row wraps a Load under `load:` and adds `displayedCounterparty: TrustNode?`)
 //   - LoadDetailEndpoint.Response.load: Load             (Plan 03)
 //   - LoadActionEndpoint.Response.load: Load             (Plan 03 — server returns the updated Load after each action)
 //
