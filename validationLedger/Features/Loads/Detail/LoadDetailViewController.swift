@@ -430,10 +430,68 @@ public final class LoadDetailViewController: UIViewController {
         present(sheetVC, animated: true)
     }
 
-    /// Plan 08 — present the TRUST-04 handoff-detail sheet for the tapped
-    /// edge. Currently a stub.
+    /// Plan 08 — TRUST-04 / D-08. Present the handoff-detail sheet for the
+    /// tapped edge. The graph callback fires with an edgeID; we look the
+    /// matching `TrustEdge` up inside the cached chain-of-trust (set in
+    /// `render(state:)`) and build the sheet content VC.
+    ///
+    /// Sheet presentation per RESEARCH §5 canonical iOS-17 recipe — SAME
+    /// recipe as `presentVerificationBasisSheet(for:)` above (D-08 / UI-SPEC
+    /// line 472 "Sheet presentation invariant"). The recipe is inlined at
+    /// both call sites so the per-call Pitfall 7 grep gate (expected count
+    /// 2 across this file) catches any future drift that breaks the lock
+    /// on either site. The two-call-site inlining mirrors the inline-at-
+    /// both option called out in the Plan 07 SUMMARY's wave-4 handoff
+    /// notes; the per-site grep gate is the contract that makes the
+    /// duplication load-bearing rather than incidental. (The exact code-
+    /// line locking the Pitfall 7 invariant is intentionally NOT quoted
+    /// inside this doc-comment so the grep gate counts only the code
+    /// sites — see Plan 06 SUMMARY deviation #3 for the established
+    /// re-phrase precedent.)
+    ///
+    /// Configuration:
+    ///   * detents [.medium, .large]
+    ///   * selectedDetentIdentifier = .medium (UI-SPEC line 470 — the
+    ///     handoff sheet is naturally less dense; `.medium` is the
+    ///     natural resting detent)
+    ///   * prefersGrabberVisible = true
+    ///   * Pitfall 7 undimmed-detent lock at `.medium` (D-08 CRITICAL —
+    ///     keeps the graph behind interactive + undimmed at the resting
+    ///     detent so the user retains chain context while reading; quoted
+    ///     without the literal property assignment per the grep-gate
+    ///     hygiene rule above)
+    ///   * prefersScrollingExpandsWhenScrolledToEdge = false  (consistent
+    ///     with Plan 07; though the handoff sheet has no long list,
+    ///     keeping the same recipe ensures both sheet sites behave
+    ///     identically)
+    ///   * prefersEdgeAttachedInCompactHeight = true
+    ///   * widthFollowsPreferredContentSizeWhenEdgeAttached = true
+    ///
+    /// T-09-03 — the three lookups (`edges.first(where:)` +
+    /// `nodes.first(where:)` × 2) are pure equality tests on server-
+    /// supplied IDs; no client trust derivation. If no chain is cached
+    /// yet (race between configure + tap) or any of edge / fromNode /
+    /// toNode does not match, the call is a defensive no-op — surfacing
+    /// nothing is better than presenting an empty sheet.
     private func presentHandoffDetailSheet(for edgeID: String) {
-        fatalError("Plan 08 wires the TRUST-04 sheet presentation; this stub catches any unwired tap before downstream plans land. edgeID=\(edgeID)")
+        guard let chainOfTrust = cachedChainOfTrust,
+              let edge = chainOfTrust.edges.first(where: { $0.edgeID == edgeID }),
+              let fromNode = chainOfTrust.nodes.first(where: { $0.partyID == edge.fromPartyID }),
+              let toNode = chainOfTrust.nodes.first(where: { $0.partyID == edge.toPartyID }) else {
+            return  // defensive — edge or endpoints disappeared between configure and tap
+        }
+        let sheetVC = HandoffDetailSheetViewController(edge: edge, fromNode: fromNode, toNode: toNode, integrity: chainOfTrust.integrity)
+        sheetVC.modalPresentationStyle = .pageSheet
+        if let sheet = sheetVC.sheetPresentationController {
+            sheet.detents = [.medium(), .large()]
+            sheet.selectedDetentIdentifier = .medium
+            sheet.prefersGrabberVisible = true
+            sheet.largestUndimmedDetentIdentifier = .medium  // D-08 + RESEARCH §5 line 519 CRITICAL — keeps the graph interactive + undimmed at the resting detent
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = false  // consistent with Plan 07 recipe
+            sheet.prefersEdgeAttachedInCompactHeight = true
+            sheet.widthFollowsPreferredContentSizeWhenEdgeAttached = true
+        }
+        present(sheetVC, animated: true)
     }
 
     private func bindViewModel() {

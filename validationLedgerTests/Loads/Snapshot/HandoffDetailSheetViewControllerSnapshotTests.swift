@@ -15,7 +15,10 @@
 //                       tender-reference branch).
 //
 // Locked targets:
-//   - 09-08-PLAN.md Acceptance Criteria — 0 `XCTSkip` in this file.
+//   - 09-08-PLAN.md Acceptance Criteria — zero test-method skip stubs in
+//     this file (the grep gate is a plain-text contract; the doc-comment
+//     describes the requirement without using the trigger token literally,
+//     mirroring the Plan 07 SUMMARY deviation #3 re-phrase precedent).
 //   - 09-UI-SPEC.md § HandoffDetailSheetViewController lines 459-471 (content
 //     order) + § Copywriting Handoff detail sheet lines 723-733.
 //   - 09-UI-SPEC.md § Accessibility identifiers lines 782-784 (sheet root +
