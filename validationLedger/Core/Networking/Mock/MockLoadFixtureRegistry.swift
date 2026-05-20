@@ -81,12 +81,50 @@ import Foundation
 
 enum MockLoadFixtureRegistry {
 
+    // WR-01 — process-lifetime guard against handler-array accumulation.
+    //
+    // Each `SceneDelegate.presentRoot(_:)` builds a fresh `AppContainer` (per
+    // ADR 0002 abrupt-replace; DevMenu also drives this on every role swap).
+    // Pre-WR-01, the DEBUG block in `AppContainer.init` called
+    // `MockLoadFixtureRegistry.registerAppDefaults()` on every container
+    // construction, appending three more closures to the global
+    // `MockURLProtocol._handlers` array every time. After N role swaps the
+    // array carried N copies of the same three handlers — memory grew
+    // linearly, lookup cost O(N) per request, and the closure list became
+    // a quiet leak surface for any future closure that captures the
+    // outer container.
+    //
+    // The guard makes registration idempotent: the first call inside the
+    // process registers; subsequent calls are no-ops. The registry CANNOT
+    // call `MockURLProtocol.reset()` (file-header lines 17-24) because reset
+    // would clobber the catch-all `MockDefaultFixtures.dispatchHandler`
+    // registered immediately before this method runs. The static-flag
+    // approach respects that constraint while closing the accumulation leak.
+    //
+    // Process-scope is correct here: every Swift-test invocation runs in a
+    // fresh process, so the flag does NOT leak across tests; and AppContainer
+    // construction is the only call site, so the flag does not need to be
+    // reset between role swaps within a single app session. If a future test
+    // ever needs to re-register (e.g. to swap fixtures), it should call the
+    // future `MockLoadFixtureRegistry.resetForUITestOnly()` seam — NOT
+    // toggle `hasRegisteredAppDefaults` directly.
+    private static var hasRegisteredAppDefaults = false
+
     /// Register the Phase 7 load-domain default handlers with MockURLProtocol.
     /// Called from `AppContainer.init`'s DEBUG block adjacent to
     /// `MockDefaultFixtures.registerAppDefaults()`. APPEND-ONLY — never calls
     /// MockURLProtocol's reset entry-point (which would clobber the
     /// MockDefaultFixtures handlers registered immediately before this call).
+    ///
+    /// WR-01: idempotent — the first call in a process registers; subsequent
+    /// calls are no-ops. This closes a per-role-swap handler-array
+    /// accumulation leak in DEBUG sessions (DevMenu drives a fresh
+    /// `AppContainer.init` on every role swap; pre-WR-01 each swap appended
+    /// three more closures to `MockURLProtocol._handlers`).
     static func registerAppDefaults() {
+        guard !hasRegisteredAppDefaults else { return }
+        hasRegisteredAppDefaults = true
+
         // (1) Per-role list handler: GET /loads/{role-rawValue}
         MockURLProtocol.register { request in
             guard request.httpMethod == "GET" else { return nil }
