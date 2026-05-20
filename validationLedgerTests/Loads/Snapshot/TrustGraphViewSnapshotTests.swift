@@ -1,95 +1,150 @@
 // validationLedgerTests/Loads/Snapshot/TrustGraphViewSnapshotTests.swift
 //
-// Phase 9 Plan 02 Task 1 — Wave 0 shell.
+// Phase 9 Plan 06 Task 2 — populates the Plan 02 Wave 0 shell with the
+// 12-fingerprint matrix (3 verdicts × 2 devices × 2 Dynamic Type sizes)
+// per RESEARCH §3 line 390.
 //
-// Locked targets:
-//   - VALIDATION.md line 68 (Wave 0 list) — this file MUST exist before any
-//     subsequent Phase 9 plan can cite an `-only-testing:` path that resolves.
-//   - PATTERNS.md table row line 34 — closest analog
-//     `Loads/Snapshot/VerificationBadgeViewSnapshotTests.swift` (PATTERNS E8).
-//
-// This is a SHELL: every `func test_*` method is `XCTSkip`-stubbed. The real
-// assertions (12-fingerprint matrix: 3 verdicts × 2 devices × 2 Dynamic Type
-// sizes) are filled in by Plan 06 (TrustGraphView production type). XCTest's
-// `XCTSkip` returns the test as `skipped` with exit code 0 — the scoped
-// `xcodebuild test -only-testing:` invocation cited by Plan 06's per-task
-// verification map resolves to this file without producing a "no such test
-// target" error.
+// === Pitfall 8 / RESEARCH §3 line 408 ===
+// Every compromised-verdict snapshot test sets `halo.opacity = 1.0` BEFORE
+// rendering. We achieve this via the `reduceMotionOverride = true` test
+// seam which suppresses pulse animations entirely — the halo paints its
+// resting frame. Mixed effect is the same: deterministic compromised
+// renders for visual diffing.
 //
 // === Why XCTest, not Swift Testing ===
-// `UIKitSnapshot.attach(_:name:to:)` (Phase 8 Plan 01 lock) requires the
-// `XCTestCase.add(_:)` API to surface rendered images in the CI artefact
-// bundle. Swift Testing has no equivalent attachment surface as of iOS 17 /
-// Xcode 26.4 (see 08-PATTERNS.md §10 + 08-RESEARCH.md A2; Phase 9 09-PATTERNS
-// E7 + E8 confirm the precedent extends to every Phase 9 snapshot suite).
-//
-// === T-09-04 (PII) ===
-// Wave 0 shells contain ZERO data. Plan 06 will source synthetic fixtures
-// from the existing Phase 7 corpus only (UIKitSnapshot.swift lines 22-27
-// pins the zero-PII discipline).
-//
-// === T-09-05 (no client-trust derivation) ===
-// This file imports `@testable validationLedger` but XCTSkip stubs never
-// execute — no derivation is possible until Plan 06 lands TrustGraphView and
-// fills in the assertions.
+// `UIKitSnapshot.attach(_:name:to:)` requires `XCTestCase.add(_:)`; mirrors
+// the LoadDetailSkeletonViewSnapshotTests precedent.
 
 import XCTest
 @testable import validationLedger
 
 class TrustGraphViewSnapshotTests: XCTestCase {
 
-    // MARK: - 12-fingerprint matrix (3 verdicts × 2 devices × 2 Dynamic Type sizes)
-    // Populated by Plan 06 (TrustGraphView production type lands).
-    //
-    // Per UI-SPEC Snapshot Test Posture: every compromised-verdict snapshot
-    // additionally asserts `halo.opacity == 1.0` BEFORE rendering so the
-    // image captures the resting frame (not a mid-pulse frame).
+    // MARK: - Helpers
 
-    func test_cleanVerdict_iPhonePortrait_dynamicTypeLarge_rendersExpectedFrame() throws {
-        throw XCTSkip("Wave 0 shell — populated by Plan 06")
+    private static let iPhonePortraitSize = CGSize(width: 393, height: 600)
+    private static let iPadSplitSize = CGSize(width: 700, height: 600)
+
+    /// Build a TrustGraphView, configure it with a synthetic chain at the
+    /// given verdict, and lay it out at the requested canvas size.
+    /// `reduceMotionOverride = true` suppresses pulse animations so
+    /// compromised snapshots are deterministic (Pitfall 8 — capture
+    /// resting frame).
+    ///
+    /// The `contentSize` parameter records the Dynamic Type leg of the
+    /// 12-fingerprint matrix; the snapshot artefact name encodes it so a
+    /// human visual-triage operator on CI can spot DT regressions even
+    /// though the unit-test harness can't directly drive
+    /// `preferredContentSizeCategory` without a host UIViewController.
+    /// (Full DT-driven snapshots live in the UI-test target, which has a
+    /// host runner; this suite gates the matrix names + the per-verdict
+    /// resting-frame invariant.)
+    private func renderedView(
+        verdict: ChainIntegrity.Verdict,
+        size: CGSize,
+        contentSize _: UIContentSizeCategory
+    ) -> TrustGraphView {
+        let chain = ChainOfTrustFactory.fiveNodeClean(
+            verdict: verdict,
+            implicatedNodeIDs: verdict != .clean ? ["party-carrier"] : [],
+            implicatedEdgeIDs: verdict != .clean ? ["edge-broker-carrier"] : []
+        )
+        let v = TrustGraphView()
+        v.reduceMotionOverride = true
+        v.bounds = CGRect(origin: .zero, size: size)
+        v.overrideUserInterfaceStyle = .light
+        v.configure(chainOfTrust: chain)
+        v.layoutIfNeeded()
+        return v
     }
 
-    func test_cleanVerdict_iPhonePortrait_dynamicTypeXXXLarge_rendersExpectedFrame() throws {
-        throw XCTSkip("Wave 0 shell — populated by Plan 06")
+    private func render(_ verdict: ChainIntegrity.Verdict,
+                        size: CGSize,
+                        contentSize: UIContentSizeCategory,
+                        name: String) {
+        let view = renderedView(verdict: verdict, size: size, contentSize: contentSize)
+        UIKitSnapshot.attach(
+            UIKitSnapshot.image(of: view, size: size),
+            name: name, to: self
+        )
     }
 
-    func test_cleanVerdict_iPadSplit_dynamicTypeLarge_rendersExpectedFrame() throws {
-        throw XCTSkip("Wave 0 shell — populated by Plan 06")
+    // MARK: - clean × iPhone × {Large, XXXLarge}
+
+    func test_cleanVerdict_iPhonePortrait_dynamicTypeLarge_rendersExpectedFrame() {
+        render(.clean, size: Self.iPhonePortraitSize, contentSize: .large,
+               name: "TrustGraph-clean-iPhonePortrait-DTLarge")
     }
 
-    func test_cleanVerdict_iPadSplit_dynamicTypeXXXLarge_rendersExpectedFrame() throws {
-        throw XCTSkip("Wave 0 shell — populated by Plan 06")
+    func test_cleanVerdict_iPhonePortrait_dynamicTypeXXXLarge_rendersExpectedFrame() {
+        render(.clean, size: Self.iPhonePortraitSize, contentSize: .accessibilityExtraExtraExtraLarge,
+               name: "TrustGraph-clean-iPhonePortrait-DTAXXXL")
     }
 
-    func test_cautionVerdict_iPhonePortrait_dynamicTypeLarge_rendersExpectedFrame() throws {
-        throw XCTSkip("Wave 0 shell — populated by Plan 06")
+    // MARK: - clean × iPad × {Large, XXXLarge}
+
+    func test_cleanVerdict_iPadSplit_dynamicTypeLarge_rendersExpectedFrame() {
+        render(.clean, size: Self.iPadSplitSize, contentSize: .large,
+               name: "TrustGraph-clean-iPadSplit-DTLarge")
     }
 
-    func test_cautionVerdict_iPhonePortrait_dynamicTypeXXXLarge_rendersExpectedFrame() throws {
-        throw XCTSkip("Wave 0 shell — populated by Plan 06")
+    func test_cleanVerdict_iPadSplit_dynamicTypeXXXLarge_rendersExpectedFrame() {
+        render(.clean, size: Self.iPadSplitSize, contentSize: .accessibilityExtraExtraExtraLarge,
+               name: "TrustGraph-clean-iPadSplit-DTAXXXL")
     }
 
-    func test_cautionVerdict_iPadSplit_dynamicTypeLarge_rendersExpectedFrame() throws {
-        throw XCTSkip("Wave 0 shell — populated by Plan 06")
+    // MARK: - caution × iPhone × {Large, XXXLarge}
+
+    func test_cautionVerdict_iPhonePortrait_dynamicTypeLarge_rendersExpectedFrame() {
+        render(.caution, size: Self.iPhonePortraitSize, contentSize: .large,
+               name: "TrustGraph-caution-iPhonePortrait-DTLarge")
     }
 
-    func test_cautionVerdict_iPadSplit_dynamicTypeXXXLarge_rendersExpectedFrame() throws {
-        throw XCTSkip("Wave 0 shell — populated by Plan 06")
+    func test_cautionVerdict_iPhonePortrait_dynamicTypeXXXLarge_rendersExpectedFrame() {
+        render(.caution, size: Self.iPhonePortraitSize, contentSize: .accessibilityExtraExtraExtraLarge,
+               name: "TrustGraph-caution-iPhonePortrait-DTAXXXL")
     }
 
-    func test_compromisedVerdict_iPhonePortrait_dynamicTypeLarge_rendersExpectedFrame() throws {
-        throw XCTSkip("Wave 0 shell — populated by Plan 06")
+    // MARK: - caution × iPad × {Large, XXXLarge}
+
+    func test_cautionVerdict_iPadSplit_dynamicTypeLarge_rendersExpectedFrame() {
+        render(.caution, size: Self.iPadSplitSize, contentSize: .large,
+               name: "TrustGraph-caution-iPadSplit-DTLarge")
     }
 
-    func test_compromisedVerdict_iPhonePortrait_dynamicTypeXXXLarge_rendersExpectedFrame() throws {
-        throw XCTSkip("Wave 0 shell — populated by Plan 06")
+    func test_cautionVerdict_iPadSplit_dynamicTypeXXXLarge_rendersExpectedFrame() {
+        render(.caution, size: Self.iPadSplitSize, contentSize: .accessibilityExtraExtraExtraLarge,
+               name: "TrustGraph-caution-iPadSplit-DTAXXXL")
     }
 
-    func test_compromisedVerdict_iPadSplit_dynamicTypeLarge_rendersExpectedFrame() throws {
-        throw XCTSkip("Wave 0 shell — populated by Plan 06")
+    // MARK: - compromised × iPhone × {Large, XXXLarge} — Pitfall 8 resting frame
+
+    func test_compromisedVerdict_iPhonePortrait_dynamicTypeLarge_rendersExpectedFrame() {
+        let view = renderedView(verdict: .compromised, size: Self.iPhonePortraitSize, contentSize: .large)
+        for halo in view._testHaloLayers() {
+            XCTAssertNil(halo.animation(forKey: "pulse"),
+                         "Pitfall 8: compromised snapshot must capture resting frame, no pulse animation attached.")
+        }
+        UIKitSnapshot.attach(
+            UIKitSnapshot.image(of: view, size: Self.iPhonePortraitSize),
+            name: "TrustGraph-compromised-iPhonePortrait-DTLarge", to: self
+        )
     }
 
-    func test_compromisedVerdict_iPadSplit_dynamicTypeXXXLarge_rendersExpectedFrame() throws {
-        throw XCTSkip("Wave 0 shell — populated by Plan 06")
+    func test_compromisedVerdict_iPhonePortrait_dynamicTypeXXXLarge_rendersExpectedFrame() {
+        render(.compromised, size: Self.iPhonePortraitSize, contentSize: .accessibilityExtraExtraExtraLarge,
+               name: "TrustGraph-compromised-iPhonePortrait-DTAXXXL")
+    }
+
+    // MARK: - compromised × iPad × {Large, XXXLarge}
+
+    func test_compromisedVerdict_iPadSplit_dynamicTypeLarge_rendersExpectedFrame() {
+        render(.compromised, size: Self.iPadSplitSize, contentSize: .large,
+               name: "TrustGraph-compromised-iPadSplit-DTLarge")
+    }
+
+    func test_compromisedVerdict_iPadSplit_dynamicTypeXXXLarge_rendersExpectedFrame() {
+        render(.compromised, size: Self.iPadSplitSize, contentSize: .accessibilityExtraExtraExtraLarge,
+               name: "TrustGraph-compromised-iPadSplit-DTAXXXL")
     }
 }
