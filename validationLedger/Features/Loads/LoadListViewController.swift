@@ -411,6 +411,23 @@ final class LoadListViewController: UIViewController {
                 self?.render(state: state)
             }
         }
+        // WR-06 — pump the VM's CURRENT state through the renderer once.
+        // Swift `didSet` does NOT fire for the property's initial assignment
+        // (`var state: State = .loading` at VM init time), so without this
+        // explicit pump the skeleton overlay would stay hidden between
+        // `viewDidLoad` completing and the `viewWillAppear` fetch Task's
+        // first MainActor hop re-assigning `state = .loading`. On a slow
+        // device or under main-actor contention that window is a perceptible
+        // flash of bare empty chrome — the silhouette never appears, the
+        // collection view is empty, and then the real rows pop in once the
+        // network completes. Priming here guarantees the first paint shows
+        // the skeleton overlay.
+        //
+        // Also makes the VC robust to future VMs that synchronously seed
+        // state during construction (e.g. a cache-backed `.loaded(items:)`
+        // initial state) — the VC will already be rendering the latest state
+        // by the time `viewWillAppear` runs.
+        render(state: viewModel.state)
     }
 
     // MARK: - Actions
