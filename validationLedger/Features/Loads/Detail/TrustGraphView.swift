@@ -314,9 +314,13 @@ public final class TrustGraphView: UIView {
         let implicatedEdgeSet = Set(integrity.implicatedEdgeIDs)
 
         // === Build nodes (one TrustNodeView per node) ===
+        // TrustNodeView's setUp() declares TAMIC = false; we override to
+        // true here because per-node positioning is driven by frame
+        // writes in `layoutSubviews()`, not constraints. (Phase 9 device
+        // UAT 2026-05-20 — debug session trust-graph-device-bugs.)
         for node in chainOfTrust.nodes {
             let v = TrustNodeView()
-            v.translatesAutoresizingMaskIntoConstraints = false
+            v.translatesAutoresizingMaskIntoConstraints = true
             let isImplicated = implicatedNodeSet.contains(node.partyID)
             let isDimmed = !isChainClean && !isImplicated
             v.configure(node: node, isImplicated: isImplicated, isDimmed: isDimmed)
@@ -533,6 +537,28 @@ public final class TrustGraphView: UIView {
     public override func layoutSubviews() {
         super.layoutSubviews()
         guard let chain = currentChain else { return }
+        // BUG-FIX (Phase 9 device UAT 2026-05-20 — debug session
+        // trust-graph-device-bugs): the contentContainer is sized
+        // implicitly via Auto Layout (pinned to `scrollView.frameLayoutGuide`
+        // in `setUp()`). When `self`'s layoutSubviews fires for the first
+        // time after `configure(chainOfTrust:)`, the constraint chain
+        // self → scrollView → contentContainer has NOT yet propagated, so
+        // `contentContainer.bounds` is still (0, 0) at this point. The
+        // pre-fix code then `guard`ed on `canvas.width > 0` and returned
+        // early — frame writes for every TrustNodeView never ran, leaving
+        // every node parked at the origin (0, 0). The compromised-chain
+        // halo CAShapeLayer paths (set further down in this method) also
+        // never wrote, so the implicated halo painted a degenerate solid
+        // square from its `fillColor` alone with no chrome to occlude it
+        // (Bug B). Forcing the inner scroll-view + content-container
+        // layout pass here is the LEAST-INVASIVE fix: it flushes the
+        // constraint solver through the scroll-view's nested guides
+        // before we read `contentContainer.bounds`. The TrustGraphView
+        // layout-test suite (TrustGraphViewLayoutTests) pins the
+        // resulting frame positions against the role-slot table so a
+        // future re-introduction of either bug fails CI.
+        scrollView.layoutIfNeeded()
+        contentContainer.layoutIfNeeded()
         let canvas = contentContainer.bounds
         guard canvas.width > 0 && canvas.height > 0 else { return }
 
