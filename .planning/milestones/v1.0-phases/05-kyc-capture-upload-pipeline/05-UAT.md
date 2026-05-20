@@ -3,7 +3,7 @@ status: diagnosed
 phase: 05-kyc-capture-upload-pipeline
 source: [05-01-SUMMARY.md, 05-02-SUMMARY.md, 05-03-SUMMARY.md, 05-04-SUMMARY.md, 05-05-SUMMARY.md, 05-06-SUMMARY.md, 05-07-SUMMARY.md, 05-08-SUMMARY.md]
 started: 2026-05-17T22:28:03Z
-updated: 2026-05-18T06:11:36Z
+updated: 2026-05-20T00:00:00Z
 ---
 
 ## Current Test
@@ -66,7 +66,7 @@ expected: For a verified / under-review account in the role shell, opening Profi
 result: blocked
 blocked_by: other
 reason: "i can't get that far. After kyc doc submission I only see cannot show your status message that I reported earlier. I dont see any profile icon."
-note: "Blocked by the Test 9 gap (status screen errors) plus the lack of a path to a verified KYC status — the Profile 'Verification status' row lives in the role shell, reachable only past the D-12 gate (kycStatus == verified). The M1 mock returns under_review, so a verified-status fixture or live backend is needed to exercise this."
+note: "Originally blocked by the Test 9 gap (status screen errors) plus the lack of a path to a verified KYC status. The Test 9 gap was closed by adding the (GET, /kyc/status) mock route; the verified-path gap is now closed by the DEBUG-only `-MockKYCStatusVerified` launch-argument toggle (MockDefaultFixtures.swift) added during debug session `kyc-status-under-review-trap`. To exercise this test: Xcode → Edit Scheme → Run → Arguments → Arguments Passed On Launch → add `-MockKYCStatusVerified`. With the flag set, /kyc/status returns `verified` and the status screen's `Continue` CTA lands on the role shell, unblocking the Profile 'Verification status' row reachable past the D-12 gate."
 
 ### 13. Sign-out from the KYC flow (D-14)
 expected: Every KYC capture screen carries a sign-out affordance. Triggering it shows a destructive confirmation; confirming signs out and returns to phone-number entry. The in-progress KYC capture is preserved (resumes on next login); the cached verification status is cleared.
