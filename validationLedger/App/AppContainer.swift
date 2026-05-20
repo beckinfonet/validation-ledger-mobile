@@ -657,6 +657,26 @@ final class AppContainer {
                     event: .init("kyc_uitest_seed_failed"),
                     fields: [:]
                 )
+                // WR-02 — surface UI-test seed errors LOUDLY. Pre-WR-02 the
+                // catch emitted a stringless `kyc_uitest_seed_failed` log and
+                // proceeded; the test then landed on phone-entry (instead of
+                // the role shell / KYC gate) and failed downstream with an
+                // unrelated assertion ("expected 'Loads' tab but got
+                // 'phone-entry-field'"). Diagnostic gap closed: fatalError
+                // here aborts the launch with the actual Keychain error so
+                // the CI log shows the seed root cause, not a misleading
+                // downstream UI-tree assertion.
+                //
+                // Safety: the entire block is `#if DEBUG`-gated AND only runs
+                // when `AppContainer.kycTestSeed` is non-nil (set by
+                // `SceneDelegate` parsing the `-KYCTestSeedForUITest` launch
+                // arg). A Release build compiles this block to zero bytes; a
+                // DEBUG build without the launch arg never reaches this
+                // catch. The `error` interpolation is safe because the
+                // KeychainStore errors are synthetic OSStatus values, not
+                // user PII (T-05-11-02 / T-05-11-03 — seed credentials are
+                // fixed placeholders).
+                fatalError("KYC UI-test seed failed: \(error) — UI test cannot proceed without seeded Keychain state (WR-02)")
             }
         }
         #endif
