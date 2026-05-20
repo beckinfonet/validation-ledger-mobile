@@ -31,18 +31,20 @@ class TrustGraphViewSnapshotTests: XCTestCase {
     /// compromised snapshots are deterministic (Pitfall 8 — capture
     /// resting frame).
     ///
-    /// The `contentSize` parameter records the Dynamic Type leg of the
-    /// 12-fingerprint matrix; the snapshot artefact name encodes it so a
-    /// human visual-triage operator on CI can spot DT regressions even
-    /// though the unit-test harness can't directly drive
-    /// `preferredContentSizeCategory` without a host UIViewController.
-    /// (Full DT-driven snapshots live in the UI-test target, which has a
-    /// host runner; this suite gates the matrix names + the per-verdict
-    /// resting-frame invariant.)
+    /// WR-04 fix (Phase 9 review): the `contentSize` parameter now drives
+    /// `view.traitOverrides.preferredContentSizeCategory` so the DTLarge
+    /// vs DTAXXXL snapshot variants actually render at different sizes.
+    /// Previously the parameter was captured as `contentSize _` and never
+    /// applied — the two DT legs of the 12-fingerprint matrix rendered
+    /// identically (both at the default content size), giving illusory
+    /// coverage. The iOS 17 `traitOverrides` API is the right tool here:
+    /// it injects the trait override locally on the view without
+    /// mutating `UIApplication.shared.preferredContentSizeCategory`
+    /// (which would leak across tests and require host-app teardown).
     private func renderedView(
         verdict: ChainIntegrity.Verdict,
         size: CGSize,
-        contentSize _: UIContentSizeCategory
+        contentSize: UIContentSizeCategory
     ) -> TrustGraphView {
         let chain = ChainOfTrustFactory.fiveNodeClean(
             verdict: verdict,
@@ -53,6 +55,12 @@ class TrustGraphViewSnapshotTests: XCTestCase {
         v.reduceMotionOverride = true
         v.bounds = CGRect(origin: .zero, size: size)
         v.overrideUserInterfaceStyle = .light
+        // WR-04: inject the Dynamic Type content-size category via the iOS
+        // 17 trait-override channel. Must be applied BEFORE configure(...)
+        // + layoutIfNeeded() so the view sees the override during its
+        // initial layout pass. The override is scoped to this view's
+        // subtree — no global state mutation.
+        v.traitOverrides.preferredContentSizeCategory = contentSize
         v.configure(chainOfTrust: chain)
         v.layoutIfNeeded()
         return v
