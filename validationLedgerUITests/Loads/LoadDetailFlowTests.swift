@@ -18,8 +18,11 @@
 //     For each of the 5 roles, drive OTP, tap the Loads/Invoices tab, tap
 //     the first row, assert `load-detail` element appears (the LOAD-05
 //     acceptance criterion — the detail VC pushes onto the nav stack).
-//   - test_nodeTap_opensVerificationBasisSheet() — Plan 10.
-//   - test_edgeTap_opensHandoffSheet() — Plan 10.
+//   - test_nodeTap_opensVerificationBasisSheet() — POPULATED HERE (Plan 07
+//     TRUST-03). As the broker on VL-1009 (compromised double-broker
+//     archetype), tap the flagged broker node and assert the sheet appears
+//     with the KYC row + the implicated block (D-11).
+//   - test_edgeTap_opensHandoffSheet() — Plan 08.
 //   - test_compromisedVerdict_bannerAccessibilityLabelContainsReason() — Plan 10.
 //   - test_singleFingerScroll_propagatesPastGraph_toBodyScrollView() — Plan 10.
 //
@@ -162,14 +165,73 @@ final class LoadDetailFlowTests: XCTestCase {
         }
     }
 
-    // MARK: - Shells — populated by Plan 10.
+    // MARK: - TRUST-03 node-tap → verification-basis sheet (Plan 07)
 
-    func test_nodeTap_opensVerificationBasisSheet() throws {
-        throw XCTSkip("Wave 0 shell — populated by Plan 10")
+    /// Plan 07 — TRUST-03 acceptance: tapping a `TrustNodeView` opens
+    /// `VerificationBasisSheetViewController` with the kyc-row + (when the
+    /// chain verdict ≠ .clean and the node is implicated) the
+    /// "Why this party is flagged" block per D-11.
+    ///
+    /// Driven as the broker on VL-1009 (compromised double-broker archetype).
+    /// The flagged node is `party-broker-keystone` (verdict=compromised,
+    /// implicated). Tapping it must surface BOTH `.kyc-row` and
+    /// `.implicated-block`.
+    func test_nodeTap_opensVerificationBasisSheet() {
+        let app = launch(role: "broker")
+        driveFullOTPFlow(app)
+
+        // 1. Wait for the Loads tab + tap.
+        XCTAssertTrue(app.tabBars.buttons["Loads"].waitForExistence(timeout: 5),
+                      "broker tab bar should render with a 'Loads' tab after OTP verify")
+        app.tabBars.buttons["Loads"].tap()
+
+        // 2. Open the compromised-archetype VL-1009 fixture row.
+        let list = app.collectionViews["loads-list"]
+        XCTAssertTrue(list.waitForExistence(timeout: 5),
+                      "loads-list collection view should appear after tapping the Loads tab")
+        let targetRow = app.cells["loads-list.row.VL-1009"]
+        XCTAssertTrue(targetRow.waitForExistence(timeout: 5),
+                      "VL-1009 compromised-archetype row must be present in the broker's load list")
+        targetRow.tap()
+
+        // 3. Wait for the load detail to render.
+        let detail = app.otherElements["load-detail"]
+        XCTAssertTrue(detail.waitForExistence(timeout: 5),
+                      "load-detail must push onto the navigation stack after tapping a row")
+
+        // 4. Tap the flagged broker node. VL-1009 implicates
+        //    `party-broker-keystone` (see load-detail-VL-1009.json — the
+        //    compromised double-broker pattern). The node element resolves
+        //    via the UI-SPEC § Accessibility identifiers locked locator
+        //    `load-detail.trust-graph.node.<partyID>`.
+        let flaggedNode = app.otherElements["load-detail.trust-graph.node.party-broker-keystone"]
+        XCTAssertTrue(flaggedNode.waitForExistence(timeout: 5),
+                      "VL-1009 — the flagged broker node MUST resolve via the locked identifier")
+        flaggedNode.tap()
+
+        // 5. The verification-basis sheet must present within the single-tap
+        //    require-toFail window + presentation animation budget (3s).
+        let sheet = app.otherElements["load-detail.verification-basis-sheet"]
+        XCTAssertTrue(sheet.waitForExistence(timeout: 3),
+                      "TRUST-03 — the verification-basis sheet must appear after a single-tap on a TrustNodeView")
+
+        // 6. Sheet content checks: KYC row must always be present (every
+        //    role, every party — D-09 locked).
+        let kycRow = app.otherElements["load-detail.verification-basis-sheet.kyc-row"]
+        XCTAssertTrue(kycRow.waitForExistence(timeout: 2),
+                      "D-09 — KYC row MUST render (every role, every party)")
+
+        // 7. D-11 — VL-1009 is a compromised chain with the broker
+        //    implicated; the "Why this party is flagged" block MUST render.
+        let implicated = app.otherElements["load-detail.verification-basis-sheet.implicated-block"]
+        XCTAssertTrue(implicated.waitForExistence(timeout: 2),
+                      "D-11 — implicated block MUST render for a compromised + implicated node")
     }
 
+    // MARK: - Shells — populated by Plan 08 (TRUST-04).
+
     func test_edgeTap_opensHandoffSheet() throws {
-        throw XCTSkip("Wave 0 shell — populated by Plan 10")
+        throw XCTSkip("Wave 0 shell — populated by Plan 08")
     }
 
     func test_compromisedVerdict_bannerAccessibilityLabelContainsReason() throws {
