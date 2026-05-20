@@ -275,4 +275,49 @@ public final class LoadDetailBodyView: UIView {
         // top.
         statusTimeline.configure(load: load)
     }
+
+    // MARK: - Plan 09 — install the chain-integrity verdict block (D-02)
+
+    /// Populate the in-body chain-integrity verdict block from the chain
+    /// integrity payload. Called by `LoadDetailViewController.render(state:)`
+    /// AFTER `configure(load:)` (the VC owns the chainOfTrust storage from
+    /// Plan 07). For `verdict == .clean` the slot collapses to zero height
+    /// (`isHidden = true`); the verdict block view is NOT instantiated.
+    ///
+    /// Per T-09-03: every input (`verdict`, `reason`, `implicatedNodeCount`)
+    /// is server-supplied; no client derivation. Per T-09-04: `reason`
+    /// flows verbatim into the block's body text — no logger touches it.
+    ///
+    /// Idempotent: clears any prior block before re-installing so repeated
+    /// `render(state:)` cycles do not leak views.
+    public func installVerdictBlock(verdict: ChainIntegrity.Verdict,
+                                    reason: String?,
+                                    implicatedNodeCount: Int) {
+        // Clear any prior block — the container survives across render
+        // cycles, only the content is rebuilt.
+        verdictBlockContainer.subviews.forEach { $0.removeFromSuperview() }
+
+        guard verdict != .clean else {
+            // Clean → no block, slot collapses (the parent contentStack
+            // uses .fill alignment, so an empty hidden subview drops out
+            // of layout).
+            verdictBlockContainer.isHidden = true
+            return
+        }
+
+        let block = ChainIntegrityVerdictBlockView(
+            verdict: verdict,
+            reason: reason,
+            implicatedNodeCount: implicatedNodeCount
+        )
+        block.translatesAutoresizingMaskIntoConstraints = false
+        verdictBlockContainer.addSubview(block)
+        NSLayoutConstraint.activate([
+            block.topAnchor.constraint(equalTo: verdictBlockContainer.topAnchor),
+            block.bottomAnchor.constraint(equalTo: verdictBlockContainer.bottomAnchor),
+            block.leadingAnchor.constraint(equalTo: verdictBlockContainer.leadingAnchor),
+            block.trailingAnchor.constraint(equalTo: verdictBlockContainer.trailingAnchor),
+        ])
+        verdictBlockContainer.isHidden = false
+    }
 }
