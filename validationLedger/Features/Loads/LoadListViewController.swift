@@ -108,10 +108,25 @@ import UIKit
 /// nonisolated.
 nonisolated fileprivate enum LoadListSection: Hashable, Sendable { case main }
 
-/// Diffable item wrapper. Hash is stable on `load.id` so refreshes don't
-/// thrash the diff; content-equality is driven through `==` so a Phase 9+
-/// `reconfigureItems` can re-render a row when the envelope's counterparty
-/// changes without a full reload.
+/// Diffable item wrapper. Hash AND `==` are BOTH keyed on `item.load.id` so
+/// two snapshots that share a load id are treated as the SAME item by the
+/// diffable data source — verification-state / counterparty changes on the
+/// same load id then trigger `reconfigureItems` (re-render in place), NOT
+/// delete + insert (row-swap animation).
+///
+/// WR-03 — pre-WR-03, `==` delegated to `LoadListItem == LoadListItem`, which
+/// also compares the counterparty's `partyID` and `verificationState` (see
+/// `LoadListViewModel.swift` `extension LoadListItem: Equatable`). That made
+/// a row with the same load id but a refreshed verification state UNEQUAL,
+/// so the data source classified it as one delete + one insert — producing a
+/// visible row-replace animation and breaking the file-header's
+/// `reconfigureItems`-on-payload-change promise. The Hashable contract was
+/// also subtly violated by the asymmetry (equal items hash equal — `==`
+/// could disagree because it compared more fields than the hash, so two
+/// items with the same id but different counterparties hashed equal but
+/// compared unequal). Both halves are now consistent: identity is `load.id`,
+/// payload changes drive `reconfigureItems` via the explicit set passed to
+/// `apply(_:animatingDifferences:)`.
 ///
 /// `nonisolated` mirrors `LoadListSection` above. `@unchecked Sendable` is
 /// safe because `LoadListItem` is itself `Sendable` (Plan 01) and this
@@ -122,7 +137,10 @@ nonisolated fileprivate struct LoadRowItem: Hashable, @unchecked Sendable {
         hasher.combine(item.load.id)
     }
     static func == (l: LoadRowItem, r: LoadRowItem) -> Bool {
-        l.item == r.item
+        // WR-03 — identity-only comparison. Same id → same diffable item;
+        // payload differences are detected separately in `render(.loaded)`
+        // and surface as `reconfigureItems`.
+        l.item.load.id == r.item.load.id
     }
 }
 
@@ -460,10 +478,49 @@ final class LoadListViewController: UIViewController {
             errorStateView.isHidden = true
             contentUnavailableConfiguration = nil
 
+            // WR-03 — build a content-change map BEFORE applying the new
+            // snapshot. The diffable data source's `==` on `LoadRowItem` is
+            // identity-only (load.id) so it treats refreshed rows as the
+            // SAME item; we then explicitly mark those rows for
+            // `reconfigureItems` (re-render in place). Pre-WR-03 the data
+            // source treated payload-changed rows as delete+insert because
+            // `==` compared the full counterparty payload — producing a
+            // visible row-replace animation and contradicting the
+            // `reconfigureItems`-on-payload-change promise documented in
+            // `LoadListViewModel.swift:60-69`.
+            let newRowItems = items.map(LoadRowItem.init)
+            // Build an id → previous LoadListItem map from the existing
+            // snapshot so we can detect content changes (verification state,
+            // counterparty id) for the same load id.
+            let priorByID: [String: LoadListItem] = Dictionary(
+                uniqueKeysWithValues: dataSource.snapshot().itemIdentifiers
+                    .map { ($0.item.load.id, $0.item) }
+            )
+            // `LoadListItem`'s in-VM-file Equatable extension compares
+            // load.id + counterparty partyID + counterparty verificationState
+            // — i.e. it is precisely the "did this row's payload change"
+            // signal we want here. (See LoadListViewModel.swift §
+            // "LoadListItem Equatable extension".)
+            let changedRowItems = newRowItems.filter { rowItem in
+                guard let prior = priorByID[rowItem.item.load.id] else {
+                    return false  // newly-arrived row — insert, not reconfigure
+                }
+                return prior != rowItem.item
+            }
+
             var snap = NSDiffableDataSourceSnapshot<LoadListSection, LoadRowItem>()
             snap.appendSections([.main])
             // D-06 — exact wire order; no client-side reordering or pruning.
-            snap.appendItems(items.map(LoadRowItem.init), toSection: .main)
+            snap.appendItems(newRowItems, toSection: .main)
+            if !changedRowItems.isEmpty {
+                // `reconfigureItems` only applies to items that survive the
+                // diff (`==` matches an existing id). For brand-new ids, the
+                // data source inserts a fresh cell anyway. WR-03 — this is
+                // the explicit re-render path the file-header documentation
+                // promised; the row stays in place and the cell's
+                // `configure(item:)` re-renders with the new envelope.
+                snap.reconfigureItems(changedRowItems)
+            }
 
             // Pitfall 4 — endRefreshing() lives INSIDE the apply completion
             // so the refresh affordance and the row-insert animation never
