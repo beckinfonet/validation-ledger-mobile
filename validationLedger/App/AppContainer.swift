@@ -452,6 +452,7 @@ final class AppContainer {
         let isUITestRolePath = ProcessInfo.processInfo.arguments.contains("-MockOTPRoleForUITest")
         if case .mock = resolvedConfig, !isUITestRolePath {
             MockDefaultFixtures.registerAppDefaults()
+            MockLoadFixtureRegistry.registerAppDefaults()   // Phase 7 LOAD-01 — D-17
         }
         #endif
 
