@@ -184,19 +184,20 @@ struct LoadDetailFixtureContractTests {
         )
     }
 
-    /// VL-1009 double-broker archetype: the flagged carrier carries ≤ 2
-    /// priorRelationships (signals "this counterparty has no real history
-    /// with us"). Per D-14 double-broker rule.
-    @Test("Double-broker archetype (VL-1009): the flagged carrier TrustNode carries 2 or fewer priorRelationships entries (D-14 double-broker rule)")
-    func doubleBrokerArchetypeFlaggedCarrierCarriesTwoOrFewerPriorRelationships() throws {
+    /// VL-1009 double-broker archetype: the flagged broker (the re-tendering
+    /// intermediary) carries ≤ 2 priorRelationships (signals "this counterparty
+    /// has no real history with us"). Per D-14 double-broker rule + 09-01-PLAN
+    /// fixture spec; aligned with PriorRelationshipDecodeTests.
+    @Test("Double-broker archetype (VL-1009): the flagged broker TrustNode (re-tendering intermediary) carries 2 or fewer priorRelationships entries (D-14 double-broker rule)")
+    func doubleBrokerArchetypeFlaggedBrokerCarriesTwoOrFewerPriorRelationships() throws {
         let priors = try priorRelationshipsCount(
             forFixture: "load-detail-VL-1009",
-            whereRoleEquals: "carrier",
+            whereRoleEquals: "broker",
             whereVerificationStateEquals: "flagged"
         )
         #expect(
             priors <= 2,
-            "VL-1009 flagged carrier MUST carry ≤ 2 priorRelationships entries (D-14 double-broker rule); got: \(priors)"
+            "VL-1009 flagged broker MUST carry ≤ 2 priorRelationships entries (D-14 double-broker rule — re-tendering intermediary has no real prior pattern); got: \(priors)"
         )
     }
 
@@ -217,15 +218,23 @@ struct LoadDetailFixtureContractTests {
         )
     }
 
-    /// VL-1011 factoring-fraud archetype: the factoring node carries a
-    /// curated non-empty priorRelationships pattern (collusion signature).
-    /// Per D-14 factoring-fraud rule.
-    @Test("Factoring-fraud archetype (VL-1011): the factoring TrustNode carries a curated non-empty priorRelationships pattern (D-14 factoring rule)")
-    func factoringFraudArchetypeFactoringNodeCarriesNonEmptyPriorRelationships() throws {
-        let priors = try priorRelationshipsCount(forFixture: "load-detail-VL-1011", whereRoleEquals: "factoring")
+    /// VL-1011 factoring-fraud archetype: the flagged factoring node carries
+    /// EXACTLY ZERO priorRelationships — same "no real history" signal as the
+    /// chameleon-carrier rule, applied to factoring collusion. Per D-14
+    /// factoring-fraud rule (extrapolated from D-14's marquee chameleon rule:
+    /// the empty-array IS the fraud signal — "this counterparty has no real
+    /// prior pattern with us"). Aligned with 09-01-PLAN fixture spec +
+    /// PriorRelationshipDecodeTests.
+    @Test("Factoring-fraud archetype (VL-1011): the flagged factoring TrustNode carries an EMPTY priorRelationships array (D-14 factoring rule)")
+    func factoringFraudArchetypeFlaggedFactoringCarriesEmptyPriorRelationships() throws {
+        let priors = try priorRelationshipsCount(
+            forFixture: "load-detail-VL-1011",
+            whereRoleEquals: "factoring",
+            whereVerificationStateEquals: "flagged"
+        )
         #expect(
-            priors > 0,
-            "VL-1011 factoring node MUST carry a non-empty priorRelationships pattern (D-14 factoring-fraud rule — curated collusion signature); got: \(priors)"
+            priors == 0,
+            "VL-1011 flagged factoring MUST carry EXACTLY 0 priorRelationships (D-14 factoring rule — same 'no real history' collusion signal as chameleon); got: \(priors)"
         )
     }
 
