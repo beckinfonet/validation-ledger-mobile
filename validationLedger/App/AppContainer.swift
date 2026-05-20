@@ -198,6 +198,36 @@ final class AppContainer {
         return viewController
     }
 
+    // Phase 8 LOAD-03 — D-01..D-04. The per-role Loads-tab factory consumed by
+    // the 5 `*TabBarController`s through the `loadListScreenFactory: (Role) ->
+    // UIViewController` closure threaded by
+    // `AppCoordinator.roleCoordinator(for:container:)`. Closure-factory pattern +
+    // `Role` parameter mirrors the Phase 5 `kycStatusScreenFactory` precedent
+    // (`makeKYCStatusScreen()` immediately above). The Loads screen is
+    // constructed lazily — `makeLoadListScreen(role:)` is invoked only when the
+    // tab bar's closure fires; no eager VM allocation.
+    //
+    // Logging subsystem reuse: this factory builds an `OSLogLoggerImpl(subsystem:
+    // LoggingSubsystem.app, category: "feature.loads")`. The closed
+    // `LoggingSubsystem` enum is NOT extended with a `.loads` case in Phase 8 —
+    // that's a deferred decision (PATTERNS.md §6 line 489). Reusing `.app` keeps
+    // the scope tight; a future plan can add a `.loads` subsystem purely
+    // additively without touching this call site (only the literal string here
+    // changes).
+    @MainActor
+    func makeLoadListScreen(role: Role) -> UIViewController {
+        let featureLogger = OSLogLoggerImpl(
+            subsystem: LoggingSubsystem.app,
+            category: "feature.loads"
+        )
+        let viewModel = LoadListViewModel(
+            role: role,
+            apiClient: apiClient,
+            logger: featureLogger
+        )
+        return LoadListViewController(viewModel: viewModel)
+    }
+
     /// Primary initializer.
     ///
     /// - Parameters:
