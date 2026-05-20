@@ -25,6 +25,17 @@
 // 200 responses mirroring each shipped endpoint's `Response` shape. See the
 // Resolution in `.planning/debug/resolved/kyc-upload-capture-bugs.md`.
 //
+// === KYC status verified-toggle (debug session `kyc-status-under-review-trap`) ===
+// During Phase 9 device UAT the `under_review` pin (intentional — mirrors the
+// real backend's post-submit verdict) blocked the only path past the D-12 gate
+// into the role shell, so the tester could not exercise Phase 6+ surfaces.
+// `-MockKYCStatusVerified` is an opt-in launch argument that flips GET
+// /kyc/status's `overall_status` to `verified` so the status screen lands on
+// the verified verdict and the "Continue" CTA into the role shell becomes
+// reachable. Same launch-argument pattern + `#if DEBUG` gating as
+// `-MockOTPRoleForUITest` (AppContainer.swift:547). Release builds compile this
+// to zero bytes — the whole file is `#if DEBUG`.
+//
 // Release impact: ZERO. Entire file wrapped in `#if DEBUG`. AppContainer's
 // call site is ALSO `#if DEBUG` gated + conditioned on `resolvedConfig == .mock`
 // + not `-MockOTPRoleForUITest` — triple-gated. Release builds also force
@@ -47,6 +58,22 @@
 import Foundation
 
 public enum MockDefaultFixtures {
+
+    /// Launch-argument flag (DEBUG-only) that flips GET /kyc/status's
+    /// `overall_status` to `"verified"`. Mirrors the `-MockOTPRoleForUITest`
+    /// pattern (AppContainer.swift:547). Off by default — the organic
+    /// device-UAT path still hits the realistic `under_review` verdict the
+    /// real backend emits post-submit.
+    ///
+    /// Set in Xcode → Edit Scheme → Run → Arguments → Arguments Passed On Launch.
+    public static let verifiedKYCStatusLaunchFlag = "-MockKYCStatusVerified"
+
+    /// True when `-MockKYCStatusVerified` is present in this process's launch
+    /// arguments. Evaluated once per request (cheap — argv is a tiny array).
+    /// `internal` so the unit test can observe the default-off contract.
+    static var verifiedKYCStatusOverrideActive: Bool {
+        ProcessInfo.processInfo.arguments.contains(verifiedKYCStatusLaunchFlag)
+    }
 
     /// Register the organic-onboarding default handlers with MockURLProtocol.
     /// Called once per AppContainer construction from the DEBUG-only gated
@@ -94,10 +121,10 @@ public enum MockDefaultFixtures {
             return make200(body: kycUploadCommitResponseJSON(), url: request.url)
 
         case ("POST", "/kyc/submit"):
-            return make200(body: kycSubmitResponseJSON(), url: request.url)
+            return make200(body: kycSubmitResponseJSON(verifiedOverride: verifiedKYCStatusOverrideActive), url: request.url)
 
         case ("GET", "/kyc/status"):
-            return make200(body: kycStatusResponseJSON(), url: request.url)
+            return make200(body: kycStatusResponseJSON(verifiedOverride: verifiedKYCStatusOverrideActive), url: request.url)
 
         default:
             return nil  // Fall through to MockURLProtocol built-in 404.
@@ -170,8 +197,18 @@ public enum MockDefaultFixtures {
     /// `POST /kyc/submit` → `KYCSubmitEndpoint.Response` (overallStatus).
     /// `under_review` is the real backend's post-submit status — it lets the
     /// plan-06 Status screen render its under-review state organically.
-    private static func kycSubmitResponseJSON() -> Data {
-        Data(#"{"overall_status":"under_review"}"#.utf8)
+    /// When `verifiedOverride` is true (driven by the `-MockKYCStatusVerified`
+    /// launch arg at the call site), returns `verified` instead so the
+    /// post-submit hand-off lands on a passing verdict consistent with
+    /// `kycStatusResponseJSON(verifiedOverride:)`.
+    ///
+    /// `internal` (not private) so the override-branch is unit-testable without
+    /// mutating process-wide `ProcessInfo.arguments`.
+    static func kycSubmitResponseJSON(verifiedOverride: Bool) -> Data {
+        if verifiedOverride {
+            return Data(#"{"overall_status":"verified"}"#.utf8)
+        }
+        return Data(#"{"overall_status":"under_review"}"#.utf8)
     }
 
     /// `GET /kyc/status` → `KYCStatusEndpoint.Response` (overallStatus,
@@ -181,8 +218,20 @@ public enum MockDefaultFixtures {
     /// device mock cannot inspect the request body to know which artifact IDs
     /// to echo — and the under-review verdict copy needs no per-artifact
     /// rejection detail. An empty array decodes cleanly into `[Artifact]`.
-    private static func kycStatusResponseJSON() -> Data {
-        Data(#"{"overall_status":"under_review","artifacts":[]}"#.utf8)
+    ///
+    /// When `verifiedOverride` is true (driven by the `-MockKYCStatusVerified`
+    /// launch arg at the call site), returns `verified` instead so the status
+    /// screen lands on the verified verdict and the "Continue" CTA into the
+    /// role shell becomes reachable — the device-UAT escape hatch documented
+    /// in `kyc-status-under-review-trap` and 05-UAT.md test 12.
+    ///
+    /// `internal` (not private) so the override-branch is unit-testable without
+    /// mutating process-wide `ProcessInfo.arguments`.
+    static func kycStatusResponseJSON(verifiedOverride: Bool) -> Data {
+        if verifiedOverride {
+            return Data(#"{"overall_status":"verified","artifacts":[]}"#.utf8)
+        }
+        return Data(#"{"overall_status":"under_review","artifacts":[]}"#.utf8)
     }
 
     // MARK: - HTTPURLResponse builders

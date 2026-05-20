@@ -14,6 +14,10 @@
 // one of the 6 artifacts — including trailer and plate, the two the Issue 2b
 // coordinator off-by-one never kicked on a real device. `.serialized` because
 // the suite mutates the global `MockURLProtocol` handler registry.
+//
+// Extended for debug session `kyc-status-under-review-trap`:
+// asserts the `-MockKYCStatusVerified` launch-arg toggle flips both
+// /kyc/submit and /kyc/status to `verified` (and stays off by default).
 
 import Testing
 import Foundation
@@ -136,6 +140,53 @@ struct MockDefaultFixturesKYCTests {
             #expect(state.committed, "\(artifact.rawValue) never committed")
             #expect(state.artifactID != nil, "\(artifact.rawValue) has no artifactID")
         }
+    }
+
+    // MARK: - `-MockKYCStatusVerified` launch-arg toggle
+    //
+    // Debug session `kyc-status-under-review-trap`: the under-review pin on
+    // /kyc/status blocks the only path past the D-12 gate during device UAT.
+    // `-MockKYCStatusVerified` is the documented opt-in escape — it flips
+    // BOTH /kyc/submit and /kyc/status to `verified` so the status screen's
+    // verified verdict + "Continue" CTA becomes reachable on a no-backend
+    // DEBUG build.
+
+    @Test("Toggle off (default): /kyc/status JSON encodes `under_review`")
+    func defaultStatusJSONIsUnderReview() {
+        let body = MockDefaultFixtures.kycStatusResponseJSON(verifiedOverride: false)
+        let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any]
+        #expect(json?["overall_status"] as? String == "under_review")
+        #expect((json?["artifacts"] as? [Any])?.isEmpty == true)
+    }
+
+    @Test("Toggle off (default): /kyc/submit JSON encodes `under_review`")
+    func defaultSubmitJSONIsUnderReview() {
+        let body = MockDefaultFixtures.kycSubmitResponseJSON(verifiedOverride: false)
+        let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any]
+        #expect(json?["overall_status"] as? String == "under_review")
+    }
+
+    @Test("Toggle on: /kyc/status JSON encodes `verified`")
+    func overrideStatusJSONIsVerified() {
+        let body = MockDefaultFixtures.kycStatusResponseJSON(verifiedOverride: true)
+        let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any]
+        #expect(json?["overall_status"] as? String == "verified")
+        #expect((json?["artifacts"] as? [Any])?.isEmpty == true)
+    }
+
+    @Test("Toggle on: /kyc/submit JSON encodes `verified`")
+    func overrideSubmitJSONIsVerified() {
+        let body = MockDefaultFixtures.kycSubmitResponseJSON(verifiedOverride: true)
+        let json = try? JSONSerialization.jsonObject(with: body) as? [String: Any]
+        #expect(json?["overall_status"] as? String == "verified")
+    }
+
+    @Test("Test process: -MockKYCStatusVerified is NOT a default launch arg — the test runner never trips the verified branch organically")
+    func testRunnerIsOffByDefault() {
+        // Guards the call sites in dispatchHandler — the test runner must not
+        // carry the launch arg, otherwise the existing `mockHandlerAnswersStatus`
+        // / `mockHandlerAnswersSubmit` baseline tests would silently flip.
+        #expect(MockDefaultFixtures.verifiedKYCStatusOverrideActive == false)
     }
 
     // MARK: - Helpers
