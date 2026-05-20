@@ -5,7 +5,7 @@
 // against the Phase 7 `Load.stateHistory` payload + the D-18 architectural
 // separation (side-states are NOT surfaced).
 //
-// Wave 0 shell was created by Plan 02 as 7 XCTSkip stubs. This file replaces
+// Wave 0 shell was created by Plan 02 as 7 skipped stubs. This file replaces
 // those with 8 real test methods (per the plan's acceptance criteria —
 // ≥7 methods; 6 primary lifecycle states + cancelled terminal + the D-18
 // side-state-rejected gate).
