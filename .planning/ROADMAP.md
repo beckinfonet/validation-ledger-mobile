@@ -143,7 +143,7 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6)*
 
-- [ ] 09-10-PLAN.md — Cross-cutting verification: populate remaining XCUITest methods (banner-a11y, outer-scroll propagation) + author 09-MANUAL-TESTS.md device-test checklist + update VALIDATION.md Per-Task Verification Map + bump STATE.md to "Executed — pending verify"
+- [x] 09-10-PLAN.md — Cross-cutting verification: populate remaining XCUITest methods (banner-a11y, outer-scroll propagation) + author 09-MANUAL-TESTS.md device-test checklist + update VALIDATION.md Per-Task Verification Map + bump STATE.md to "Executed — pending verify"
 
 ### Phase 10: Per-Role Tender / Accept / Reject
 
@@ -177,7 +177,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10
 | 6. Close gap: DEV-04 + trustTier + Phase 4 verification | v1.0 | 4/4 | Complete | 2026-05-18 |
 | 7. Load Domain Model & Mock Contract | v1.1 | 6/6 | Complete    | 2026-05-20 |
 | 8. Role-Filtered Load List | v1.1 | 4/4 | Complete   | 2026-05-20 |
-| 9. Load Detail & Chain-of-Trust Graph | v1.1 | 9/10 | In Progress|  |
+| 9. Load Detail & Chain-of-Trust Graph | v1.1 | 10/10 | Complete   | 2026-05-20 |
 | 10. Per-Role Tender / Accept / Reject | v1.1 | 0/TBD | Not started | - |
 
 ---
