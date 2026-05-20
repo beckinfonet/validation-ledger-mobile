@@ -262,11 +262,98 @@ final class LoadDetailFlowTests: XCTestCase {
                       "D-11 — implicated block MUST render for a caution + implicated node")
     }
 
-    // MARK: - Shells — populated by Plan 08 (TRUST-04).
+    // MARK: - TRUST-04 edge-tap → handoff-detail sheet (Plan 08)
 
-    func test_edgeTap_opensHandoffSheet() throws {
-        throw XCTSkip("Wave 0 shell — populated by Plan 08")
+    /// Plan 08 — TRUST-04 acceptance: tapping a graph edge (the invisible
+    /// 28pt-band companion view that wraps each `CAShapeLayer` line per
+    /// Plan 06) opens `HandoffDetailSheetViewController` with the
+    /// edge-partition identifier resolved AND, for the implicated edge in a
+    /// non-clean chain, the "Why this handoff is flagged" block per D-11.
+    ///
+    /// Driven as the broker on VL-1005 (caution archetype). VL-1005
+    /// implicates `edge-VL-1005-broker-carrier` — the only carrier edge in
+    /// the 3-node chain (shipper → broker → carrier). Tapping the
+    /// implicated edge MUST surface BOTH the sheet root identifier AND the
+    /// `.implicated-block` identifier.
+    ///
+    /// Why not VL-1009 (compromised double-broker archetype): the double-
+    /// broker chain places two broker nodes in the SAME broker role-slot
+    /// per the D-06 fixed-slot layout; the second-rendered broker view
+    /// occludes the first, making both XCUI node-tap AND edge-companion-
+    /// tap targeting brittle (an edge between two co-located broker nodes
+    /// degenerates to a near-zero-length stroke). VL-1005's two-edge chain
+    /// has well-separated endpoints — deterministic tap target — while
+    /// still exercising the full TRUST-04 + D-11 contract.
+    ///
+    /// Row discovery mirrors `test_nodeTap_opensVerificationBasisSheet`:
+    /// VL-1005 is the 5th cell in the broker's fixture roster, so we
+    /// swipe-to-find before tapping.
+    func test_edgeTap_opensHandoffSheet() {
+        let app = launch(role: "broker")
+        driveFullOTPFlow(app)
+
+        // 1. Wait for the Loads tab + tap.
+        XCTAssertTrue(app.tabBars.buttons["Loads"].waitForExistence(timeout: 5),
+                      "broker tab bar should render with a 'Loads' tab after OTP verify")
+        app.tabBars.buttons["Loads"].tap()
+
+        // 2. Open the caution-archetype VL-1005 fixture row.
+        let list = app.collectionViews["loads-list"]
+        XCTAssertTrue(list.waitForExistence(timeout: 5),
+                      "loads-list collection view should appear after tapping the Loads tab")
+
+        let targetRow = app.cells["loads-list.row.VL-1005"]
+        var swipeAttempts = 0
+        while !targetRow.exists && swipeAttempts < 5 {
+            list.swipeUp()
+            swipeAttempts += 1
+        }
+        XCTAssertTrue(targetRow.waitForExistence(timeout: 5),
+                      "VL-1005 caution-archetype row must be present in the broker's load list (after \(swipeAttempts) swipe(s))")
+        targetRow.tap()
+
+        // 3. Wait for the load detail to render.
+        let detail = app.otherElements["load-detail"]
+        XCTAssertTrue(detail.waitForExistence(timeout: 5),
+                      "load-detail must push onto the navigation stack after tapping a row")
+
+        // 4. Tap the flagged broker→carrier edge. VL-1005 implicates
+        //    `edge-VL-1005-broker-carrier` (see load-detail-VL-1005.json —
+        //    the only flagged edge in the caution chain). The edge
+        //    companion view resolves via UI-SPEC § Accessibility
+        //    identifiers `load-detail.trust-graph.edge.<edgeID>`.
+        //
+        //    Plan 06's `EdgeCompanionView` sets `isAccessibilityElement =
+        //    true` + `accessibilityTraits = .button`, so XCUI may expose
+        //    it as a `.button` query target. We fall back through
+        //    `.descendants(matching: .any)` → `.buttons` →
+        //    `.otherElements` for trait resilience.
+        let edgeID = "load-detail.trust-graph.edge.edge-VL-1005-broker-carrier"
+        let edgeCandidates: [XCUIElement] = [
+            app.descendants(matching: .any).matching(identifier: edgeID).firstMatch,
+            app.buttons[edgeID],
+            app.otherElements[edgeID],
+        ]
+        let flaggedEdge = edgeCandidates.first(where: { $0.waitForExistence(timeout: 5) }) ?? edgeCandidates[0]
+        XCTAssertTrue(flaggedEdge.exists,
+                      "VL-1005 — the flagged broker→carrier edge MUST resolve via '\(edgeID)' (.button or .otherElements)")
+        flaggedEdge.tap()
+
+        // 5. The handoff-detail sheet must present within the single-tap
+        //    + presentation animation budget (3s).
+        let sheet = app.otherElements["load-detail.handoff-detail-sheet"]
+        XCTAssertTrue(sheet.waitForExistence(timeout: 3),
+                      "TRUST-04 — the handoff-detail sheet must appear after a single-tap on an edge companion view")
+
+        // 6. D-11 — VL-1005 is a caution chain with the broker→carrier
+        //    edge implicated; the "Why this handoff is flagged" block
+        //    MUST render.
+        let implicated = app.otherElements["load-detail.handoff-detail-sheet.implicated-block"]
+        XCTAssertTrue(implicated.waitForExistence(timeout: 2),
+                      "D-11 — implicated block MUST render for a caution + implicated edge")
     }
+
+    // MARK: - Shells — populated by Plan 10.
 
     func test_compromisedVerdict_bannerAccessibilityLabelContainsReason() throws {
         throw XCTSkip("Wave 0 shell — populated by Plan 10")
