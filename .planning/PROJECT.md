@@ -64,7 +64,7 @@ v1.0 closed with a `tech_debt` milestone audit — see `.planning/milestones/v1.
 - [ ] Load detail screen
 - [ ] Interactive chain-of-trust graph — shipper→broker→carrier→dispatch→factoring node-graph with per-party verification state, tappable for verification basis
 - [ ] Per-role tender / accept / reject action sets across all 5 roles
-- [ ] New load-domain mock endpoints + fixtures (extends M1's contract-first `MockURLProtocol` pattern)
+- [x] **LOAD-01, LOAD-02** — Load-domain mock endpoints + fixtures, contract-first foundation (`Core/Load/` value types, `RoleLoadPolicy`, 3 typed endpoints, 22-fixture matrix, DEBUG `MockLoadFixtureRegistry`) — Phase 7, 2026-05-19
 
 ### Deferred from M2 (post-v1.1)
 
@@ -187,4 +187,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-19 — milestone v1.1 "Load Flows" started*
+*Last updated: 2026-05-19 — Phase 7 (Load Domain Model & Mock Contract) complete; LOAD-01 + LOAD-02 delivered*
