@@ -1237,22 +1237,27 @@ private func applyAccessibilityElements() {
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED — planner-locked 2026-05-20)
 
 > Honest catalog of gaps the planner should resolve at plan-time (none are blocking).
 
 1. **Edge stroke width at zoom > 1.0.** UI-SPEC says "constant in screen space (scaled inversely with zoom)." The cleanest implementation is `scrollViewDidZoom(_:)` setting `edge.lineWidth = 2.0 / zoomScale` on every edge. Alternative: leave the stroke as-is and accept thicker lines at zoom — the UI-SPEC line "scaled inversely with zoom" can be interpreted as "the stroke renders 2pt at every zoom level" (active inverse scaling). The planner should pick one and lock it in the task acceptance criteria.
+   **Resolution:** Inverse-scale the edge stroke in `scrollViewDidZoom(_:)` — keep visual stroke at ~2pt regardless of zoomScale, computed as `baseStrokeWidth / scrollView.zoomScale`.
 
 2. **`PriorRelationship.counterpartyDisplayName` rendering decision.** UI-SPEC § Open Questions #1 — planner picks "Broker → Carrier" vs "Broker (Acme Brokerage) → Carrier" in the prior-relationships list rows. If the latter, ensure the framing string truncates gracefully. Defer-to-default is the simpler line (no counterparty display name in the framing).
+   **Resolution:** Render as `"<fromRole> → <toRole>"` framing only; `counterpartyDisplayName` is NOT rendered in the row text (UI-SPEC § Prior relationships list pins this — display name appears only in the optional secondary muted line, not the primary row text).
 
 3. **Coordinator vs direct push from `LoadListViewController`.** CONTEXT § Claude's Discretion delegates to planner. The KYCCoordinator precedent argues for a thin `LoadDetailCoordinator`; the simpler `AppContainer.makeLoadDetailScreen(loadID:)` factory closure threaded through `LoadListViewController` is the lower-friction continuation of Phase 8's `kycStatusScreenFactory` pattern. Both are correct; planner picks the consistent one.
+   **Resolution:** Factory closure on `AppContainer` — `AppContainer.makeLoadDetailViewController(loadID:)` — invoked from `LoadListViewController.collectionView(_:didSelectItemAt:)`. No new `LoadCoordinator` type in this phase. Rationale: keeps Phase 8's existing VC unchanged except for the one tap-handler edit; coordinators can be introduced later if the load-detail flow grows.
 
 4. **Dimmed-others fixture.** UI-SPEC § Open Questions #4 — a test fixture exercising the dimmed-non-implicated-nodes treatment across all three verdicts would simplify snapshot testing. The planner adds this to `MockLoadFixtureRegistry` ADDITIVELY (or reuses an existing fraud-archetype fixture if its data already exhibits the rendering).
+   **Resolution:** No new fixture. The existing fraud-archetype fixtures (compromised + caution variants) already exercise the dim-others render. Adding a dedicated fixture would duplicate scope.
 
 5. **`autoreverses` vs manual `from → to → from` keyframe for the pulse.** Two valid interpretations of D-15's "1.2s loop, opacity 0.6 → 1.0, infinite repeat":
    - `duration = 0.6, autoreverses = true, repeatCount = .infinity` → 1.2s round trip 0.6→1.0→0.6.
    - `duration = 1.2, autoreverses = true, repeatCount = .infinity` → 2.4s round trip.
    The first matches the UI-SPEC literal "1.2s loop" more cleanly. The planner pins one.
+   **Resolution:** `CABasicAnimation.duration = 0.6` + `autoreverses = true` + `repeatCount = .infinity`. The 0.6s forward + 0.6s reverse gives the 1.2s round-trip the spec describes. `fromValue = 0.6, toValue = 1.0` on the halo layer's `opacity` keypath.
 
 ---
 
