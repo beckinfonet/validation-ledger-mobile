@@ -34,16 +34,23 @@ nonisolated public struct LoadListEndpoint: APIEndpoint {
     public typealias RequestBody = EmptyBody
 
     public struct Response: Decodable, Sendable {
-        /// The page of loads for this role. Each `Load` is the Plan 02
-        /// aggregate value type; its `status` field decodes via the closed
-        /// `LoadStatus` enum (throws on unknown — see Plan 01 file header).
-        public let loads: [Load]
+        /// The page of loads for this role. Phase 8 D-02: each row is a
+        /// `LoadListItem` envelope wrapping the Phase 7 `Load` aggregate under
+        /// `load:` and carrying the server-projected `displayedCounterparty:
+        /// TrustNode?` (nil is FAIL-CLOSED per D-03 — the UI renders the
+        /// neutral-grey UNVERIFIED badge). `LoadDetailEndpoint.Response.load:
+        /// Load` is UNTOUCHED — list vs detail are cleanly separated by the
+        /// envelope.
+        public let loads: [LoadListItem]
 
         /// Server-supplied opaque pagination cursor. `nil` means "no more
         /// pages". Wire form is `next_cursor` (snake_case); the synthesized
         /// optional decoder + `.convertFromSnakeCase` handles absent/null
-        /// values transparently. Phase 8 list VMs pass this back unchanged
-        /// on the next page-fetch request.
+        /// values transparently. Phase 8 D-05: VMs DECODE-ONLY this field;
+        /// v1.1 ships no infinite-scroll observer, no prefetch trigger, and
+        /// no "Load more" button. The contract is forward-compatible — a
+        /// future backend or fixture upgrade wires in infinite-scroll with
+        /// no Phase 8 refactor.
         public let nextCursor: String?
     }
 
