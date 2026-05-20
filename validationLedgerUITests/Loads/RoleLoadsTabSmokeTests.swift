@@ -123,6 +123,18 @@ final class RoleLoadsTabSmokeTests: XCTestCase {
         let rows = app.cells.matching(predicate)
         XCTAssertGreaterThan(rows.count, 0,
                              "At least one loads-list.row.VL-* identifier should resolve from the populated \(role) fixture")
+
+        // 5. BL-02 — assert the IN-SCREEN nav-bar title matches the tab-item
+        //    title (T-08-12 + BL-02 lock). Pre-BL-02, the Factoring tab bar
+        //    correctly read "Invoices" at the tab-bar layer, but the nav bar
+        //    above the loads list unconditionally said "Loads" because
+        //    `LoadListViewController.viewDidLoad` hard-coded that string.
+        //    BL-02 threads the title through the composition root
+        //    (`AppContainer.makeLoadListScreen(role:)` → `LoadListViewController
+        //    .init(viewModel:navTitle:)`) so Factoring's nav bar now reads
+        //    "Invoices" end-to-end.
+        XCTAssertTrue(app.navigationBars[tabName].waitForExistence(timeout: 5),
+                      "BL-02 — \(role) nav bar title should match tab-item title '\(tabName)'")
     }
 
     // MARK: - 5 role smoke tests (one per Role)

@@ -225,7 +225,25 @@ final class AppContainer {
             apiClient: apiClient,
             logger: featureLogger
         )
-        return LoadListViewController(viewModel: viewModel)
+        // BL-02 — role → in-screen nav-bar title mapping. Centralized here in
+        // the composition root next to the existing T-08-12 plumbing so the
+        // Factoring path's "Invoices" lock is end-to-end (tab bar label AND
+        // nav bar title). Every other role keeps "Loads". `NSLocalizedString`
+        // is honored for both branches so the v2 i18n pass can localize them
+        // independently (Factoring "Invoices" may need a different translator
+        // gloss than "Loads" in other locales).
+        let navTitle: String = (role == .factoring)
+            ? NSLocalizedString(
+                "loads.list.nav_title.factoring",
+                value: "Invoices",
+                comment: "Phase 8 LoadListViewController — Factoring-role nav-bar title (matches T-08-12 tab-bar lock)"
+            )
+            : NSLocalizedString(
+                "loads.list.nav_title",
+                value: "Loads",
+                comment: "Phase 8 LoadListViewController — default nav-bar title for all non-Factoring roles"
+            )
+        return LoadListViewController(viewModel: viewModel, navTitle: navTitle)
     }
 
     /// Primary initializer.

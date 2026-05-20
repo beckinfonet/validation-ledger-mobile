@@ -47,9 +47,19 @@ final class FactoringTabBarController: UITabBarController, RoleCoordinator {
         // the factoring role per the existing fixture set (Plan 01 D-04). The
         // TAB ITEM TITLE remains `"Invoices"` exactly
         // (RoleShellSmokeTests:151 assertion).
+        //
+        // BL-02 — the in-screen nav-bar title is owned by the composition
+        // root: `AppContainer.makeLoadListScreen(role:)` threads
+        // `navTitle: "Invoices"` for `.factoring` into
+        // `LoadListViewController.init`, so the loads VC's `viewDidLoad`
+        // assigns `title = "Invoices"` itself. The pre-BL-02
+        // `invoicesTab.title = "Invoices"` line here was DEAD CODE: it ran
+        // BEFORE the inner VC's `viewDidLoad` (which fires lazily when the
+        // tab is first selected) and was immediately overwritten with the
+        // VC's own `title`. With BL-02 the inner title is now correct in one
+        // place; this line is removed.
         let invoicesTab: UIViewController = loadListScreenFactory?(role)
             ?? ShipperTabBarController.makeTab(title: "Invoices", systemImage: "doc.text.magnifyingglass")
-        invoicesTab.title = "Invoices"
         invoicesTab.tabBarItem = UITabBarItem(
             title: "Invoices",
             image: UIImage(systemName: "doc.text.magnifyingglass"),

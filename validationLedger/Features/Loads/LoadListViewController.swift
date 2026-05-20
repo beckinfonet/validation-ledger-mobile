@@ -132,8 +132,22 @@ final class LoadListViewController: UIViewController {
 
     private let viewModel: LoadListViewModel
 
-    init(viewModel: LoadListViewModel) {
+    /// BL-02 — the in-screen nav-bar title for THIS screen. Threaded from the
+    /// composition root (`AppContainer.makeLoadListScreen(role:)`) so the
+    /// role→title mapping lives in ONE place. The Factoring role pre-Phase-8
+    /// already locked "Invoices" at the tab-bar layer (T-08-12 / PATTERNS
+    /// Q1); pre-BL-02 the tab bar was correct but the nav bar above the list
+    /// said "Loads" because `viewDidLoad` unconditionally assigned the "Loads"
+    /// localized string. Now the call site decides — Factoring passes
+    /// "Invoices", every other role passes "Loads". The literal here is the
+    /// FALLBACK (constructed without an explicit title) so tests that build
+    /// the VC without the AppContainer factory still produce a sensible
+    /// title.
+    private let navTitle: String
+
+    init(viewModel: LoadListViewModel, navTitle: String = "Loads") {
         self.viewModel = viewModel
+        self.navTitle = navTitle
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -281,11 +295,15 @@ final class LoadListViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        title = NSLocalizedString(
-            "loads.list.nav_title",
-            value: "Loads",
-            comment: "Phase 8 LoadListViewController — nav-bar title (always 'Loads', never role-prefixed)"
-        )
+        // BL-02 — the in-screen nav-bar title comes from `init(viewModel:
+        // navTitle:)`. The composition root (`AppContainer.makeLoadListScreen
+        // (role:)`) maps role → title (Factoring → "Invoices"; everything
+        // else → "Loads"). Setting `title` here propagates into
+        // `UINavigationController`'s navigation bar via the `navigationItem
+        // .title` fallback — so the Factoring tab now shows "Invoices" BOTH
+        // in the tab bar (T-08-12 lock) AND in the nav bar above the list
+        // (was previously stuck on "Loads" pre-BL-02).
+        title = navTitle
         view.backgroundColor = DS.Colors.background
 
         layoutContent()
