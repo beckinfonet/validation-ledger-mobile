@@ -121,7 +121,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1)*
 
-- [ ] 09-03-PLAN.md — LoadDetailViewModel 3-case state machine + LoadDetailViewController shell + AppContainer factory + LoadListViewController row-tap → push (LOAD-05) + 5-role XCUITest
+- [x] 09-03-PLAN.md — LoadDetailViewModel 3-case state machine + LoadDetailViewController shell + AppContainer factory + LoadListViewController row-tap → push (LOAD-05) + 5-role XCUITest
 
 **Wave 3** *(blocked on Wave 2)*
 
@@ -177,7 +177,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10
 | 6. Close gap: DEV-04 + trustTier + Phase 4 verification | v1.0 | 4/4 | Complete | 2026-05-18 |
 | 7. Load Domain Model & Mock Contract | v1.1 | 6/6 | Complete    | 2026-05-20 |
 | 8. Role-Filtered Load List | v1.1 | 4/4 | Complete   | 2026-05-20 |
-| 9. Load Detail & Chain-of-Trust Graph | v1.1 | 2/10 | In Progress|  |
+| 9. Load Detail & Chain-of-Trust Graph | v1.1 | 3/10 | In Progress|  |
 | 10. Per-Role Tender / Accept / Reject | v1.1 | 0/TBD | Not started | - |
 
 ---
