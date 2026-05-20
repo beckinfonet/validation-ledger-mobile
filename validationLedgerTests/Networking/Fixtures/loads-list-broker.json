@@ -102,7 +102,7 @@
         "device_binding_status": "bound",
         "usdot_number": "0123456",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 27
+        "prior_relationships": []
       }
     },
     {
@@ -195,7 +195,7 @@
         "device_binding_status": "bound",
         "usdot_number": "0445582",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 11
+        "prior_relationships": []
       }
     },
     {
@@ -311,7 +311,7 @@
         "device_binding_status": "bound",
         "usdot_number": "0123456",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 27
+        "prior_relationships": []
       }
     },
     {
@@ -390,7 +390,7 @@
         "device_binding_status": "unbound",
         "usdot_number": "1144882",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 0
+        "prior_relationships": []
       }
     },
     {
@@ -475,7 +475,7 @@
         "respond_by_at": null,
         "tender_eligibility": {
           "can_tender": false,
-          "disabled_reason": "Carrier identity not yet verified \u2014 Phase 5 KYC outstanding"
+          "disabled_reason": "Carrier identity not yet verified — Phase 5 KYC outstanding"
         }
       },
       "displayed_counterparty": {
@@ -487,7 +487,7 @@
         "device_binding_status": "unbound",
         "usdot_number": "1144882",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 0
+        "prior_relationships": []
       }
     },
     {
@@ -580,7 +580,7 @@
         "device_binding_status": "bound",
         "usdot_number": "0445582",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 11
+        "prior_relationships": []
       }
     },
     {
@@ -655,7 +655,7 @@
         "device_binding_status": "mismatched",
         "usdot_number": "3998112",
         "usdot_authority_status": "revoked",
-        "prior_relationship_count": 0
+        "prior_relationships": []
       }
     }
   ],

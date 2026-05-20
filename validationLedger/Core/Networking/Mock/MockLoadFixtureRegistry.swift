@@ -302,7 +302,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 32
+        "prior_relationships": []
       }
     },
     {
@@ -395,7 +395,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 32
+        "prior_relationships": []
       }
     },
     {
@@ -452,7 +452,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 32
+        "prior_relationships": []
       }
     },
     {
@@ -531,7 +531,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 32
+        "prior_relationships": []
       }
     },
     {
@@ -578,7 +578,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 32
+        "prior_relationships": []
       }
     }
   ],
@@ -690,7 +690,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0123456",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 27
+        "prior_relationships": []
       }
     },
     {
@@ -783,7 +783,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0445582",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 11
+        "prior_relationships": []
       }
     },
     {
@@ -899,7 +899,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0123456",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 27
+        "prior_relationships": []
       }
     },
     {
@@ -978,7 +978,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "unbound",
         "usdot_number": "1144882",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 0
+        "prior_relationships": []
       }
     },
     {
@@ -1075,7 +1075,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "unbound",
         "usdot_number": "1144882",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 0
+        "prior_relationships": []
       }
     },
     {
@@ -1168,7 +1168,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0445582",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 11
+        "prior_relationships": []
       }
     },
     {
@@ -1243,7 +1243,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "mismatched",
         "usdot_number": "3998112",
         "usdot_authority_status": "revoked",
-        "prior_relationship_count": 0
+        "prior_relationships": []
       }
     }
   ],
@@ -1355,7 +1355,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 32
+        "prior_relationships": []
       }
     },
     {
@@ -1448,7 +1448,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 32
+        "prior_relationships": []
       }
     },
     {
@@ -1517,7 +1517,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 21
+        "prior_relationships": []
       }
     },
     {
@@ -1601,7 +1601,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 21
+        "prior_relationships": []
       }
     },
     {
@@ -1694,7 +1694,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "mismatched",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 1
+        "prior_relationships": []
       }
     },
     {
@@ -1769,7 +1769,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 21
+        "prior_relationships": []
       }
     }
   ],
@@ -1881,7 +1881,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 32
+        "prior_relationships": []
       }
     },
     {
@@ -1974,7 +1974,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 32
+        "prior_relationships": []
       }
     },
     {
@@ -2043,7 +2043,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 21
+        "prior_relationships": []
       }
     },
     {
@@ -2127,7 +2127,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 21
+        "prior_relationships": []
       }
     },
     {
@@ -2220,7 +2220,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "mismatched",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 1
+        "prior_relationships": []
       }
     },
     {
@@ -2295,7 +2295,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 21
+        "prior_relationships": []
       }
     }
   ],
@@ -2407,7 +2407,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0123456",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 27
+        "prior_relationships": []
       }
     },
     {
@@ -2500,7 +2500,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0445582",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 11
+        "prior_relationships": []
       }
     },
     {
@@ -2620,7 +2620,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0445582",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 11
+        "prior_relationships": []
       }
     },
     {
@@ -2749,7 +2749,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0123456",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 27
+        "prior_relationships": []
       }
     }
   ],
@@ -2871,7 +2871,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 14
+        "prior_relationships": []
       },
       {
         "party_id": "party-broker-freightwise",
@@ -2882,7 +2882,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 32
+        "prior_relationships": []
       },
       {
         "party_id": "party-carrier-acme",
@@ -2893,7 +2893,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0123456",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 27
+        "prior_relationships": []
       },
       {
         "party_id": "party-dispatch-overland",
@@ -2904,7 +2904,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0987654",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 19
+        "prior_relationships": []
       },
       {
         "party_id": "party-factoring-bridgecap",
@@ -2915,7 +2915,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 41
+        "prior_relationships": []
       }
     ],
     "edges": [
@@ -3050,7 +3050,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 22
+        "prior_relationships": []
       },
       {
         "party_id": "party-broker-freightwise",
@@ -3061,7 +3061,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 32
+        "prior_relationships": []
       },
       {
         "party_id": "party-carrier-redrock",
@@ -3072,7 +3072,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0445582",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 11
+        "prior_relationships": []
       },
       {
         "party_id": "party-dispatch-cornerstone",
@@ -3083,7 +3083,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0445582",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 9
+        "prior_relationships": []
       }
     ],
     "edges": [
@@ -3175,7 +3175,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 8
+        "prior_relationships": []
       },
       {
         "party_id": "party-broker-freightwise",
@@ -3186,7 +3186,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 32
+        "prior_relationships": []
       }
     ],
     "edges": [
@@ -3276,7 +3276,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 14
+        "prior_relationships": []
       },
       {
         "party_id": "party-broker-sunbelt",
@@ -3287,7 +3287,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 21
+        "prior_relationships": []
       },
       {
         "party_id": "party-carrier-acme",
@@ -3298,7 +3298,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0123456",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 27
+        "prior_relationships": []
       },
       {
         "party_id": "party-dispatch-overland",
@@ -3309,7 +3309,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0987654",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 19
+        "prior_relationships": []
       }
     ],
     "edges": [
@@ -3423,7 +3423,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 8
+        "prior_relationships": []
       },
       {
         "party_id": "party-broker-freightwise",
@@ -3434,7 +3434,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 32
+        "prior_relationships": []
       },
       {
         "party_id": "party-carrier-nationallink",
@@ -3445,7 +3445,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "unbound",
         "usdot_number": "1144882",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 0
+        "prior_relationships": []
       }
     ],
     "edges": [
@@ -3520,7 +3520,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 14
+        "prior_relationships": []
       },
       {
         "party_id": "party-broker-freightwise",
@@ -3531,7 +3531,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 32
+        "prior_relationships": []
       }
     ],
     "edges": [],
@@ -3628,7 +3628,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 22
+        "prior_relationships": []
       },
       {
         "party_id": "party-broker-sunbelt",
@@ -3639,7 +3639,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 21
+        "prior_relationships": []
       },
       {
         "party_id": "party-carrier-redrock",
@@ -3650,7 +3650,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0445582",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 11
+        "prior_relationships": []
       },
       {
         "party_id": "party-dispatch-cornerstone",
@@ -3661,7 +3661,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0445582",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 9
+        "prior_relationships": []
       }
     ],
     "edges": [
@@ -3756,7 +3756,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 8
+        "prior_relationships": []
       },
       {
         "party_id": "party-broker-freightwise",
@@ -3767,7 +3767,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 32
+        "prior_relationships": []
       },
       {
         "party_id": "party-carrier-nationallink",
@@ -3778,7 +3778,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "unbound",
         "usdot_number": "1144882",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 0
+        "prior_relationships": []
       }
     ],
     "edges": [
@@ -3892,7 +3892,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 22
+        "prior_relationships": []
       },
       {
         "party_id": "party-broker-freightwise",
@@ -3903,7 +3903,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 32
+        "prior_relationships": []
       },
       {
         "party_id": "party-broker-keystone",
@@ -3914,7 +3914,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "mismatched",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 1
+        "prior_relationships": []
       },
       {
         "party_id": "party-carrier-redrock",
@@ -3925,7 +3925,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0445582",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 11
+        "prior_relationships": []
       },
       {
         "party_id": "party-dispatch-overland",
@@ -3936,7 +3936,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0987654",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 19
+        "prior_relationships": []
       },
       {
         "party_id": "party-factoring-bridgecap",
@@ -3947,7 +3947,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 41
+        "prior_relationships": []
       }
     ],
     "edges": [
@@ -4071,7 +4071,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 8
+        "prior_relationships": []
       },
       {
         "party_id": "party-broker-sunbelt",
@@ -4082,7 +4082,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 21
+        "prior_relationships": []
       },
       {
         "party_id": "party-carrier-phantomline",
@@ -4093,7 +4093,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "mismatched",
         "usdot_number": "3998112",
         "usdot_authority_status": "revoked",
-        "prior_relationship_count": 0
+        "prior_relationships": []
       },
       {
         "party_id": "party-dispatch-cornerstone",
@@ -4104,7 +4104,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0445582",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 9
+        "prior_relationships": []
       }
     ],
     "edges": [
@@ -4252,7 +4252,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 8
+        "prior_relationships": []
       },
       {
         "party_id": "party-broker-freightwise",
@@ -4263,7 +4263,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 32
+        "prior_relationships": []
       },
       {
         "party_id": "party-broker-keystone",
@@ -4274,7 +4274,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "mismatched",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 1
+        "prior_relationships": []
       },
       {
         "party_id": "party-carrier-redrock",
@@ -4285,7 +4285,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0445582",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 11
+        "prior_relationships": []
       },
       {
         "party_id": "party-factoring-stagepay",
@@ -4296,7 +4296,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "mismatched",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 0
+        "prior_relationships": []
       }
     ],
     "edges": [
@@ -4467,7 +4467,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 14
+        "prior_relationships": []
       },
       {
         "party_id": "party-broker-sunbelt",
@@ -4478,7 +4478,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 21
+        "prior_relationships": []
       },
       {
         "party_id": "party-carrier-acme",
@@ -4489,7 +4489,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0123456",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 27
+        "prior_relationships": []
       },
       {
         "party_id": "party-dispatch-overland",
@@ -4500,7 +4500,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0987654",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 19
+        "prior_relationships": []
       },
       {
         "party_id": "party-factoring-bridgecap",
@@ -4511,7 +4511,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 41
+        "prior_relationships": []
       }
     ],
     "edges": [
@@ -4642,7 +4642,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 14
+        "prior_relationships": []
       },
       {
         "party_id": "party-broker-sunbelt",
@@ -4653,7 +4653,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": null,
         "usdot_authority_status": "not_applicable",
-        "prior_relationship_count": 21
+        "prior_relationships": []
       },
       {
         "party_id": "party-carrier-acme",
@@ -4664,7 +4664,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0123456",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 27
+        "prior_relationships": []
       },
       {
         "party_id": "party-dispatch-overland",
@@ -4675,7 +4675,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0987654",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 19
+        "prior_relationships": []
       }
     ],
     "edges": [
@@ -4836,7 +4836,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "mismatched",
         "usdot_number": "9999999",
         "usdot_authority_status": "revoked",
-        "prior_relationship_count": 0
+        "prior_relationships": []
       }
     },
     {
@@ -4888,7 +4888,7 @@ enum MockLoadFixtureRegistry {
         "device_binding_status": "bound",
         "usdot_number": "0123456",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 27
+        "prior_relationships": []
       }
     }
   ],

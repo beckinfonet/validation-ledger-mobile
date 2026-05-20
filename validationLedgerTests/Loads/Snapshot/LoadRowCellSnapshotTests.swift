@@ -74,7 +74,7 @@ class LoadRowCellSnapshotTests: XCTestCase {
                 deviceBindingStatus: .bound,
                 usdotNumber: nil,
                 usdotAuthorityStatus: .active,
-                priorRelationshipCount: 0
+                priorRelationships: []
             )
         }
         return LoadListItem(load: load, displayedCounterparty: counterparty)

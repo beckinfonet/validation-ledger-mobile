@@ -17,11 +17,23 @@
 // `integrity` directly to property `integrity`.
 //
 // D-07 — TrustNode carries TYPED verification-basis fields. The four facts
-// (KYC, device-binding, USDOT authority, prior-relationship count) plus the
+// (KYC, device-binding, USDOT authority, prior-relationship history) plus the
 // three identity fields (partyID, role, displayName) plus the
 // verification-state ladder give the Phase 9 tappable verification-basis sheet
 // its content. The iOS UI controls presentation; the server supplies the
 // typed facts. NOT an opaque server-formatted fact list.
+//
+// === Phase 9 D-12 — TrustNode contract evolution ===
+// The legacy prior-relationship-count Int is REPLACED by
+// `priorRelationships: [PriorRelationship]` in lockstep with the D-14
+// fixture re-authoring (every load-detail-VL-*.json + every TrustNode-
+// bearing fixture across the corpus). The new element type lives at
+// validationLedger/Core/Load/PriorRelationship.swift. The verification-basis
+// sheet (TRUST-03 / Plan 07) renders prior loads as a tappable LIST — not
+// a count badge. Clean carriers carry 5+ priors; chameleon carriers carry
+// `[]` ("First time working together" — the marquee fraud signal).
+// Phase 7 D-18 inheritance: PriorRelationship is server-supplied; iOS
+// renders only.
 //
 // === D-18 constraint — NO CLIENT-DERIVED TRUST ===
 // Every field on every type in this file is server- or fixture-supplied.
@@ -38,10 +50,12 @@
 // CodingKeys cases:
 //   - TrustNode: only `partyID` needs the bridge. `kycCompletedAt`,
 //     `deviceBindingStatus`, `usdotNumber`, `usdotAuthorityStatus`,
-//     `priorRelationshipCount`, `role`, `displayName`, `verificationState`
+//     `priorRelationships`, `role`, `displayName`, `verificationState`
 //     all map cleanly under `.convertFromSnakeCase` — none has a trailing
 //     acronym followed by a different letter (the case `.convertFromSnakeCase`
-//     mis-handles).
+//     mis-handles). The nested element `PriorRelationship` carries its OWN
+//     trailing-acronym bridge for `loadID = "loadId"`; see
+//     validationLedger/Core/Load/PriorRelationship.swift.
 //   - TrustEdge: `edgeID`, `fromPartyID`, `toPartyID` need the bridge.
 //     `relationshipState` and `tenderRef` map cleanly under
 //     `.convertFromSnakeCase` (`relationship_state` → `relationshipState`,
@@ -111,14 +125,26 @@ public struct TrustNode: Decodable, Sendable {
     /// the badge color (active=ok, suspended=caution, revoked=compromised).
     public let usdotAuthorityStatus: USDOTAuthorityStatus
 
-    /// How many prior loads this party has shared with the current viewer's
-    /// counterparty graph (D-07). The verification-basis sheet renders
-    /// "First time working together" vs. "5 prior loads" from this number.
-    public let priorRelationshipCount: Int
+    /// The prior loads this party has shared with the current viewer's
+    /// counterparty graph (Phase 9 D-12). Renders as a tappable LIST in the
+    /// verification-basis sheet (Plan 07 TRUST-03). The EMPTY ARRAY is the
+    /// marquee fraud signal — chameleon-archetype carriers carry `[]`, which
+    /// surfaces as "First time working together" (D-14). See
+    /// validationLedger/Core/Load/PriorRelationship.swift for the element
+    /// type and its trailing-acronym `loadID = "loadId"` bridge.
+    public let priorRelationships: [PriorRelationship]
 
     /// Acronym bridge — see KYCStatusEndpoint.Response.Artifact for rationale.
-    /// `partyID` is the only trailing-acronym field; the others map cleanly
-    /// under `.convertFromSnakeCase`.
+    /// `partyID` is the only trailing-acronym field (explicit raw value
+    /// `partyId` matches the POST-conversion form under `.convertFromSnakeCase`).
+    /// The remaining cases have NO raw value — the synthesizer uses the case
+    /// name as the key, and `.convertFromSnakeCase` rewrites the wire key
+    /// `prior_relationships` → `priorRelationships` BEFORE matching against
+    /// this enum. Note: an explicit `CodingKeys` enum that lists ANY property
+    /// must list EVERY decoded property (otherwise the synthesizer fails to
+    /// generate `init(from:)`); `priorRelationships` is therefore named here
+    /// even though it carries no trailing acronym. The nested element
+    /// `PriorRelationship.loadID` carries its own trailing-acronym bridge.
     private enum CodingKeys: String, CodingKey {
         case partyID = "partyId"
         case role
@@ -128,7 +154,7 @@ public struct TrustNode: Decodable, Sendable {
         case deviceBindingStatus
         case usdotNumber
         case usdotAuthorityStatus
-        case priorRelationshipCount
+        case priorRelationships
     }
 }
 

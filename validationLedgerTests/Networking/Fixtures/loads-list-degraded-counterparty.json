@@ -91,7 +91,7 @@
         "device_binding_status": "mismatched",
         "usdot_number": "9999999",
         "usdot_authority_status": "revoked",
-        "prior_relationship_count": 0
+        "prior_relationships": []
       }
     },
     {
@@ -143,7 +143,7 @@
         "device_binding_status": "bound",
         "usdot_number": "0123456",
         "usdot_authority_status": "active",
-        "prior_relationship_count": 27
+        "prior_relationships": []
       }
     }
   ],

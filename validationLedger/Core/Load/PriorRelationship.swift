@@ -1,7 +1,7 @@
 // validationLedger/Core/Load/PriorRelationship.swift
 // Phase 9 D-12 / D-13 — the new `priorRelationships` element type that replaces
-// the legacy `priorRelationshipCount: Int` on TrustNode. Pure value type —
-// server-supplied data, iOS renders only (Phase 7 D-18 inheritance).
+// the legacy prior-relationship-count Int on TrustNode (see D-12). Pure value
+// type — server-supplied data, iOS renders only (Phase 7 D-18 inheritance).
 //
 // Renders in the TRUST-03 verification-basis sheet (Plan 07) as a tappable
 // LIST of prior loads:

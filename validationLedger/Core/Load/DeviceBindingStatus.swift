@@ -6,7 +6,7 @@
 // D-07: TrustNode carries TYPED verification-basis fields — not an opaque
 // server-formatted fact list. The iOS UI controls presentation, the server
 // supplies the typed facts. DeviceBindingStatus is one of the four such facts
-// (alongside kycCompletedAt, usdotAuthorityStatus, priorRelationshipCount).
+// (alongside kycCompletedAt, usdotAuthorityStatus, priorRelationships).
 //
 // Case set (closed) — chosen to mirror what the v1.0 TrustTier hardware-
 // attested ladder communicates and what the Phase 9 trust-graph badge will
