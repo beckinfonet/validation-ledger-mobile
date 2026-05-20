@@ -941,22 +941,25 @@ public final class LoadListViewModel {
 
 **If this table is empty:** would say "no user confirmation needed" — but A1 specifically merits the planner's attention as the only assumption with a meaningful architectural fork.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Does `UIContentUnavailableConfiguration.button` expose an accessibility identifier hook for XCUITest stable selection?**
    - What we know: The configuration's button properties allow setting `primaryAction`, `title`, and standard `UIButton.Configuration` settings; UI-SPEC requires `accessibilityIdentifier = "loads-list.error-state.retry"`.
    - What's unclear: Whether `config.buttonProperties` (or the rendered `UIContentUnavailableView`) exposes the button's identifier hook directly, or whether it requires a view-hierarchy walk.
    - Recommendation: 15-minute spike at the start of the error-state task. If no clean hook: use a hand-rolled stack-view for the error state (same Apple symbol + heading + body + button shape, but full control over `accessibilityIdentifier`). The empty state still uses `UIContentUnavailableConfiguration` (no button, no identifier conflict).
+   - **RESOLVED:** Planner surfaced the spike as Task 1 of `08-03-PLAN.md` (15-min `UIContentUnavailableConfiguration.button` accessibility-identifier probe). The spike's verdict gates the implementation choice in Task 4 of the same plan (native config vs hand-rolled stack-view). Empty state stays on `UIContentUnavailableConfiguration` regardless.
 
 2. **Should the degraded-counterparty fixture be registered into the default `MockLoadFixtureRegistry.registerAppDefaults()` lane, or kept in a separate `registerForDegradedDemo()` lane?**
    - What we know: CONTEXT.md Claude's Discretion paragraph defers this. The default lane is the organic DEBUG tap-through; the user would not normally see the degraded fixture there.
    - What's unclear: Whether the user wants a DEBUG menu item ("Inject degraded counterparty into Loads list") or whether the degraded fixture is test-only.
    - Recommendation: keep it test-only by default. The `MockLoadFixtureRegistry` gets a static `registerForDegradedDemo()` lane that is NEVER called from `AppContainer.init` — only by the unit test that exercises the fail-closed render path. A future DEBUG-menu entry could expose it without breaking the contract. (Recommendation can be ratified in the planner's pass without re-asking the user.)
+   - **RESOLVED:** Test-only `registerForDegradedDemo()` lane on `MockLoadFixtureRegistry` per Task 3 of `08-01-PLAN.md`. Never called from `AppContainer.init`; only the fail-closed render test calls it. Matches the existing `KYCUITestSeed` static-flag discipline.
 
 3. **Does the planner want the snapshot tests in Wave 0 (build-out wave) or deferred to a follow-up cleanup phase?**
    - What we know: There is no SnapshotTesting infrastructure in the repo; introducing the hand-rolled helper is ~50 LOC.
    - What's unclear: Whether the planner counts snapshot tests as in-scope for Phase 8 or a "nice-to-have."
    - Recommendation: include them — they are the highest-leverage test surface for the two new badges (TRUST-02) and the silhouette-match assertion D-09 names explicitly. The hand-rolled helper is a one-time, ~50-LOC cost. Skipping them risks regressions on Dynamic Type / dark-mode / pill-shape behavior.
+   - **RESOLVED:** Snapshot tests are in-scope for Phase 8. The hand-rolled `validationLedgerTests/Support/UIKitSnapshot.swift` helper lands in `08-01-PLAN.md` (Wave 0 dependency); snapshot baselines for `VerificationBadgeView` and `LoadStatusBadgeView` are in `08-02-PLAN.md`; `LoadRowCell` and `SkeletonLoadRowCell` snapshot baselines are in `08-03-PLAN.md`. Zero new SwiftPM deps (STACK-04 / CLAUDE.md).
 
 ## Sources
 
