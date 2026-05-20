@@ -1,0 +1,144 @@
+{
+  "load": {
+    "id": "VL-1004",
+    "reference_number": "REF-1004-DD",
+    "origin": {
+      "city": "Phoenix",
+      "state": "AZ",
+      "postal_code": "85003",
+      "country": "US"
+    },
+    "destination": {
+      "city": "Denver",
+      "state": "CO",
+      "postal_code": "80202",
+      "country": "US"
+    },
+    "equipment": "dry_van",
+    "weight": 41200,
+    "rate": 2450.0,
+    "pickup_at": "2026-04-22T09:00:00Z",
+    "deliver_at": "2026-04-23T16:00:00Z",
+    "status": "accepted",
+    "state_history": [
+      {
+        "status": "draft",
+        "timestamp": "2026-04-19T11:00:00Z",
+        "actor": {
+          "party_id": "party-shipper-pacificgoods",
+          "role": "shipper",
+          "display_name": "Pacific Goods LLC"
+        }
+      },
+      {
+        "status": "posted",
+        "timestamp": "2026-04-19T11:25:00Z",
+        "actor": {
+          "party_id": "party-broker-sunbelt",
+          "role": "broker",
+          "display_name": "Sunbelt Logistics"
+        }
+      },
+      {
+        "status": "tendered",
+        "timestamp": "2026-04-20T14:00:00Z",
+        "actor": {
+          "party_id": "party-broker-sunbelt",
+          "role": "broker",
+          "display_name": "Sunbelt Logistics"
+        }
+      },
+      {
+        "status": "accepted",
+        "timestamp": "2026-04-20T15:18:00Z",
+        "actor": {
+          "party_id": "party-carrier-acme",
+          "role": "carrier",
+          "display_name": "Acme Trucking Inc."
+        }
+      }
+    ],
+    "respond_by_at": null,
+    "tender_eligibility": {
+      "can_tender": true,
+      "disabled_reason": null
+    }
+  },
+  "chain_of_trust": {
+    "nodes": [
+      {
+        "party_id": "party-shipper-pacificgoods",
+        "role": "shipper",
+        "display_name": "Pacific Goods LLC",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-11-04T15:20:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 14
+      },
+      {
+        "party_id": "party-broker-sunbelt",
+        "role": "broker",
+        "display_name": "Sunbelt Logistics",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-09-08T11:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationship_count": 21
+      },
+      {
+        "party_id": "party-carrier-acme",
+        "role": "carrier",
+        "display_name": "Acme Trucking Inc.",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-09-22T13:05:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": "0123456",
+        "usdot_authority_status": "active",
+        "prior_relationship_count": 27
+      },
+      {
+        "party_id": "party-dispatch-overland",
+        "role": "dispatch",
+        "display_name": "Overland Dispatch",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-10-01T10:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": "0987654",
+        "usdot_authority_status": "active",
+        "prior_relationship_count": 19
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "edge-VL-1004-shipper-broker",
+        "from_party_id": "party-shipper-pacificgoods",
+        "to_party_id": "party-broker-sunbelt",
+        "relationship_state": "verified",
+        "tender_ref": null
+      },
+      {
+        "edge_id": "edge-VL-1004-broker-carrier",
+        "from_party_id": "party-broker-sunbelt",
+        "to_party_id": "party-carrier-acme",
+        "relationship_state": "verified",
+        "tender_ref": "TNDR-1004-A"
+      },
+      {
+        "edge_id": "edge-VL-1004-carrier-dispatch",
+        "from_party_id": "party-carrier-acme",
+        "to_party_id": "party-dispatch-overland",
+        "relationship_state": "verified",
+        "tender_ref": null
+      }
+    ],
+    "integrity": {
+      "verdict": "clean",
+      "reason": "Tender accepted; carrier identity verified at handoff.",
+      "implicated_node_ids": [],
+      "implicated_edge_ids": []
+    }
+  }
+}
