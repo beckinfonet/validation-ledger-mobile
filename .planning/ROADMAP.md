@@ -139,7 +139,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5)*
 
-- [ ] 09-09-PLAN.md — ChainIntegrityBannerView + ChainIntegrityVerdictBlockView + iPhone-vs-iPad composition refactor (D-01/D-02/D-03/D-16/D-21; iPad-split skeleton silhouette)
+- [x] 09-09-PLAN.md — ChainIntegrityBannerView + ChainIntegrityVerdictBlockView + iPhone-vs-iPad composition refactor (D-01/D-02/D-03/D-16/D-21; iPad-split skeleton silhouette)
 
 **Wave 7** *(blocked on Wave 6)*
 
@@ -177,7 +177,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10
 | 6. Close gap: DEV-04 + trustTier + Phase 4 verification | v1.0 | 4/4 | Complete | 2026-05-18 |
 | 7. Load Domain Model & Mock Contract | v1.1 | 6/6 | Complete    | 2026-05-20 |
 | 8. Role-Filtered Load List | v1.1 | 4/4 | Complete   | 2026-05-20 |
-| 9. Load Detail & Chain-of-Trust Graph | v1.1 | 8/10 | In Progress|  |
+| 9. Load Detail & Chain-of-Trust Graph | v1.1 | 9/10 | In Progress|  |
 | 10. Per-Role Tender / Accept / Reject | v1.1 | 0/TBD | Not started | - |
 
 ---
