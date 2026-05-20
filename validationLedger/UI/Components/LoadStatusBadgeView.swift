@@ -292,11 +292,18 @@ public final class LoadStatusBadgeView: UIView {
             // UI-SPEC §Color status table — terminal-error tones render with
             // strikethrough on the label.
             //
-            // IMPORTANT: do NOT assign `label.text = nil` after setting
-            // `attributedText`. UILabel's `text` setter (even to nil) clears
-            // the previously-set `attributedText`, which silently strips the
-            // strikethrough at runtime. Setting `attributedText` is enough —
-            // `text` returns the plain string of the attributed payload.
+            // WR-05 — UILabel ordering invariant (consistent rule, applied to
+            // both branches): the `.text` setter ALWAYS overwrites a
+            // previously-set `.attributedText`. UIKit implements this by
+            // converting the plain string into a default-attributed run on
+            // assignment, which clobbers any prior strikethrough / foreground
+            // attribute. The corollary is that assigning `attributedText`
+            // afterwards is the only way to re-establish styling — but a
+            // subsequent `.text = nil` (or `.text = ""`) would clobber it
+            // again, so we do NOT touch `.text` in this strikethrough
+            // branch. Setting `.attributedText` alone is sufficient because
+            // UILabel's `.text` getter returns the plain string of the
+            // attributed payload.
             label.attributedText = NSAttributedString(
                 string: labelText,
                 attributes: [
@@ -306,9 +313,18 @@ public final class LoadStatusBadgeView: UIView {
             )
         } else {
             // Reset any prior strikethrough that a recycled cell might carry.
-            // Order matters: clear `attributedText` BEFORE assigning `text`
-            // — otherwise the prior attributedText survives a `text =` set
-            // in some iOS versions (mirror image of the trap above).
+            //
+            // WR-05 — same UILabel invariant as the strikethrough branch
+            // above: `.text` ALWAYS overwrites `.attributedText` (UIKit
+            // converts the string to a default-attributed run on
+            // assignment). So `label.text = labelText` alone is technically
+            // enough to drop the prior strikethrough — but the explicit
+            // `label.attributedText = nil` BEFORE the text assignment is
+            // belt-and-braces defense-in-depth (and matches VoiceOver's
+            // prosody scanning which has, on rare prior iOS versions, been
+            // observed to read stale attributed-string properties between
+            // the two assignments). Two cheap writes for one robustly clean
+            // recycled-cell render.
             label.attributedText = nil
             label.text = labelText
         }
