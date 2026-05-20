@@ -125,12 +125,12 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2)*
 
-- [ ] 09-04-PLAN.md — LoadDetailSkeletonView (D-19 shimmer lifecycle) + LoadDetailBodyView scroll-container shell + LoadDetailViewController error state (hand-rolled per Phase 8 exception, D-20)
+- [x] 09-04-PLAN.md — LoadDetailSkeletonView (D-19 shimmer lifecycle) + LoadDetailBodyView scroll-container shell + LoadDetailViewController error state (hand-rolled per Phase 8 exception, D-20)
 - [ ] 09-05-PLAN.md — StatusTimelineView 6-pill stepper + current-state card (D-17/D-18; LOAD-06; side-states not surfaced)
 
 **Wave 4** *(blocked on Wave 3)*
 
-- [ ] 09-06-PLAN.md — TrustGraphView + TrustNodeView (TRUST-01/TRUST-05; D-04 gesture choreography; D-05 fit-all-nodes-tight; D-06 fixed role slots; D-15 fraud visual language with pulse-only-on-compromised; D-22 accessibility container) + 12-fingerprint snapshot matrix + gesture/a11y tests
+- [x] 09-06-PLAN.md — TrustGraphView + TrustNodeView (TRUST-01/TRUST-05; D-04 gesture choreography; D-05 fit-all-nodes-tight; D-06 fixed role slots; D-15 fraud visual language with pulse-only-on-compromised; D-22 accessibility container) + 12-fingerprint snapshot matrix + gesture/a11y tests
 
 **Wave 5** *(blocked on Wave 4)*
 
@@ -177,7 +177,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10
 | 6. Close gap: DEV-04 + trustTier + Phase 4 verification | v1.0 | 4/4 | Complete | 2026-05-18 |
 | 7. Load Domain Model & Mock Contract | v1.1 | 6/6 | Complete    | 2026-05-20 |
 | 8. Role-Filtered Load List | v1.1 | 4/4 | Complete   | 2026-05-20 |
-| 9. Load Detail & Chain-of-Trust Graph | v1.1 | 3/10 | In Progress|  |
+| 9. Load Detail & Chain-of-Trust Graph | v1.1 | 5/10 | In Progress|  |
 | 10. Per-Role Tender / Accept / Reject | v1.1 | 0/TBD | Not started | - |
 
 ---
