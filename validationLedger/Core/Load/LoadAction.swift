@@ -42,7 +42,12 @@ public extension LoadAction {
     /// D-05: `advanceStatus` maps to `"status"` — the backend treats the
     /// path "status" as "advance the load to the next canonical state".
     /// All other actions use their case name verbatim.
-    var pathSegment: String {
+    ///
+    /// `nonisolated` required under SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor
+    /// so LoadActionEndpoint (a nonisolated struct per the APIEndpoint
+    /// contract) can read this property in its init. Plan 03 zero-wiring
+    /// fix-up; the underlying computation is pure and main-actor-free.
+    nonisolated var pathSegment: String {
         switch self {
         case .post:           return "post"
         case .tender:         return "tender"
