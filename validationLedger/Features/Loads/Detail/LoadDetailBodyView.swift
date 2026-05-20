@@ -253,6 +253,23 @@ public final class LoadDetailBodyView: UIView {
         ])
     }
 
+    // MARK: - Plan 09 — pinned-header visibility flag (D-01 / I-05 locked path)
+
+    /// When `true`, the embedded `pinnedSummaryHeader` is hidden — the
+    /// `LoadDetailViewController` owns a top-level pinned-header instance
+    /// instead (iPhone composition: header at the top of the VC view, above
+    /// the chain-integrity banner). When `false` (default), the body's
+    /// embedded pinned header is shown (iPad composition: header at the
+    /// top of the right pane). The flag is the LOCKED path per Plan 09
+    /// I-05 — Planner ruled out extracting `PinnedSummaryHeaderView` into
+    /// its own type; the body keeps the pinned-header subview and the VC
+    /// controls visibility through this flag.
+    public var hidesPinnedSummaryHeader: Bool = false {
+        didSet {
+            pinnedSummaryHeader.isHidden = hidesPinnedSummaryHeader
+        }
+    }
+
     // MARK: - Public API — populate the pinned summary header from a Load
 
     /// Populate the pinned summary header content from the Decodable Load.
@@ -274,6 +291,20 @@ public final class LoadDetailBodyView: UIView {
         // fields, preserving the T-09-03 separation locked at this file's
         // top.
         statusTimeline.configure(load: load)
+    }
+
+    /// Plan 09 (D-01 / I-05 locked path) — convenience overload that
+    /// applies the `hidesPinnedSummaryHeader` flag in the same call as the
+    /// Load-driven configure. The VC calls this in its `render(state:)`
+    /// `.loaded(...)` branch after picking the composition layout for the
+    /// current `horizontalSizeClass`.
+    ///
+    /// Equivalent to `hidesPinnedSummaryHeader = hidesPinnedHeader` followed
+    /// by `configure(load:)`, surfaced as a single method so the VC's
+    /// composition-driven configure path is one atomic call instead of two.
+    public func configure(load: Load, hidesPinnedHeader: Bool) {
+        hidesPinnedSummaryHeader = hidesPinnedHeader
+        configure(load: load)
     }
 
     // MARK: - Plan 09 — install the chain-integrity verdict block (D-02)

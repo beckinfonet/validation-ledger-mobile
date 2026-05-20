@@ -5,7 +5,7 @@
 // established by `SkeletonLoadRowCell` (PATTERNS E3 lines 60-100, 167-198).
 //
 // === D-19 silhouette composition (UI-SPEC § iPhone skeleton lines 484-501) ===
-// iPhone (single column):
+// iPhone (single column) [RenderMode.iPhonePortrait]:
 //   * Pinned-header rectangle (top, full-width, 60pt tall).
 //   * Graph region with 5 grey circles at the D-06 iPhone role-slot
 //     coordinates — (0.18, 0.18) shipper · (0.50, 0.30) broker ·
@@ -13,8 +13,13 @@
 //     factoring — connected by 4 thin grey edge lines.
 //   * 3 grey placeholder body rows below (varying widths).
 //
-// iPad split silhouette (D-03) is Plan 09 — this file ships a placeholder
-// `renderSplitSilhouette()` stub the future plan replaces.
+// iPad split silhouette (D-03 / Plan 09) [RenderMode.iPadSplit]:
+//   * Left pane (~60% width): graph region with 5 grey circles at the D-06
+//     iPad role-slot coordinates + 4 connector lines (mirror of the iPhone
+//     graph silhouette, rescaled to the pane aspect).
+//   * Right pane (~40% width): pinned-header rectangle (top) + 4 grey body
+//     rows below (one extra row vs. iPhone — the right pane is taller because
+//     it isn't graph-dominated; UI-SPEC line 503-505).
 //
 // === Shimmer lifecycle — PATTERNS E3 + RESEARCH §2 Pitfall 1 ===
 // The CABasicAnimation on `shimmerLayer` is stripped by UIKit on bounds-
@@ -35,6 +40,13 @@
 // `LoadDetailSkeletonViewSnapshotTests.test_reduceMotion_suppressesShimmer`
 // to drive both branches deterministically (UIAccessibility.isReduceMotion
 // Enabled is not directly settable from test code).
+//
+// === RenderMode (Plan 09) ===
+// `renderMode: RenderMode = .iPhonePortrait { didSet { rebuildSilhouette() }}`
+// flips the silhouette geometry. The VC sets it based on its own
+// `compositionLayout` (iPhone compact → .iPhonePortrait; iPad regular →
+// .iPadSplit). The shimmer layer is preserved across mode flips — only the
+// silhouette subviews are torn down and rebuilt.
 //
 // === Threat-model anchors ===
 // T-09-03 (Tampering — client-side trust derivation): the skeleton consumes
@@ -65,6 +77,26 @@ import UIKit
 import QuartzCore
 
 public final class LoadDetailSkeletonView: UIView {
+
+    // MARK: - RenderMode (Plan 09 — iPhone vs iPad split silhouette)
+
+    /// The silhouette geometry to render. iPhone single-column (Plan 04
+    /// original) vs iPad horizontal-split (Plan 09 holdover). Flipped by
+    /// the VC's `traitCollectionDidChange(_:)` per its compositionLayout.
+    public enum RenderMode: Sendable {
+        case iPhonePortrait
+        case iPadSplit
+    }
+
+    /// The current render mode. Flipping it triggers a silhouette rebuild
+    /// (the shimmer layer is preserved — only the silhouette subviews are
+    /// torn down and rebuilt). Defaults to iPhone portrait.
+    public var renderMode: RenderMode = .iPhonePortrait {
+        didSet {
+            guard oldValue != renderMode else { return }
+            rebuildSilhouette()
+        }
+    }
 
     // MARK: - Shimmer layer (PATTERNS E3 verbatim — same gradient mechanics
     //          as SkeletonLoadRowCell)
@@ -134,60 +166,46 @@ public final class LoadDetailSkeletonView: UIView {
         return v
     }
 
-    // MARK: - Subviews — pinned header / role circles / connector edges / body rows
+    /// Build a tagged body-row block (grey rectangle that participates in
+    /// the silhouette assertion via its accessibilityIdentifier).
+    private static func makeBodyRow() -> UIView {
+        let v = makeBlock()
+        v.accessibilityIdentifier = "load-detail.skeleton.body-row"
+        return v
+    }
 
-    private let pinnedHeaderBlock: UIView = {
+    /// Build a tagged pinned-header block.
+    private static func makePinnedHeader() -> UIView {
         let v = makeBlock()
         v.accessibilityIdentifier = "load-detail.skeleton.pinned-header"
         return v
-    }()
-
-    /// Graph region container — non-scrolling parent for the 5 role-slot
-    /// circles + 4 connector edges. Fixed 400pt height (D-19 silhouette
-    /// guidance — the production rule is `safeAreaLayoutGuide.layoutFrame
-    /// .height * 0.62`; the skeleton hard-codes so the silhouette geometry
-    /// is deterministic for snapshot tests).
-    private let graphRegion: UIView = {
-        let v = UIView()
-        v.translatesAutoresizingMaskIntoConstraints = false
-        return v
-    }()
-
-    // The 5 role-slot circles, named by Role per D-06.
-    private let shipperCircle = LoadDetailSkeletonView.makeCircle()
-    private let brokerCircle = LoadDetailSkeletonView.makeCircle()
-    private let carrierCircle = LoadDetailSkeletonView.makeCircle()
-    private let dispatchCircle = LoadDetailSkeletonView.makeCircle()
-    private let factoringCircle = LoadDetailSkeletonView.makeCircle()
-
-    /// 4 connector edges drawn between adjacent role-slot circle pairs.
-    /// Positioned by frame in layoutSubviews against the live circle frames.
-    private let edge1 = LoadDetailSkeletonView.makeEdge() // shipper → broker
-    private let edge2 = LoadDetailSkeletonView.makeEdge() // broker → carrier
-    private let edge3 = LoadDetailSkeletonView.makeEdge() // carrier → dispatch
-    private let edge4 = LoadDetailSkeletonView.makeEdge() // carrier → factoring
-
-    // The 3 body rows below the graph (varying widths per the UI-SPEC
-    // silhouette diagram).
-    private let bodyRow1: UIView = {
-        let v = makeBlock()
-        v.accessibilityIdentifier = "load-detail.skeleton.body-row"
-        return v
-    }()
-    private let bodyRow2: UIView = {
-        let v = makeBlock()
-        v.accessibilityIdentifier = "load-detail.skeleton.body-row"
-        return v
-    }()
-    private let bodyRow3: UIView = {
-        let v = makeBlock()
-        v.accessibilityIdentifier = "load-detail.skeleton.body-row"
-        return v
-    }()
+    }
 
     // MARK: - Reduce-motion notification observer
 
     private var reduceMotionObserver: NSObjectProtocol?
+
+    // MARK: - Silhouette state (per-mode geometry, rebuilt on renderMode flip)
+
+    /// All silhouette subviews currently mounted. Tracked so
+    /// `rebuildSilhouette()` can tear them down without disturbing the
+    /// `shimmerLayer` (which is a sublayer of `self.layer`, not a subview).
+    private var silhouetteSubviews: [UIView] = []
+
+    /// The role-slot circles for the current mode (5 circles in role order).
+    /// Stored so `layoutSubviews()` can re-position them against the live
+    /// graph-region bounds without rebuilding the silhouette.
+    private var roleCircles: [UIView] = []
+
+    /// The connector edges for the current mode (4 edges shipper→broker,
+    /// broker→carrier, carrier→dispatch, carrier→factoring). Positioned by
+    /// frame in layoutSubviews against the live circle frames.
+    private var connectorEdges: [UIView] = []
+
+    /// The graph-region container for the current mode (left pane in iPad
+    /// split, full-width strip below the pinned header in iPhone). Used as
+    /// the coordinate space for circle/edge positioning.
+    private var graphRegion: UIView?
 
     // MARK: - Init
 
@@ -225,84 +243,6 @@ public final class LoadDetailSkeletonView: UIView {
             comment: "Phase 9 LoadDetailSkeletonView — VoiceOver label announced for the loading skeleton"
         )
 
-        // Assemble graph-region subviews. Circles + edges are added but
-        // positioned in layoutSubviews against the live bounds (their
-        // coordinates are fractional per D-06).
-        graphRegion.addSubview(edge1)
-        graphRegion.addSubview(edge2)
-        graphRegion.addSubview(edge3)
-        graphRegion.addSubview(edge4)
-        graphRegion.addSubview(shipperCircle)
-        graphRegion.addSubview(brokerCircle)
-        graphRegion.addSubview(carrierCircle)
-        graphRegion.addSubview(dispatchCircle)
-        graphRegion.addSubview(factoringCircle)
-
-        // Outer vertical layout — pinned header / graph region / 3 body rows.
-        let outer = UIStackView(arrangedSubviews: [
-            pinnedHeaderBlock,
-            graphRegion,
-            bodyRow1,
-            bodyRow2,
-            bodyRow3,
-        ])
-        outer.axis = .vertical
-        outer.alignment = .leading
-        outer.spacing = DS.Spacing.md
-        outer.isLayoutMarginsRelativeArrangement = true
-        outer.layoutMargins = UIEdgeInsets(
-            top: DS.Spacing.md, left: DS.Spacing.lg,
-            bottom: DS.Spacing.md, right: DS.Spacing.lg
-        )
-        outer.translatesAutoresizingMaskIntoConstraints = false
-
-        addSubview(outer)
-
-        NSLayoutConstraint.activate([
-            outer.topAnchor.constraint(equalTo: topAnchor),
-            outer.leadingAnchor.constraint(equalTo: leadingAnchor),
-            outer.trailingAnchor.constraint(equalTo: trailingAnchor),
-            outer.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor),
-
-            // Pinned header — full width × 60pt tall.
-            pinnedHeaderBlock.heightAnchor.constraint(equalToConstant: 60),
-            pinnedHeaderBlock.leadingAnchor.constraint(equalTo: outer.layoutMarginsGuide.leadingAnchor),
-            pinnedHeaderBlock.trailingAnchor.constraint(equalTo: outer.layoutMarginsGuide.trailingAnchor),
-
-            // Graph region — full width × 400pt tall (deterministic for snapshots).
-            graphRegion.heightAnchor.constraint(equalToConstant: 400),
-            graphRegion.leadingAnchor.constraint(equalTo: outer.layoutMarginsGuide.leadingAnchor),
-            graphRegion.trailingAnchor.constraint(equalTo: outer.layoutMarginsGuide.trailingAnchor),
-
-            // Body rows — varying widths (60%, 90%, 70% of available width)
-            // per UI-SPEC silhouette diagram lines 496-499. Heights at 16pt
-            // each (matches DS.Spacing.md — body-text size).
-            bodyRow1.heightAnchor.constraint(equalToConstant: DS.Spacing.md),
-            bodyRow1.leadingAnchor.constraint(equalTo: outer.layoutMarginsGuide.leadingAnchor),
-            bodyRow1.widthAnchor.constraint(equalTo: outer.layoutMarginsGuide.widthAnchor, multiplier: 0.6),
-
-            bodyRow2.heightAnchor.constraint(equalToConstant: DS.Spacing.md),
-            bodyRow2.leadingAnchor.constraint(equalTo: outer.layoutMarginsGuide.leadingAnchor),
-            bodyRow2.widthAnchor.constraint(equalTo: outer.layoutMarginsGuide.widthAnchor, multiplier: 0.9),
-
-            bodyRow3.heightAnchor.constraint(equalToConstant: DS.Spacing.md),
-            bodyRow3.leadingAnchor.constraint(equalTo: outer.layoutMarginsGuide.leadingAnchor),
-            bodyRow3.widthAnchor.constraint(equalTo: outer.layoutMarginsGuide.widthAnchor, multiplier: 0.7),
-
-            // Role-slot circles — fixed 24×24pt (positioned by frame in
-            // layoutSubviews per D-06 fractional coordinates).
-            shipperCircle.widthAnchor.constraint(equalToConstant: 24),
-            shipperCircle.heightAnchor.constraint(equalToConstant: 24),
-            brokerCircle.widthAnchor.constraint(equalToConstant: 24),
-            brokerCircle.heightAnchor.constraint(equalToConstant: 24),
-            carrierCircle.widthAnchor.constraint(equalToConstant: 24),
-            carrierCircle.heightAnchor.constraint(equalToConstant: 24),
-            dispatchCircle.widthAnchor.constraint(equalToConstant: 24),
-            dispatchCircle.heightAnchor.constraint(equalToConstant: 24),
-            factoringCircle.widthAnchor.constraint(equalToConstant: 24),
-            factoringCircle.heightAnchor.constraint(equalToConstant: 24),
-        ])
-
         // Attach the shimmer overlay on top of the entire skeleton view (not
         // just the contentView — Phase 9 is a UIView, not a UICollectionViewCell).
         layer.addSublayer(shimmerLayer)
@@ -317,6 +257,193 @@ public final class LoadDetailSkeletonView: UIView {
             guard let self else { return }
             self.setNeedsLayout()
         }
+
+        // Build the initial silhouette per the default renderMode.
+        rebuildSilhouette()
+    }
+
+    /// Tear down the existing silhouette + rebuild for the current
+    /// `renderMode`. The shimmer layer is preserved (it's a sublayer of
+    /// `self.layer`, not a subview, so it survives the subview teardown).
+    private func rebuildSilhouette() {
+        // Tear down prior silhouette.
+        silhouetteSubviews.forEach { $0.removeFromSuperview() }
+        silhouetteSubviews.removeAll()
+        roleCircles.removeAll()
+        connectorEdges.removeAll()
+        graphRegion = nil
+
+        switch renderMode {
+        case .iPhonePortrait:
+            buildIPhonePortraitSilhouette()
+        case .iPadSplit:
+            buildIPadSplitSilhouette()
+        }
+
+        // Force a layout so the role-slot circles + connector edges get
+        // positioned against the live graph-region bounds for snapshot
+        // determinism on the immediate `layoutIfNeeded()` test pattern.
+        setNeedsLayout()
+    }
+
+    /// Build the iPhone single-column silhouette (Plan 04 original):
+    /// pinned header (60pt) + graph region (400pt with 5 role circles + 4
+    /// connector edges) + 3 body rows (60% / 90% / 70% widths).
+    private func buildIPhonePortraitSilhouette() {
+        let pinnedHeader = Self.makePinnedHeader()
+        let graph = makeGraphRegion()
+        let row1 = Self.makeBodyRow()
+        let row2 = Self.makeBodyRow()
+        let row3 = Self.makeBodyRow()
+
+        let outer = UIStackView(arrangedSubviews: [
+            pinnedHeader, graph, row1, row2, row3,
+        ])
+        outer.axis = .vertical
+        outer.alignment = .leading
+        outer.spacing = DS.Spacing.md
+        outer.isLayoutMarginsRelativeArrangement = true
+        outer.layoutMargins = UIEdgeInsets(
+            top: DS.Spacing.md, left: DS.Spacing.lg,
+            bottom: DS.Spacing.md, right: DS.Spacing.lg
+        )
+        outer.translatesAutoresizingMaskIntoConstraints = false
+
+        addSubview(outer)
+        silhouetteSubviews.append(outer)
+
+        NSLayoutConstraint.activate([
+            outer.topAnchor.constraint(equalTo: topAnchor),
+            outer.leadingAnchor.constraint(equalTo: leadingAnchor),
+            outer.trailingAnchor.constraint(equalTo: trailingAnchor),
+            outer.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor),
+
+            pinnedHeader.heightAnchor.constraint(equalToConstant: 60),
+            pinnedHeader.leadingAnchor.constraint(equalTo: outer.layoutMarginsGuide.leadingAnchor),
+            pinnedHeader.trailingAnchor.constraint(equalTo: outer.layoutMarginsGuide.trailingAnchor),
+
+            graph.heightAnchor.constraint(equalToConstant: 400),
+            graph.leadingAnchor.constraint(equalTo: outer.layoutMarginsGuide.leadingAnchor),
+            graph.trailingAnchor.constraint(equalTo: outer.layoutMarginsGuide.trailingAnchor),
+
+            row1.heightAnchor.constraint(equalToConstant: DS.Spacing.md),
+            row1.leadingAnchor.constraint(equalTo: outer.layoutMarginsGuide.leadingAnchor),
+            row1.widthAnchor.constraint(equalTo: outer.layoutMarginsGuide.widthAnchor, multiplier: 0.6),
+
+            row2.heightAnchor.constraint(equalToConstant: DS.Spacing.md),
+            row2.leadingAnchor.constraint(equalTo: outer.layoutMarginsGuide.leadingAnchor),
+            row2.widthAnchor.constraint(equalTo: outer.layoutMarginsGuide.widthAnchor, multiplier: 0.9),
+
+            row3.heightAnchor.constraint(equalToConstant: DS.Spacing.md),
+            row3.leadingAnchor.constraint(equalTo: outer.layoutMarginsGuide.leadingAnchor),
+            row3.widthAnchor.constraint(equalTo: outer.layoutMarginsGuide.widthAnchor, multiplier: 0.7),
+        ])
+    }
+
+    /// Build the iPad split silhouette (Plan 09 / D-03): horizontal split
+    /// with the graph region on the left (~60% width) and the pinned-header
+    /// + 4 body rows on the right (~40% width).
+    private func buildIPadSplitSilhouette() {
+        let graph = makeGraphRegion()
+        let pinnedHeader = Self.makePinnedHeader()
+        let row1 = Self.makeBodyRow()
+        let row2 = Self.makeBodyRow()
+        let row3 = Self.makeBodyRow()
+        let row4 = Self.makeBodyRow()
+
+        // Right pane: pinned header + 4 body rows in a vertical stack.
+        let rightPane = UIStackView(arrangedSubviews: [
+            pinnedHeader, row1, row2, row3, row4,
+        ])
+        rightPane.axis = .vertical
+        rightPane.alignment = .leading
+        rightPane.spacing = DS.Spacing.md
+        rightPane.isLayoutMarginsRelativeArrangement = true
+        rightPane.layoutMargins = UIEdgeInsets(
+            top: DS.Spacing.md, left: DS.Spacing.md,
+            bottom: DS.Spacing.md, right: DS.Spacing.md
+        )
+        rightPane.translatesAutoresizingMaskIntoConstraints = false
+
+        // Horizontal split: graph (left) + rightPane (right).
+        let split = UIStackView(arrangedSubviews: [graph, rightPane])
+        split.axis = .horizontal
+        split.alignment = .fill
+        split.distribution = .fill
+        split.spacing = 0
+        split.translatesAutoresizingMaskIntoConstraints = false
+
+        addSubview(split)
+        silhouetteSubviews.append(split)
+
+        NSLayoutConstraint.activate([
+            split.topAnchor.constraint(equalTo: topAnchor),
+            split.leadingAnchor.constraint(equalTo: leadingAnchor),
+            split.trailingAnchor.constraint(equalTo: trailingAnchor),
+            split.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+            // 60/40 split — matches the VC's iPad composition (UI-SPEC line 143).
+            graph.widthAnchor.constraint(equalTo: split.widthAnchor, multiplier: 0.60),
+
+            pinnedHeader.heightAnchor.constraint(equalToConstant: 60),
+            pinnedHeader.leadingAnchor.constraint(equalTo: rightPane.layoutMarginsGuide.leadingAnchor),
+            pinnedHeader.trailingAnchor.constraint(equalTo: rightPane.layoutMarginsGuide.trailingAnchor),
+
+            row1.heightAnchor.constraint(equalToConstant: DS.Spacing.md),
+            row1.leadingAnchor.constraint(equalTo: rightPane.layoutMarginsGuide.leadingAnchor),
+            row1.widthAnchor.constraint(equalTo: rightPane.layoutMarginsGuide.widthAnchor, multiplier: 0.9),
+
+            row2.heightAnchor.constraint(equalToConstant: DS.Spacing.md),
+            row2.leadingAnchor.constraint(equalTo: rightPane.layoutMarginsGuide.leadingAnchor),
+            row2.widthAnchor.constraint(equalTo: rightPane.layoutMarginsGuide.widthAnchor, multiplier: 0.7),
+
+            row3.heightAnchor.constraint(equalToConstant: DS.Spacing.md),
+            row3.leadingAnchor.constraint(equalTo: rightPane.layoutMarginsGuide.leadingAnchor),
+            row3.widthAnchor.constraint(equalTo: rightPane.layoutMarginsGuide.widthAnchor, multiplier: 0.85),
+
+            row4.heightAnchor.constraint(equalToConstant: DS.Spacing.md),
+            row4.leadingAnchor.constraint(equalTo: rightPane.layoutMarginsGuide.leadingAnchor),
+            row4.widthAnchor.constraint(equalTo: rightPane.layoutMarginsGuide.widthAnchor, multiplier: 0.6),
+        ])
+    }
+
+    /// Build the shared graph-region container with 5 role-slot circles +
+    /// 4 connector edges. Used by BOTH iPhone and iPad silhouettes; the
+    /// circles' fractional coordinates against the region bounds are the
+    /// SAME role-slot table — they just rescale to whatever bounds the
+    /// region ends up with (iPhone: ~600pt wide × 400pt; iPad split left:
+    /// ~600pt wide × 768pt). The role-slot recognizability transfers across
+    /// devices (PROJECT.md "fixed role slots is a recognizability decision").
+    private func makeGraphRegion() -> UIView {
+        let region = UIView()
+        region.translatesAutoresizingMaskIntoConstraints = false
+
+        let shipper = Self.makeCircle()
+        let broker = Self.makeCircle()
+        let carrier = Self.makeCircle()
+        let dispatch = Self.makeCircle()
+        let factoring = Self.makeCircle()
+        let circles = [shipper, broker, carrier, dispatch, factoring]
+        for c in circles {
+            region.addSubview(c)
+            NSLayoutConstraint.activate([
+                c.widthAnchor.constraint(equalToConstant: 24),
+                c.heightAnchor.constraint(equalToConstant: 24),
+            ])
+        }
+        roleCircles = circles
+
+        let e1 = Self.makeEdge() // shipper → broker
+        let e2 = Self.makeEdge() // broker → carrier
+        let e3 = Self.makeEdge() // carrier → dispatch
+        let e4 = Self.makeEdge() // carrier → factoring
+        for e in [e1, e2, e3, e4] {
+            region.addSubview(e)
+        }
+        connectorEdges = [e1, e2, e3, e4]
+
+        graphRegion = region
+        return region
     }
 
     // MARK: - layoutSubviews — Pitfall 1 re-attach + circle positioning
@@ -326,21 +453,24 @@ public final class LoadDetailSkeletonView: UIView {
 
         // Position the role-slot circles by frame using the D-06 iPhone
         // fractional coordinates against the live graphRegion bounds.
+        // The SAME coordinate table is used for iPad split — the geometry
+        // rescales to the available pane bounds (recognizability transfers
+        // across devices per PROJECT.md "fixed role slots").
         // Coordinates are the CENTER of each circle; subtract 12 (half the
         // 24pt side) to derive the frame origin.
-        let g = graphRegion.bounds
-        if g.width > 0 && g.height > 0 {
-            positionCircle(shipperCircle,   atX: 0.18, y: 0.18, in: g)
-            positionCircle(brokerCircle,    atX: 0.50, y: 0.30, in: g)
-            positionCircle(carrierCircle,   atX: 0.50, y: 0.55, in: g)
-            positionCircle(dispatchCircle,  atX: 0.82, y: 0.55, in: g)
-            positionCircle(factoringCircle, atX: 0.50, y: 0.85, in: g)
+        if let g = graphRegion?.bounds, g.width > 0 && g.height > 0,
+           roleCircles.count == 5, connectorEdges.count == 4 {
+            positionCircle(roleCircles[0], atX: 0.18, y: 0.18, in: g) // shipper
+            positionCircle(roleCircles[1], atX: 0.50, y: 0.30, in: g) // broker
+            positionCircle(roleCircles[2], atX: 0.50, y: 0.55, in: g) // carrier
+            positionCircle(roleCircles[3], atX: 0.82, y: 0.55, in: g) // dispatch
+            positionCircle(roleCircles[4], atX: 0.50, y: 0.85, in: g) // factoring
 
             // Connector edges — recomputed against the live circle centers.
-            positionEdge(edge1, from: shipperCircle.center, to: brokerCircle.center)
-            positionEdge(edge2, from: brokerCircle.center, to: carrierCircle.center)
-            positionEdge(edge3, from: carrierCircle.center, to: dispatchCircle.center)
-            positionEdge(edge4, from: carrierCircle.center, to: factoringCircle.center)
+            positionEdge(connectorEdges[0], from: roleCircles[0].center, to: roleCircles[1].center)
+            positionEdge(connectorEdges[1], from: roleCircles[1].center, to: roleCircles[2].center)
+            positionEdge(connectorEdges[2], from: roleCircles[2].center, to: roleCircles[3].center)
+            positionEdge(connectorEdges[3], from: roleCircles[2].center, to: roleCircles[4].center)
         }
 
         // Shimmer overlay covers the full skeleton bounds.
@@ -414,17 +544,5 @@ public final class LoadDetailSkeletonView: UIView {
         edge.transform = .identity
         edge.frame = CGRect(x: midX - length / 2, y: midY - 1, width: length, height: 2)
         edge.transform = CGAffineTransform(rotationAngle: atan2(dy, dx))
-    }
-
-    // MARK: - iPad split silhouette (Plan 09)
-
-    /// Placeholder for the iPad split-silhouette path. Plan 09 (D-03 iPad
-    /// split layout) replaces this stub. Until then, the iPad simulator
-    /// renders the iPhone silhouette stretched into the wider canvas —
-    /// adequate as a placeholder while we wait for the split-pane work.
-    // FIXME(Plan 09): iPad split silhouette — left pane (graph circles)
-    //                  + right pane (header + body rows).
-    func renderSplitSilhouette() {
-        // Intentionally empty — Plan 09 owns the split layout (D-03).
     }
 }
