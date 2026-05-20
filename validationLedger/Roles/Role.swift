@@ -9,10 +9,17 @@
 // non-fraud-vector field (a server superstring on role would surface as a
 // loud decode failure on the entire Load, exactly like LoadStatus per
 // PLAN 07-01 threat T-07-03).
+//
+// Phase 7 LOAD-01 (Plan 03) addition: `Encodable` conformance so Role can
+// be serialised on the wire as the `actor_role` field of
+// `LoadActionEndpoint.RequestBody`. Encoded form is the lowercased case
+// name (Role.rawValue) — `"shipper"`, `"broker"`, etc. — matching the
+// server's role vocabulary. Synthesised from the `String` raw value; no
+// custom encode(to:) needed.
 
 import Foundation
 
-public enum Role: String, CaseIterable, Sendable, Decodable {
+public enum Role: String, CaseIterable, Sendable, Codable {
     case shipper
     case broker
     case carrier
