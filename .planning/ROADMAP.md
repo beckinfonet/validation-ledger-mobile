@@ -109,9 +109,41 @@ Plans:
   4. Tapping a graph node opens that party's verification basis (KYC completion date, device-binding status, USDOT authority, prior-relationship history); tapping an edge shows that handoff/tender detail.
   5. Flagged nodes/edges and the chain-level integrity verdict are rendered distinctly from fixture-supplied data — the client never computes trust or integrity; the graph renders natively on iPad and is VoiceOver-traversable.
 
-**Plans**: TBD
+**Plans**: 10 plans
 **UI hint**: yes
-**Notes**: Highest-complexity, highest-design-investment phase in v1.1. Research flags this phase for a design spike at plan time — Phase 9 planning should open with an explicit half-day spike resolving (a) the four-state visual language as a design artifact, (b) the gesture-arbitration model (tap vs. page-scroll vs. graph pan/zoom) written into the plan before code, (c) VoiceOver traversal order and accessibility element setup, and (d) the iPad-wide vs. iPhone-tall graph layout decision. The rendering approach is already settled by research — custom UIKit `UIView` nodes with `CAShapeLayer` edges, zero new dependencies, no SwiftUI; ratify this in the plan before any graph code is written. Edge-tap detail (TRUST-04) is the most plausible scope-trim candidate if the phase runs long — node-tap (TRUST-03) is essential, edge-tap is the cut line.
+**Notes**: Highest-complexity, highest-design-investment phase in v1.1. Design-spike items (a)–(d) resolved at plan-time in `09-CONTEXT.md` (D-15 fraud visual language, D-04 gesture choreography, D-21/D-22 VoiceOver, D-03/D-06 iPad-wide vs iPhone-tall). TRUST-04 scope-trim option explicitly REJECTED per D-07 — edge-tap ships at full quality. Plans 1-2 (Wave 1) are foundation (PriorRelationship contract evolution + fixture re-authoring + Wave 0 test scaffolding). Plans 3-9 build the UI surfaces. Plan 10 closes out with manual-test checklist + STATE update.
+
+Plans:
+**Wave 1**
+
+- [ ] 09-01-PLAN.md — Contract evolution: TrustNode.priorRelationships array (D-12), PriorRelationship value type (D-13), re-author all 12 load-detail-VL-*.json fixtures with fraud-archetype prior-relationship histories (D-14), PriorRelationshipDecodeTests + ChainOfTrustDecodeTests update
+- [ ] 09-02-PLAN.md — Wave 0 test scaffolding: 12 XCTestCase / @Suite shells + the FULL LoadDetailFixtureContractTests (the D-14 contract gate)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 09-03-PLAN.md — LoadDetailViewModel 3-case state machine + LoadDetailViewController shell + AppContainer factory + LoadListViewController row-tap → push (LOAD-05) + 5-role XCUITest
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 09-04-PLAN.md — LoadDetailSkeletonView (D-19 shimmer lifecycle) + LoadDetailBodyView scroll-container shell + LoadDetailViewController error state (hand-rolled per Phase 8 exception, D-20)
+- [ ] 09-05-PLAN.md — StatusTimelineView 6-pill stepper + current-state card (D-17/D-18; LOAD-06; side-states not surfaced)
+
+**Wave 4** *(blocked on Wave 3)*
+
+- [ ] 09-06-PLAN.md — TrustGraphView + TrustNodeView (TRUST-01/TRUST-05; D-04 gesture choreography; D-05 fit-all-nodes-tight; D-06 fixed role slots; D-15 fraud visual language with pulse-only-on-compromised; D-22 accessibility container) + 12-fingerprint snapshot matrix + gesture/a11y tests
+
+**Wave 5** *(blocked on Wave 4)*
+
+- [ ] 09-07-PLAN.md — VerificationBasisSheetViewController (TRUST-03; D-07/D-08/D-09/D-10/D-11; UISheetPresentationController detents + largestUndimmedDetentIdentifier=.medium)
+- [ ] 09-08-PLAN.md — HandoffDetailSheetViewController (TRUST-04; same sheet infra as Plan 07; D-07 scope-trim rejected)
+
+**Wave 6** *(blocked on Wave 5)*
+
+- [ ] 09-09-PLAN.md — ChainIntegrityBannerView + ChainIntegrityVerdictBlockView + iPhone-vs-iPad composition refactor (D-01/D-02/D-03/D-16/D-21; iPad-split skeleton silhouette)
+
+**Wave 7** *(blocked on Wave 6)*
+
+- [ ] 09-10-PLAN.md — Cross-cutting verification: populate remaining XCUITest methods (banner-a11y, outer-scroll propagation) + author 09-MANUAL-TESTS.md device-test checklist + update VALIDATION.md Per-Task Verification Map + bump STATE.md to "Executed — pending verify"
 
 ### Phase 10: Per-Role Tender / Accept / Reject
 
@@ -145,7 +177,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 10
 | 6. Close gap: DEV-04 + trustTier + Phase 4 verification | v1.0 | 4/4 | Complete | 2026-05-18 |
 | 7. Load Domain Model & Mock Contract | v1.1 | 6/6 | Complete    | 2026-05-20 |
 | 8. Role-Filtered Load List | v1.1 | 4/4 | Complete   | 2026-05-20 |
-| 9. Load Detail & Chain-of-Trust Graph | v1.1 | 0/TBD | Not started | - |
+| 9. Load Detail & Chain-of-Trust Graph | v1.1 | 0/10 | Planned | - |
 | 10. Per-Role Tender / Accept / Reject | v1.1 | 0/TBD | Not started | - |
 
 ---
