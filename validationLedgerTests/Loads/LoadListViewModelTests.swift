@@ -378,6 +378,96 @@ struct LoadListViewModelTests {
         }
     }
 
+    // MARK: - Test 8b — BL-01 in-flight guard (cancel-and-replace)
+    //
+    // Regression for the BL-01 race: two overlapping `fetchLoads()` calls used
+    // to drive two unbounded `apiClient.request(...)` Tasks that both wrote to
+    // `state` in arrival order — last-write-wins, with the older response
+    // silently overwriting the fresher one (and downgrading verification
+    // signals, see CLAUDE.md "trust that cannot be faked").
+    //
+    // The fix is cancel-and-replace inside `fetchLoads()`. This test exercises
+    // that contract end-to-end:
+    //   1. Fire fetch A under HIGH latency (~300 ms) so its task is in flight
+    //      AND its registered fixture body is from the broker JSON.
+    //   2. Briefly yield so fetch A wins the `fetchTask?.cancel(); fetchTask =
+    //      Task {…}` assignment and starts awaiting the network hop.
+    //   3. Swap the registered fixture to the EMPTY JSON.
+    //   4. Fire fetch B (synchronous-quick fixture, no latency) — this MUST
+    //      cancel fetch A and own the terminal state.
+    //   5. Await both task references; assert the terminal state matches
+    //      fetch B's (empty), NOT fetch A's (loaded with broker rows).
+    //
+    // A regression to the pre-BL-01 unguarded fetchLoads() would land fetch
+    // A's `.loaded(items: <broker rows>)` AFTER fetch B's `.empty`, leaving
+    // the VM in `.loaded` — the assertion below catches that exact ordering.
+    @Test("Test 8b: BL-01 — concurrent fetchLoads() calls do NOT race; newer wins")
+    func concurrentFetchesNewerWinsBL01() async throws {
+        MockURLProtocol.reset(); MockURLProtocol.resetFailureHandlers()
+        defer { MockURLProtocol.reset(); MockURLProtocol.resetFailureHandlers() }
+
+        let brokerData = try FixtureLoader.loadFixture("loads-list-broker")
+        // Phase 1 — high-latency fixture for fetch A (still in flight when
+        // fetch B fires).
+        MockURLProtocol.registerFixtureWithLatency(
+            for: LoadListEndpoint.self,
+            path: "/loads/broker", method: .get,
+            statusCode: 200, body: brokerData,
+            latency: 0.3
+        )
+
+        let logger = RecordingLogger()
+        let vm = await makeViewModel(role: .broker, logger: logger)
+
+        // Fetch A — kick off WITHOUT awaiting; this leaves the VM with an
+        // in-flight `fetchTask` after the first internal `await`.
+        let taskA = Task { await vm.fetchLoads() }
+
+        // Allow fetch A to grab the `fetchTask` slot and start awaiting the
+        // network hop before fetch B supersedes it.
+        try await Task.sleep(nanoseconds: 50_000_000) // 50 ms
+
+        // Phase 2 — swap the registered fixture to EMPTY (no latency). Fetch
+        // B will hit this fixture and terminate quickly. We reset+re-register
+        // so any prior latency handler does not also respond.
+        MockURLProtocol.reset()
+        let emptyData = try FixtureLoader.loadFixture("loads-list-empty")
+        MockURLProtocol.registerFixture(
+            for: LoadListEndpoint.self,
+            path: "/loads/broker", method: .get,
+            statusCode: 200, body: emptyData
+        )
+
+        // Fetch B — under the BL-01 fix, this cancels fetch A and OWNS the
+        // terminal state. Under the pre-fix racy code, fetch A's (~300 ms)
+        // response would land AFTER fetch B's (~immediate) response and
+        // overwrite `.empty` with `.loaded(<broker rows>)`.
+        let taskB = Task { await vm.fetchLoads() }
+
+        // Await both — fetch A's cancellation propagates through the
+        // `if Task.isCancelled { return }` checkpoint, fetch B owns state.
+        _ = await taskA.value
+        _ = await taskB.value
+        await Task.yield(); await Task.yield()
+
+        let finalState = await vm.state
+        switch finalState {
+        case .empty:
+            // expected — fetch B's terminal state held; the BL-01 cancel-and-
+            // replace guard prevented fetch A's response from overwriting it.
+            break
+        case .loaded:
+            Issue.record("""
+                BL-01 race regression: vm.state == .loaded after a fresher \
+                fetchLoads() call; the older fetch's broker rows overwrote \
+                the newer fetch's .empty terminal state. The cancel-and-\
+                replace guard in fetchLoads() is missing or broken.
+                """)
+        default:
+            Issue.record("vm.state == \(finalState); expected .empty after fetch B superseded fetch A")
+        }
+    }
+
     // MARK: - Test 8 — zero-PII log invariant (T-08-08)
 
     @Test("Test 8: logger emissions on success AND on failure carry zero PII (T-08-08)")

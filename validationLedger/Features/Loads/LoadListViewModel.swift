@@ -110,6 +110,27 @@ public final class LoadListViewModel {
     /// `render(state:)` dispatcher.
     public var onStateChange: ((State) -> Void)?
 
+    // MARK: - In-flight fetch coordination (BL-01)
+    //
+    // `fetchLoads()` is reachable from THREE call sites — `viewWillAppear` on
+    // every tab switch / modal dismiss, `pulledToRefresh` on the refresh
+    // control, and the error-retry button's UIAction. With no coordination, a
+    // user who switches tabs and immediately pulls to refresh fires two
+    // overlapping `await apiClient.request(...)` calls; whichever response
+    // returns LAST wins and overwrites the other (last-write-wins race). When
+    // the older fetch wins it silently downgrades the row's verification
+    // signal — directly contradicting the "trust that cannot be faked" core
+    // value (CLAUDE.md).
+    //
+    // The fix is cancel-and-replace: a fresh `fetchLoads()` cancels any
+    // in-flight task, then awaits its own task to completion. The cancelled
+    // task observes `Task.isCancelled` after the network hop returns and
+    // bails out BEFORE mutating `state`, so older responses never overwrite
+    // newer state. Cancellation matches pull-to-refresh semantics (the user
+    // wants the LATEST data, not whichever response arrives first) and
+    // matches the retry-button's "discard the failure, try again" intent.
+    private var fetchTask: Task<Void, Never>?
+
     // MARK: - Dependencies (initializer-DI per ARCH-04)
 
     /// The role this VM is scoped to. Drives the endpoint:
@@ -150,6 +171,40 @@ public final class LoadListViewModel {
     ///     copy. The classification is logged (different LogEvent names
     ///     possible in future) but never surfaced to UI.
     public func fetchLoads() async {
+        // BL-01 — cancel-and-replace. A fresh fetch supersedes any in-flight
+        // one. The cancelled task observes `Task.isCancelled` after its
+        // network hop returns and bails out BEFORE mutating `state`, so older
+        // responses never overwrite newer state (last-write-wins race
+        // closed). Each caller awaits its OWN task to completion — chained
+        // fetches still serialize from any single caller's point of view,
+        // but the VM never holds multiple racing fetches against the same
+        // `state` slot. Captured `[weak self]` is the standard discipline so
+        // a deallocated VM never wins the race after a role swap (ADR 0002 —
+        // abrupt-replace deallocates this VM out from under any in-flight
+        // task).
+        fetchTask?.cancel()
+        let task = Task { [weak self] in
+            // Use a guard-let bridge so the task return type is `Void` (not
+            // `Void?`) — Task<Void?, Never> would not satisfy the stored
+            // `Task<Void, Never>?` declaration.
+            guard let self else { return }
+            await self.performFetch()
+        }
+        fetchTask = task
+        await task.value
+    }
+
+    /// Body of `fetchLoads()` — separated so the in-flight cancel-and-replace
+    /// guard (`fetchTask?.cancel(); fetchTask = Task { performFetch() }`) is
+    /// the only public entry point. Callers do NOT invoke this directly.
+    ///
+    /// Cancellation honors two checkpoints (BL-01):
+    ///   1. AFTER the network hop returns — if the task was superseded mid-
+    ///      flight, bail without mutating state (older response loses).
+    ///   2. BEFORE setting the terminal `.loaded` / `.empty` / `.error`
+    ///      state — close the last-write-wins window where the cancelled
+    ///      task's response arrived between checkpoint 1 and the state write.
+    private func performFetch() async {
         // Refresh-from-loaded leaves the row state intact; refresh-from-any-
         // other-state passes through `.loading` (UI-SPEC §State Machine).
         if case .loaded = state {
@@ -162,7 +217,15 @@ public final class LoadListViewModel {
         let response: LoadListEndpoint.Response
         do {
             response = try await apiClient.request(LoadListEndpoint(role: role))
+        } catch is CancellationError {
+            // Superseded by a fresher fetch — newer task already owns state.
+            return
         } catch {
+            // BL-01 — if THIS task was cancelled mid-flight (URLSession
+            // returns the request's underlying NSURLErrorCancelled, not a
+            // CancellationError), the fresher fetch already drove state.
+            // Don't overwrite it with our (now-stale) error.
+            if Task.isCancelled { return }
             // T-08-08 — fields: [:] is mandatory. NEVER pass an error-
             // description string into the fields dict here: a DecodingError
             // stringified through Swift.String(describing:_) renders the JSON
@@ -172,6 +235,12 @@ public final class LoadListViewModel {
             state = .error(message: Self.userFacingMessage(for: error))
             return
         }
+
+        // BL-01 — race-close checkpoint. The fresher fetch may have begun
+        // (and cancelled THIS task) while we were awaiting the network hop;
+        // bail before mutating state so the newer task's response is what the
+        // UI sees.
+        if Task.isCancelled { return }
 
         if response.loads.isEmpty {
             // T-08-08 — empty payload is also a success; log without fields.
