@@ -163,9 +163,27 @@ final class LoadListViewController: UIViewController {
     /// title.
     private let navTitle: String
 
-    init(viewModel: LoadListViewModel, navTitle: String = "Loads") {
+    /// Phase 9 LOAD-05 — composition-root factory for the load-detail screen.
+    /// `collectionView(_:didSelectItemAt:)` invokes
+    /// `detailScreenFactory(load.id)` and pushes the returned VC onto the
+    /// navigation stack. Threaded from `AppContainer.makeLoadListScreen(role:)`
+    /// which captures `[weak self]` to invoke `makeLoadDetailScreen(loadID:)`
+    /// — the same closure-factory pattern Phase 8 used for `kycStatusScreen
+    /// Factory`. Default fallback returns an empty `UIViewController` so the
+    /// existing in-tree tests / preview-only call sites that do not pass a
+    /// factory still compile; a row-tap in that fallback path pushes an
+    /// inert white screen (never reached in production — the AppContainer
+    /// always threads the real factory).
+    private let detailScreenFactory: (String) -> UIViewController
+
+    init(
+        viewModel: LoadListViewModel,
+        navTitle: String = "Loads",
+        detailScreenFactory: @escaping (String) -> UIViewController = { _ in UIViewController() }
+    ) {
         self.viewModel = viewModel
         self.navTitle = navTitle
+        self.detailScreenFactory = detailScreenFactory
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -327,6 +345,13 @@ final class LoadListViewController: UIViewController {
         layoutContent()
         wireActions()
         bindViewModel()
+
+        // Phase 9 LOAD-05 — wire the row-tap → push detail flow. The
+        // diffable data source owns cell content (UICollectionViewDataSource)
+        // but UIKit splits selection/interaction onto the delegate; assigning
+        // `self` here is the standard idiom. The `UICollectionViewDelegate`
+        // conformance lives in an extension at the end of this file.
+        collectionView.delegate = self
 
         // Phase 8 Plan 04 (Rule 1 — bug surfaced by integration wiring):
         // force `cellRegistration` to initialize HERE in viewDidLoad rather
@@ -587,5 +612,24 @@ final class LoadListViewController: UIViewController {
 private extension UIView {
     var recursiveSubviews: [UIView] {
         subviews + subviews.flatMap { $0.recursiveSubviews }
+    }
+}
+
+// MARK: - Phase 9 LOAD-05 — row-tap pushes LoadDetailViewController
+
+extension LoadListViewController: UICollectionViewDelegate {
+    /// Resolve the tapped row's `LoadRowItem` from the diffable data source,
+    /// hand the underlying `load.id` to the composition-root-provided
+    /// `detailScreenFactory`, and push the resulting VC onto the navigation
+    /// stack. No animation override (default UIKit push per LOAD-05 truth).
+    ///
+    /// `dataSource.itemIdentifier(for: indexPath)` is the canonical Phase 8
+    /// retrieval path — it returns the same `LoadRowItem` the cell rendered,
+    /// so `item.load.id` is the stable VL-#### identifier
+    /// `LoadDetailEndpoint(loadID:)` consumes (see `Load.swift:103-107`).
+    public func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        guard let rowItem = dataSource.itemIdentifier(for: indexPath) else { return }
+        let detailVC = detailScreenFactory(rowItem.item.load.id)
+        navigationController?.pushViewController(detailVC, animated: true)
     }
 }

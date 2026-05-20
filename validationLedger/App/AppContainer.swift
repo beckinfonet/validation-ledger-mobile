@@ -243,7 +243,54 @@ final class AppContainer {
                 value: "Loads",
                 comment: "Phase 8 LoadListViewController — default nav-bar title for all non-Factoring roles"
             )
-        return LoadListViewController(viewModel: viewModel, navTitle: navTitle)
+        // Phase 9 LOAD-05 — thread the load-detail factory closure so row
+        // taps inside the list VC can push the detail VC WITHOUT the list
+        // VC importing AppContainer (ARCH-05 separation: features depend on
+        // protocols and closures, never on the composition root). `[weak
+        // self]` keeps the closure cycle-safe even though AppContainer is
+        // application-scoped — the safer default. The fallback empty
+        // UIViewController is logically unreachable (AppContainer outlives
+        // every LoadListViewController it constructs) but guards against a
+        // future refactor that detaches scene lifetimes from the container.
+        let detailFactory: (String) -> UIViewController = { [weak self] loadID in
+            guard let self else { return UIViewController() }
+            return self.makeLoadDetailScreen(loadID: loadID)
+        }
+        return LoadListViewController(
+            viewModel: viewModel,
+            navTitle: navTitle,
+            detailScreenFactory: detailFactory
+        )
+    }
+
+    // Phase 9 LOAD-05 — composition-root factory for the load-detail screen.
+    // Mirrors `makeLoadListScreen(role:)` line-for-line (PATTERNS E12):
+    //   - REUSES `LoggingSubsystem.app` + category `feature.loads` (same
+    //     subsystem as the list — no new `LoggingSubsystem` case added; per
+    //     Phase 8 doctrine, additive subsystem expansion is a deferred
+    //     decision that does not block Phase 9).
+    //   - Constructs `LoadDetailViewModel(loadID:apiClient:logger:)`.
+    //   - Returns `LoadDetailViewController(viewModel:)`.
+    //
+    // The factory is invoked by `LoadListViewController.collectionView(_:
+    // didSelectItemAt:)` via the closure threaded above in
+    // `makeLoadListScreen(role:)`. No coordinator is introduced — per
+    // CONTEXT line 111 "factory closure is acceptable in lieu of a new
+    // LoadDetailCoordinator" (the single push has no coordinator state to
+    // retain across navigations; mirrors the `kycStatusScreenFactory`
+    // precedent established in `makeKYCStatusScreen()` above).
+    @MainActor
+    func makeLoadDetailScreen(loadID: String) -> UIViewController {
+        let featureLogger = OSLogLoggerImpl(
+            subsystem: LoggingSubsystem.app,
+            category: "feature.loads"
+        )
+        let viewModel = LoadDetailViewModel(
+            loadID: loadID,
+            apiClient: apiClient,
+            logger: featureLogger
+        )
+        return LoadDetailViewController(viewModel: viewModel)
     }
 
     /// Primary initializer.
