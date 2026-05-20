@@ -125,15 +125,23 @@ public final class LoadDetailBodyView: UIView {
 
     // MARK: - Section placeholder containers (downstream plans populate)
 
-    /// Timeline placeholder — Plan 05 (LOAD-06 StatusTimelineView) injects
-    /// the actual view. Internal access so the future plan can pin its
-    /// view into this container.
+    /// Timeline placeholder. Plan 05 populates this with a
+    /// `StatusTimelineView` (D-17 stepper + current-state card). The
+    /// container preserves the locked `load-detail.timeline` identifier
+    /// as the addressable target for XCUITest; the hosted view also
+    /// carries the same identifier (set inside `StatusTimelineView.
+    /// setUp()`) so either lookup resolves the same accessibility node.
     let timelineContainer: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
         v.accessibilityIdentifier = "load-detail.timeline"
         return v
     }()
+
+    /// Plan 05 — the hosted status timeline (D-17 + D-18). Mounted into
+    /// `timelineContainer` in `setUp()`; configured on every
+    /// `configure(load:)` from the load's `stateHistory`.
+    private let statusTimeline = StatusTimelineView()
 
     let freightDetailsContainer: UIView = {
         let v = UIView()
@@ -209,6 +217,19 @@ public final class LoadDetailBodyView: UIView {
         contentStack.addArrangedSubview(partiesContainer)
         contentStack.addArrangedSubview(verdictBlockContainer)
 
+        // Plan 05 — mount the status timeline inside its container,
+        // pinned edge-to-edge. The container survives across configure
+        // calls; only `statusTimeline.configure(load:)` re-runs on data
+        // refresh.
+        statusTimeline.translatesAutoresizingMaskIntoConstraints = false
+        timelineContainer.addSubview(statusTimeline)
+        NSLayoutConstraint.activate([
+            statusTimeline.topAnchor.constraint(equalTo: timelineContainer.topAnchor),
+            statusTimeline.leadingAnchor.constraint(equalTo: timelineContainer.leadingAnchor),
+            statusTimeline.trailingAnchor.constraint(equalTo: timelineContainer.trailingAnchor),
+            statusTimeline.bottomAnchor.constraint(equalTo: timelineContainer.bottomAnchor),
+        ])
+
         // Mount the scrollView + contentStack — PATTERNS table row 21.
         addSubview(scrollView)
         scrollView.addSubview(contentStack)
@@ -247,5 +268,11 @@ public final class LoadDetailBodyView: UIView {
         originDestinationLabel.text =
             "\(load.origin.city), \(load.origin.state) → \(load.destination.city), \(load.destination.state)"
         statusBadge.configure(status: load.status)
+
+        // Plan 05 — cascade the configure into the hosted timeline. The
+        // timeline reads only `load.stateHistory` (D-02) — no trust-payload
+        // fields, preserving the T-09-03 separation locked at this file's
+        // top.
+        statusTimeline.configure(load: load)
     }
 }
