@@ -273,12 +273,22 @@ final class LoadDetailViewControllerActionRenderTests: XCTestCase {
         XCTAssertNotNil(vc.chainOverlayForTesting)
 
         // Transition to .loaded -> dismount.
+        // Plan 07 upgrade: dismissChainOverlay now performs a 0.25s alpha
+        // fade-out and clears the chainOverlay ref INSIDE the animation
+        // completion (Pitfall 1 single-ref discipline). The old stub was
+        // synchronous; the new alpha-fade is animated. Wait 0.5s for the
+        // fade-out completion before asserting.
         let loadedLoad = try makeLoad(status: .tendered)
         vc.applyTestState_loaded(load: loadedLoad, chain: chain)
         vc.view.layoutIfNeeded()
 
-        XCTAssertNil(vc.chainOverlayForTesting,
-                     "Overlay dismounted on .loaded after in-flight")
+        let exp = expectation(description: "Chain overlay fades out and the ref clears")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            XCTAssertNil(vc.chainOverlayForTesting,
+                         "Overlay dismounted on .loaded after in-flight (Plan 07 fade-out completion clears the ref)")
+            exp.fulfill()
+        }
+        await fulfillment(of: [exp], timeout: 2.0)
     }
 
     // MARK: - Test 6 — handleActionTap(.tender) -> presents tender sheet stub

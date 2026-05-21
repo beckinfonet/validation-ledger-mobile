@@ -184,11 +184,25 @@ public final class LoadDetailViewController: UIViewController {
 
     /// Phase 10 Plan 04 — chain "updating..." overlay (single ref per
     /// Pitfall 1; UI-SPEC line 477-489). Mounted on `.actionInFlight`,
-    /// dismounted on `.loaded` / `.actionFailed`. This plan ships the
-    /// mount/dismount STUB (a translucent UIView with the surface tint);
-    /// Plan 07 swaps in the activity indicator + alpha-fade animation
-    /// without re-entering the render dispatcher.
+    /// dismounted on `.loaded` / `.actionFailed`. Plan 07 upgraded the
+    /// mount/dismount surface from the placeholder UIView to the locked
+    /// alpha-fade subview + centered UIActivityIndicatorView(.medium).
+    /// The API surface (`mountChainOverlayIfNeeded`, `dismissChainOverlay`)
+    /// stays stable; the render dispatcher calls them in the same order.
     private var chainOverlay: UIView?
+
+    /// Phase 10 Plan 07 — single-ref discipline mirror for the toast
+    /// banner mounted on `.actionFailed` (D-15 / UI-SPEC § LoadActionToast
+    /// BannerView lines 458-475). Pitfall 1 says the overlay outlives the
+    /// action without the early-return-if-non-nil + clear-in-completion
+    /// idiom; the same trap applies to the toast banner — a rapid
+    /// `.actionFailed` re-trigger could mount a second banner over the
+    /// first. `presentToastBanner(copyKey:)` reads this ref, dismisses
+    /// the prior banner via its slide-out animation, then mounts a fresh
+    /// one in the slide-out completion closure. The banner's `onRemoved`
+    /// hook clears this ref so a future `.actionFailed` re-enters the
+    /// idempotent path cleanly.
+    private var currentToast: LoadActionToastBannerView?
 
     // Test seams — `internal` so the action-render tests can introspect
     // the stub state without re-implementing the render path.
@@ -1197,17 +1211,20 @@ public final class LoadDetailViewController: UIViewController {
             )
             mountChainOverlayIfNeeded()
 
-        case .actionFailed(let rollbackTo, let frozenChain, _):
+        case .actionFailed(let rollbackTo, let frozenChain, let errorCopyKey):
             // Phase 10 Plan 04 (D-15) — re-render the body against the
             // ROLLBACK Load + FROZEN pre-tap chain; configure the action
             // region against the rollback state (no in-flight marker; the
             // pre-tap action set survives since rollback restores pre-tap).
             // Dismount the chain overlay — the spinner UI is gone.
             //
-            // Plan 07 inserts the toast banner here referencing the LOCKED
-            // `errorCopyKey` from the state's associated value. For Phase 10
-            // Plan 04 the toast is NOT yet shown — only the body + action
-            // region re-render and the overlay dismount land here.
+            // Plan 07: present the user-facing failure toast. `errorCopyKey`
+            // is one of the 6 LOCKED localization keys per UI-SPEC line
+            // 343-348 (e.g. `loads.actions.error.tender_failed`); the VC's
+            // `presentToastBanner(copyKey:)` resolves the key via
+            // NSLocalizedString and hands the LOCALIZED string to the
+            // banner's `configure(text:)`. T-09-04 view-layer lock: the
+            // banner NEVER renders server text.
             applyBodyRender(load: rollbackTo, chainOfTrust: frozenChain)
             actionsView.configure(
                 actions: lastConfiguredActions,
@@ -1219,6 +1236,7 @@ public final class LoadDetailViewController: UIViewController {
                 onTap: { [weak self] action in self?.handleActionTap(action) }
             )
             dismissChainOverlay()
+            presentToastBanner(copyKey: errorCopyKey)
 
         case .error:
             // T-09-04 — the .error associated `message` is NEVER read here.
@@ -1421,67 +1439,257 @@ public final class LoadDetailViewController: UIViewController {
         view.accessibilityElements = elements
     }
 
-    // MARK: - Phase 10 Plan 04 — chain "updating..." overlay (stub for Plan 07)
+    // MARK: - Phase 10 Plan 07 — chain "updating..." overlay (alpha fade + activity indicator)
 
-    /// Mount the chain overlay over the chain region (UI-SPEC line 485-486).
-    /// Idempotent — does nothing when the overlay is already mounted.
-    /// Plan 07 swaps the stub UIView for the activity-indicator alpha-fade
-    /// variant; the API surface (`mountChainOverlayIfNeeded`,
-    /// `dismissChainOverlay`) stays stable.
+    /// Mount the chain overlay over the chain region per UI-SPEC § Chain
+    /// overlay lines 477-489. Idempotent (Pitfall 1) — does nothing when
+    /// the overlay is already mounted.
     ///
-    /// On iPhone vertical-tree composition, the overlay covers the strip +
-    /// card region (above the body view). On iPad, it covers the left
-    /// graph pane. The DEBUG legacy iPhone path uses the trust-graph view
-    /// as the anchor (same as iPad's left pane semantically).
+    /// Geometry by composition:
+    ///   - iPhone vertical-tree (default iPhone path): pinned top to the
+    ///     strip view's topAnchor; bottom to the card view's bottomAnchor;
+    ///     leading/trailing to those views' edges.
+    ///   - iPad regular split (or DEBUG iPhone-legacy path): pinned top/
+    ///     bottom/leading/trailing to the trustGraphView's edges.
+    ///
+    /// Visuals (UI-SPEC line 482-484):
+    ///   - backgroundColor: DS.Colors.surface.withAlphaComponent(0.6)
+    ///   - centered UIActivityIndicatorView(.medium), color = DS.Colors.label
+    ///   - no text label per UI-SPEC line 388-390
+    ///
+    /// Animation (UI-SPEC line 487):
+    ///   - alpha 0 → 1 over 0.2s on mount
+    ///   - alpha 1 → 0 over 0.25s on dismount; chainOverlay = nil in the
+    ///     animation completion (single-ref discipline mirror)
+    ///
+    /// Accessibility (UI-SPEC line 489):
+    ///   - accessibilityLabel: localized "Chain refreshing"
+    ///   - accessibilityTraits: .updatesFrequently
+    ///   - isAccessibilityElement: true
+    ///   - isUserInteractionEnabled: false (informational, not modal)
+    ///   - accessibilityIdentifier: "chain-updating-overlay" (the locked
+    ///     XCUITest target per ISSUE-03 from plan checker — used by plan
+    ///     10-10 Test 5 rollback-path overlay-dismissal assertion to
+    ///     query the overlay by stable identifier without title-based
+    ///     fallback)
     private func mountChainOverlayIfNeeded() {
-        guard chainOverlay == nil else { return }
+        guard chainOverlay == nil else { return }  // Pitfall 1 — idempotent
 
         let overlay = UIView()
         overlay.translatesAutoresizingMaskIntoConstraints = false
         overlay.backgroundColor = DS.Colors.surface.withAlphaComponent(0.6)
-        overlay.isUserInteractionEnabled = false
-        overlay.accessibilityIdentifier = "load-detail.chain-overlay"
+        overlay.isUserInteractionEnabled = false                                    // UI-SPEC line 489
+        overlay.alpha = 0                                                           // start invisible; fade in below
         overlay.accessibilityLabel = NSLocalizedString(
             "loads.actions.chain.refreshing.a11y",
             value: "Chain refreshing",
-            comment: "Phase 10 Plan 04 chain overlay — VoiceOver label (UI-SPEC line 489)"
+            comment: "Phase 10 Plan 07 chain overlay — VoiceOver label (UI-SPEC line 489)"
         )
+        overlay.accessibilityIdentifier = "chain-updating-overlay"                   // Plan 10-10 Test 5 XCUITest query target — ISSUE-03 fix
         overlay.accessibilityTraits = .updatesFrequently
+        overlay.isAccessibilityElement = true
 
-        // Choose an anchor surface based on the current composition (Pitfall 1).
-        let anchor: UIView
+        // Centered medium activity indicator (UI-SPEC line 484).
+        let indicator = UIActivityIndicatorView(style: .medium)
+        indicator.color = DS.Colors.label
+        indicator.translatesAutoresizingMaskIntoConstraints = false
+        overlay.addSubview(indicator)
+        NSLayoutConstraint.activate([
+            indicator.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
+            indicator.centerYAnchor.constraint(equalTo: overlay.centerYAnchor),
+        ])
+        indicator.startAnimating()
+
+        view.addSubview(overlay)
+        // Pin per size class — iPad regular over the trust graph; iPhone
+        // compact over the strip + card combined.
+        let constraints = makeChainOverlayConstraints(for: overlay)
+        NSLayoutConstraint.activate(constraints)
+
+        chainOverlay = overlay
+        // Fade in 0.2s alpha 0 → 1 per UI-SPEC line 487.
+        UIView.animate(withDuration: 0.2) { overlay.alpha = 1 }
+    }
+
+    /// Build the per-size-class top/bottom/leading/trailing constraints
+    /// for the chain overlay. Extracted so the mount path stays readable;
+    /// the composition-dependent geometry is encapsulated here.
+    ///
+    /// - iPad regular split: pin to `trustGraphView`'s edges (the left 60%
+    ///   pane is the graph; the overlay covers exactly that pane).
+    /// - DEBUG iPhone-legacy (`-Mock2DTrustGraphOnIPhone`): pin to
+    ///   `trustGraphView`'s edges (the iPhone-2D path renders the same
+    ///   graph view as iPad; semantically identical).
+    /// - iPhone vertical-tree (default): pin top to the strip's top, bottom
+    ///   to the card's bottom, leading/trailing to whichever view is in
+    ///   the hierarchy (the strip + card share leading/trailing edges).
+    ///   Fall back to `bodyContainer` if mid-rebuild.
+    private func makeChainOverlayConstraints(for overlay: UIView) -> [NSLayoutConstraint] {
         #if DEBUG
         let isLegacyDebugPath = (compositionLayout == .iPhoneCompact && Debug2DGraphOverride.isActive)
         #else
         let isLegacyDebugPath = false
         #endif
         if compositionLayout == .iPadRegularSplit || isLegacyDebugPath {
-            anchor = trustGraphView
-        } else {
-            // iPhone vertical-tree path — overlay covers the strip + card.
-            // We approximate the union by anchoring to the strip's top and
-            // the card's bottom. If either is not yet in the hierarchy
-            // (mid-rebuild), fall back to the body container.
-            anchor = chainOfVouchesView.superview != nil ? chainOfVouchesView : bodyContainer
+            return [
+                overlay.topAnchor.constraint(equalTo: trustGraphView.topAnchor),
+                overlay.bottomAnchor.constraint(equalTo: trustGraphView.bottomAnchor),
+                overlay.leadingAnchor.constraint(equalTo: trustGraphView.leadingAnchor),
+                overlay.trailingAnchor.constraint(equalTo: trustGraphView.trailingAnchor),
+            ]
         }
-        view.addSubview(overlay)
-        NSLayoutConstraint.activate([
-            overlay.topAnchor.constraint(equalTo: everyoneOnLoadStripView.superview != nil
-                ? everyoneOnLoadStripView.topAnchor
-                : anchor.topAnchor),
-            overlay.bottomAnchor.constraint(equalTo: anchor.bottomAnchor),
-            overlay.leadingAnchor.constraint(equalTo: anchor.leadingAnchor),
-            overlay.trailingAnchor.constraint(equalTo: anchor.trailingAnchor),
-        ])
-        chainOverlay = overlay
+        // iPhone vertical-tree path — strip top → card bottom.
+        let topAnchor = (everyoneOnLoadStripView.superview != nil)
+            ? everyoneOnLoadStripView.topAnchor
+            : bodyContainer.topAnchor
+        let bottomAnchor = (chainOfVouchesView.superview != nil)
+            ? chainOfVouchesView.bottomAnchor
+            : bodyContainer.bottomAnchor
+        let leadingSource: UIView = (chainOfVouchesView.superview != nil) ? chainOfVouchesView : bodyContainer
+        let trailingSource: UIView = (chainOfVouchesView.superview != nil) ? chainOfVouchesView : bodyContainer
+        return [
+            overlay.topAnchor.constraint(equalTo: topAnchor),
+            overlay.bottomAnchor.constraint(equalTo: bottomAnchor),
+            overlay.leadingAnchor.constraint(equalTo: leadingSource.leadingAnchor),
+            overlay.trailingAnchor.constraint(equalTo: trailingSource.trailingAnchor),
+        ]
     }
 
-    /// Dismount the chain overlay. Idempotent — does nothing when nothing
-    /// is mounted. Plan 07 inserts the alpha-fade animation here; for
-    /// Phase 10 Plan 04 the dismount is immediate.
+    /// Dismount the chain overlay via the 0.25s alpha fade-out.
+    ///
+    /// Pitfall 1 single-ref discipline: the `chainOverlay` ref is cleared
+    /// IMMEDIATELY (before the animation starts) so a subsequent
+    /// `.actionInFlight` arrival mid-fade-out can mount a fresh overlay
+    /// without colliding with the fading-out instance. The fading-out
+    /// view is held as a strong local reference inside the closure so
+    /// the animation completes and the `removeFromSuperview()` call lands.
+    ///
+    /// This ordering also matters for hierarchy-rebuild safety: the
+    /// `.loaded` arm calls `applyBodyRender(...)` (which rebuilds the
+    /// composition by tearing down + re-attaching strip/card/graph
+    /// views) THEN `dismissChainOverlay()`. The overlay's
+    /// top/bottom/leading/trailing constraints reference those views;
+    /// after the rebuild those references can be stale. Deactivating
+    /// the overlay's constraints up-front + animating only the alpha
+    /// avoids any layout-engine traversal during the fade-out — the
+    /// overlay is a free-floating subview of `view` with no active
+    /// constraints during the 0.25s window before removal.
     private func dismissChainOverlay() {
-        chainOverlay?.removeFromSuperview()
+        guard let overlay = chainOverlay else { return }
+        // Clear the single-ref BEFORE the animation so a re-mount during
+        // the fade-out is safe (Pitfall 1).
         chainOverlay = nil
+
+        // Deactivate any constraints involving the overlay so the layout
+        // engine does not traverse stale anchor-view references during the
+        // animation window.
+        for constraint in overlay.superview?.constraints ?? [] {
+            if constraint.firstItem === overlay || constraint.secondItem === overlay {
+                constraint.isActive = false
+            }
+        }
+        for constraint in overlay.constraints {
+            if constraint.firstItem === overlay || constraint.secondItem === overlay {
+                constraint.isActive = false
+            }
+        }
+
+        UIView.animate(
+            withDuration: 0.25,
+            delay: 0,
+            options: [.curveEaseOut, .beginFromCurrentState],
+            animations: { overlay.alpha = 0 },
+            completion: { _ in
+                overlay.removeFromSuperview()
+            }
+        )
+    }
+
+    // MARK: - Phase 10 Plan 07 — toast banner (D-15)
+
+    /// Present the action-failure toast banner. Resolves the LOCKED
+    /// per-action localization key to a localized string via
+    /// `NSLocalizedString` and hands the result to the banner's
+    /// `configure(text:)`. T-09-04 view-layer lock: the banner NEVER
+    /// resolves keys itself — the VC owns the resolution surface so the
+    /// view stays presentation-only.
+    ///
+    /// Idempotent (single-ref discipline mirror of `chainOverlay`):
+    ///   - When `currentToast == nil` (cold path), mount a fresh banner.
+    ///   - When `currentToast != nil` (rapid re-trigger), slide the prior
+    ///     banner out and mount the new one in the slide-out completion
+    ///     closure. The post-condition is exactly ONE banner in the view
+    ///     hierarchy at any time.
+    private func presentToastBanner(copyKey: String) {
+        if let existing = currentToast {
+            existing.playSlideOutAndRemove(onComplete: { [weak self] in
+                self?.mountToast(copyKey: copyKey)
+            })
+            return
+        }
+        mountToast(copyKey: copyKey)
+    }
+
+    /// Cold-path banner mount. Caller guarantees `currentToast == nil`.
+    /// Resolves the locked key, configures the banner, pins it to
+    /// `view.layoutMarginsGuide` leading/trailing, calls `playSlideIn`
+    /// from the safe-area top + DS.Spacing.md, wires the `onRemoved`
+    /// callback to clear `currentToast`.
+    private func mountToast(copyKey: String) {
+        let banner = LoadActionToastBannerView()
+        let resolvedText = NSLocalizedString(
+            copyKey,
+            value: defaultEnglishFallback(for: copyKey),
+            comment: "Phase 10 Plan 07 action-failure toast copy (LOCKED — UI-SPEC line 343-348)"
+        )
+        banner.configure(text: resolvedText)
+        // Wire the onRemoved hook to clear the single-ref BEFORE adding
+        // to the hierarchy so a synchronous removal (rare) doesn't race
+        // the assignment.
+        banner.onRemoved = { [weak self] in
+            // Only clear if THIS banner is still the current one.
+            if self?.currentToast === banner {
+                self?.currentToast = nil
+            }
+        }
+        view.addSubview(banner)
+        banner.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            banner.leadingAnchor.constraint(equalTo: view.layoutMarginsGuide.leadingAnchor),
+            banner.trailingAnchor.constraint(equalTo: view.layoutMarginsGuide.trailingAnchor),
+        ])
+        currentToast = banner
+        banner.playSlideIn(
+            in: view,
+            topAnchor: view.safeAreaLayoutGuide.topAnchor,
+            after: 0,
+            onComplete: nil
+        )
+    }
+
+    /// English-language fallback for each of the 6 LOCKED per-action
+    /// failure copy keys (UI-SPEC line 343-348). NSLocalizedString uses
+    /// these as the `value:` so dev builds without a bundled .strings
+    /// file still render readable text. The localization system would
+    /// normally provide the value — explicit fallback avoids relying on
+    /// bundled strings during early testing.
+    ///
+    /// Unknown keys (i.e., a key not in the LOCKED set) return a generic
+    /// fallback. By construction this branch is unreachable — the VM's
+    /// `errorCopyKey(for:)` (LoadDetailViewModel.swift:490) maps every
+    /// LoadAction case to one of the 6 keys; a new LoadAction case forces
+    /// a compile-time update there. The unknown-key branch is a defensive
+    /// safety net.
+    private func defaultEnglishFallback(for key: String) -> String {
+        switch key {
+        case "loads.actions.error.tender_failed":   return "Couldn't send tender. Try again."
+        case "loads.actions.error.accept_failed":   return "Couldn't accept this tender. Try again."
+        case "loads.actions.error.reject_failed":   return "Couldn't reject this tender. Try again."
+        case "loads.actions.error.cancel_failed":   return "Couldn't cancel this load. Try again."
+        case "loads.actions.error.post_failed":     return "Couldn't post this load. Try again."
+        case "loads.actions.error.advance_failed":  return "Couldn't advance the load. Try again."
+        default:                                    return "Something went wrong. Try again."
+        }
     }
 
     // MARK: - Phase 10 Plan 04 — tender sheet stub (Plan 06 will fill in)
