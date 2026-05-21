@@ -257,7 +257,7 @@ final class LoadDetailViewControllerToastAndOverlayTests: XCTestCase {
                          "Overlay ref cleared in fade-out animation completion")
             exp.fulfill()
         }
-        wait(for: [exp], timeout: 2.0)
+        await fulfillment(of: [exp], timeout: 2.0)
     }
 
     // MARK: - Test 5 — `.actionInFlight → .actionFailed` dismounts overlay AND presents toast
@@ -323,7 +323,7 @@ final class LoadDetailViewControllerToastAndOverlayTests: XCTestCase {
                            "Exactly one banner remains — single-ref discipline mirror")
             exp.fulfill()
         }
-        wait(for: [exp], timeout: 2.0)
+        await fulfillment(of: [exp], timeout: 2.0)
     }
 
     // MARK: - Test 7 — banner text NEVER contains server-payload fragments (T-09-04 lock)
