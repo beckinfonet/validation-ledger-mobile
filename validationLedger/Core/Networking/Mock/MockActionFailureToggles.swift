@@ -74,32 +74,71 @@ public enum DebugActionFailureOverride {
     public static let latencySlowFlag    = "-MockActionLatencySlow"
 
     // MARK: - Activation closures (production shape + test seam)
+    //
+    // WR-01 — these closures are READ from MockURLProtocol handler closures
+    // which fire on URLSession's internal dispatch queue (NOT main), and
+    // WRITTEN from XCTest setUp / tearDown (potentially off-main). Bare
+    // `public static var` would let a parallel-test scenario race the
+    // closure reassignment vs the URLSession handler read. Wrap both reads
+    // and writes in a single NSLock so the closure swap is atomic from the
+    // URLSession-handler's perspective. The lock is process-wide and
+    // contended only when tests mutate — production reads see a single
+    // ProcessInfo lookup under the lock (cheap).
+    //
+    // Test-seam contract: tests MUST complete their `…Active = { … }`
+    // assignment BEFORE issuing any POST that may read it. The lock makes
+    // each individual access atomic but does NOT impose a happens-before
+    // ordering across test boundaries.
+
+    /// Shared lock protecting all four `…Active` closures. nonisolated(unsafe)
+    /// because NSLock is its own concurrency primitive — we own the
+    /// synchronization explicitly. File-private to keep the lock invariant
+    /// inside this enum.
+    nonisolated(unsafe) private static let toggleLock = NSLock()
+
+    nonisolated(unsafe) private static var _conflict409Active: () -> Bool = {
+        ProcessInfo.processInfo.arguments.contains(conflict409Flag)
+    }
+    nonisolated(unsafe) private static var _validation422Active: () -> Bool = {
+        ProcessInfo.processInfo.arguments.contains(validation422Flag)
+    }
+    nonisolated(unsafe) private static var _serverError500Active: () -> Bool = {
+        ProcessInfo.processInfo.arguments.contains(serverError500Flag)
+    }
+    nonisolated(unsafe) private static var _latencySlowActive: () -> Bool = {
+        ProcessInfo.processInfo.arguments.contains(latencySlowFlag)
+    }
 
     /// True when `-MockActionConflict409` is present in this process's
     /// launch arguments. Exposed as a closure rather than a computed
     /// property so unit tests can override without mutating process-wide
     /// `ProcessInfo.arguments`. Production builds run the default closure
     /// — semantically identical to the Phase-5 computed-property pattern.
-    public static var conflict409Active: () -> Bool = {
-        ProcessInfo.processInfo.arguments.contains(conflict409Flag)
+    /// WR-01 — get/set both lock-guarded via `toggleLock`.
+    public static var conflict409Active: () -> Bool {
+        get { toggleLock.lock(); defer { toggleLock.unlock() }; return _conflict409Active }
+        set { toggleLock.lock(); defer { toggleLock.unlock() }; _conflict409Active = newValue }
     }
 
     /// True when `-MockActionValidation422` is present in this process's
     /// launch arguments. See `conflict409Active` for the closure-seam rationale.
-    public static var validation422Active: () -> Bool = {
-        ProcessInfo.processInfo.arguments.contains(validation422Flag)
+    public static var validation422Active: () -> Bool {
+        get { toggleLock.lock(); defer { toggleLock.unlock() }; return _validation422Active }
+        set { toggleLock.lock(); defer { toggleLock.unlock() }; _validation422Active = newValue }
     }
 
     /// True when `-MockActionServerError500` is present in this process's
     /// launch arguments. See `conflict409Active` for the closure-seam rationale.
-    public static var serverError500Active: () -> Bool = {
-        ProcessInfo.processInfo.arguments.contains(serverError500Flag)
+    public static var serverError500Active: () -> Bool {
+        get { toggleLock.lock(); defer { toggleLock.unlock() }; return _serverError500Active }
+        set { toggleLock.lock(); defer { toggleLock.unlock() }; _serverError500Active = newValue }
     }
 
     /// True when `-MockActionLatencySlow` is present in this process's
     /// launch arguments. See `conflict409Active` for the closure-seam rationale.
-    public static var latencySlowActive: () -> Bool = {
-        ProcessInfo.processInfo.arguments.contains(latencySlowFlag)
+    public static var latencySlowActive: () -> Bool {
+        get { toggleLock.lock(); defer { toggleLock.unlock() }; return _latencySlowActive }
+        set { toggleLock.lock(); defer { toggleLock.unlock() }; _latencySlowActive = newValue }
     }
 
     /// Production-equivalent constant for the latency handler's sleep
