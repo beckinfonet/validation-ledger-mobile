@@ -94,6 +94,43 @@
 
 import UIKit
 
+#if DEBUG
+/// Phase 9.1 D-12 / D-13 / D-14 — DEBUG-only launch-arg toggle that flips the
+/// iPhone Load Detail composition from the new vertical-tree layout
+/// (`EveryoneOnLoadStripView` + `ChainOfVouchesView`) back to the Phase 9
+/// 2D `TrustGraphView` + standalone `ChainIntegrityBannerView`.
+///
+/// **Off by default** — Release builds never compile this enum (entire
+/// declaration is `#if DEBUG`); the iPhone-2D code path is unreachable in
+/// production (D-13). DEBUG builds still have to be **explicitly opted in**
+/// via Xcode → Edit Scheme → Run → Arguments → Arguments Passed On Launch.
+///
+/// Use cases (D-14): App Store / marketing screenshots, press shots, demo
+/// videos — the Phase 9 pulse-on-compromised halo is visually striking and
+/// dramatizes the fraud archetypes even though the 2D layout is unreadable
+/// for actual chain-reading at iPhone widths. The flag preserves that
+/// artifact without dragging dead code into the Release binary.
+///
+/// Mirrors the `MockDefaultFixtures.verifiedKYCStatusLaunchFlag` precedent
+/// (`Core/Networking/Mock/MockDefaultFixtures.swift:60-76`): same
+/// `ProcessInfo.processInfo.arguments.contains(...)` parse shape, same
+/// `#if DEBUG` gating, same launch-arg literal cadence.
+public enum Debug2DGraphOverride {
+    /// Locked launch-arg literal (D-12). Add to a scheme's arguments to
+    /// force the legacy 2D TrustGraphView on the iPhone code path.
+    public static let launchFlag = "-Mock2DTrustGraphOnIPhone"
+
+    /// True when `-Mock2DTrustGraphOnIPhone` is present in this process's
+    /// launch arguments. Evaluated once per composition build (cheap —
+    /// argv is a tiny array). `public` so the
+    /// `LoadDetailViewControllerDebug2DOverrideTests` suite can lock the
+    /// default-off contract (D-14).
+    public static var isActive: Bool {
+        ProcessInfo.processInfo.arguments.contains(launchFlag)
+    }
+}
+#endif
+
 public final class LoadDetailViewController: UIViewController {
 
     // MARK: - CompositionLayout (Plan 09 — iPhone single-column vs iPad split)
@@ -131,6 +168,56 @@ public final class LoadDetailViewController: UIViewController {
     // the safe-area height on iPhone per UI-SPEC line 119 (D-01 dominance).
 
     private let trustGraphView = TrustGraphView()
+
+    // MARK: - Phase 9.1 iPhone vertical-tree components (R3 / R4 / R5 / R8)
+    //
+    // On iPhone compact, these REPLACE the Phase 9 `trustGraphView` + the
+    // standalone `chainIntegrityBanner` mount (R4 — the verdict pill is now
+    // folded INSIDE `chainOfVouchesView`'s footer). On iPad regular, neither
+    // is mounted — the Phase 9 composition (TrustGraphView + standalone
+    // banner) is preserved verbatim (R10).
+    //
+    // The DEBUG-only `-Mock2DTrustGraphOnIPhone` flag flips the iPhone path
+    // back to the Phase 9 composition for marketing screenshots (D-12 /
+    // D-13 / D-14). Release builds cannot reach the iPhone-2D code path
+    // (the flag enum is `#if DEBUG`-only).
+
+    private let everyoneOnLoadStripView = EveryoneOnLoadStripView()
+    private let chainOfVouchesView = ChainOfVouchesView()
+
+    // MARK: - iPhone vertical-tree outer scroll (Plan 09.1 R8)
+    //
+    // Wraps `[everyoneOnLoadStripView, chainOfVouchesView, bodyView]` so the
+    // whole composition scrolls as one. Set up lazily on the first iPhone
+    // vertical-tree composition build; reused across rebuilds.
+    private let iPhoneVerticalTreeScrollView: UIScrollView = {
+        let s = UIScrollView()
+        s.translatesAutoresizingMaskIntoConstraints = false
+        s.alwaysBounceVertical = true
+        s.backgroundColor = DS.Colors.background
+        // Identifier so XCUITest probes (and the LoadDetailViewControllerCompositionTests
+        // subview walks) can find the scroll view deterministically.
+        s.accessibilityIdentifier = "load-detail.iphone-vertical-tree.scroll-view"
+        return s
+    }()
+
+    private let iPhoneVerticalTreeContentStack: UIStackView = {
+        let s = UIStackView()
+        s.axis = .vertical
+        s.alignment = .fill
+        s.spacing = 0  // per-pair custom spacing applied via setCustomSpacing
+        s.translatesAutoresizingMaskIntoConstraints = false
+        return s
+    }()
+
+    /// Last union-rect computed by `handleStripChipTap(role:)` — exposed
+    /// under `#if DEBUG` for the W1 union-rect assertion in
+    /// `LoadDetailViewControllerCompositionTests`. The composition test
+    /// invokes the chip-tap handler then reads this property to verify
+    /// the rect spans MULTIPLE rows for multi-node roles (VL-1009 BRK).
+    #if DEBUG
+    internal var lastUnionRectForTesting: CGRect?
+    #endif
 
     // MARK: - Chain-integrity banner (Plan 09 — D-15 / D-16)
     //
@@ -313,6 +400,14 @@ public final class LoadDetailViewController: UIViewController {
             ? .iPadSplit : .iPhonePortrait
         buildLayoutForCurrentComposition()
 
+        // Plan 09.1 — replace the Phase 9 `traitCollectionDidChange(_:)`
+        // override with the iOS 17 `registerForTraitChanges` API (RESEARCH
+        // Example 3). The closure body delegates to `handleSizeClassChange()`
+        // which keeps the existing Phase 9 rebuild logic intact.
+        registerForTraitChanges([UITraitHorizontalSizeClass.self]) { (vc: LoadDetailViewController, _: UITraitCollection) in
+            vc.handleSizeClassChange()
+        }
+
         wireActions()
         bindViewModel()
     }
@@ -346,11 +441,30 @@ public final class LoadDetailViewController: UIViewController {
     /// `traitCollectionDidChange(_:)` handlers re-attach
     /// pulse / shimmer (Pitfall 1). Restores `scrollView.zoomScale +
     /// contentOffset` per UI-SPEC line 813.
-    public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
-        super.traitCollectionDidChange(previousTraitCollection)
-        guard previousTraitCollection?.horizontalSizeClass != traitCollection.horizontalSizeClass else {
-            return
-        }
+    ///
+    /// Plan 09.1 (RESEARCH Example 3): invoked from the iOS 17
+    /// `registerForTraitChanges` closure registered in `viewDidLoad`. The
+    /// override-based `traitCollectionDidChange(_:)` method is no longer
+    /// present (the closure-based API supersedes it for size-class-bounded
+    /// rebuilds).
+    internal func handleSizeClassChange() {
+        handleSizeClassChange(forceRebuild: false)
+    }
+
+    /// Internal seam for unit tests: `forceRebuild: true` rebuilds the
+    /// composition even when the size class did not change (used by the
+    /// trait-override pattern in `LoadDetailViewController*Tests.swift`
+    /// where the override is applied AFTER viewDidLoad has already laid
+    /// out the initial composition).
+    internal func handleSizeClassChange(forceRebuild: Bool) {
+        let newCompositionLayout: CompositionLayout =
+            (traitCollection.horizontalSizeClass == .regular)
+            ? .iPadRegularSplit
+            : .iPhoneCompact
+        // Guard: avoid rebuild if the size class didn't actually flip
+        // (registerForTraitChanges fires on any registered trait change),
+        // unless the caller explicitly requested one.
+        guard forceRebuild || newCompositionLayout != compositionLayout else { return }
 
         // Preserve the graph's pan/zoom state across the rebuild (UI-SPEC line 813).
         let savedZoom = trustGraphView.scrollView.zoomScale
@@ -361,9 +475,7 @@ public final class LoadDetailViewController: UIViewController {
         compositionConstraints.removeAll()
 
         // Flip composition + skeleton render mode.
-        compositionLayout = (traitCollection.horizontalSizeClass == .regular)
-            ? .iPadRegularSplit
-            : .iPhoneCompact
+        compositionLayout = newCompositionLayout
         skeletonView.renderMode = (compositionLayout == .iPadRegularSplit)
             ? .iPadSplit : .iPhonePortrait
 
@@ -431,6 +543,13 @@ public final class LoadDetailViewController: UIViewController {
     /// Pre-add `bodyView` + `trustGraphView` + `rightPaneContainer` as
     /// subviews of `bodyContainer` (without composition constraints) so the
     /// view-hierarchy identity is stable across rebuilds.
+    ///
+    /// Plan 09.1 R8: `everyoneOnLoadStripView` and `chainOfVouchesView` are
+    /// NOT pre-attached here — they only ever live inside
+    /// `iPhoneVerticalTreeContentStack` (which itself is only mounted by
+    /// `buildIPhoneLayoutVerticalTree()`). The Phase 9 CR-02 reparenting
+    /// fix does NOT apply to them (Pitfall 4) — they're iPhone-only and
+    /// never move between bodyContainer and rightPaneContainer.
     private func installBodyViewIntoContainer() {
         bodyView.translatesAutoresizingMaskIntoConstraints = false
         trustGraphView.translatesAutoresizingMaskIntoConstraints = false
@@ -482,25 +601,177 @@ public final class LoadDetailViewController: UIViewController {
         view.setNeedsLayout()
     }
 
-    /// iPhone single-column composition (D-01):
-    /// [pinnedHeader (top-level, VC-owned) ↓ banner-if-non-clean ↓
-    ///  trustGraphView (~62% height) ↓ bodyView (with embedded pinned
-    ///  header hidden)].
+    /// Plan 09.1 R5 — dispatcher for the iPhone composition. The default path
+    /// (Release + DEBUG without the `-Mock2DTrustGraphOnIPhone` launch flag)
+    /// is the new vertical-tree layout from Plans 03 + 04. The DEBUG-only
+    /// branch under the flag preserves the Phase 9 2D `TrustGraphView` +
+    /// standalone `ChainIntegrityBannerView` composition verbatim (D-12 /
+    /// D-13 / D-14 — marketing screenshots use case).
     private func buildIPhoneLayout() {
+        #if DEBUG
+        if Debug2DGraphOverride.isActive {
+            buildIPhoneLayoutLegacyTrustGraph()
+            return
+        }
+        #endif
+        buildIPhoneLayoutVerticalTree()
+    }
+
+    /// Plan 09.1 R8 — the iPhone vertical-tree composition that mounts
+    /// `[pinnedHeader]` above an outer scroll view containing
+    /// `[EveryoneOnLoadStripView, ChainOfVouchesView, LoadDetailBodyView]`.
+    /// The standalone `ChainIntegrityBannerView` is NOT mounted on this path
+    /// (R4 — the verdict pill renders inside `chainOfVouchesView`'s footer).
+    ///
+    /// Scroll-order locked (UI-SPEC §iPhone Scroll Order):
+    /// 1. Pinned summary header (fixed at top, OUTSIDE the scroll view).
+    /// 2. EveryoneOnLoadStripView — vertical gap to next: `DS.Spacing.md`.
+    /// 3. ChainOfVouchesView card — vertical gap to next: `DS.Spacing.xl`.
+    /// 4. LoadDetailBodyView (internal scroll DISABLED — its contentStack
+    ///    drives the height so the outer scroll view owns scrolling).
+    ///    The body's contentStack contains: timeline → freight → parties →
+    ///    verdict block (Plan 04's pre-existing section order).
+    private func buildIPhoneLayoutVerticalTree() {
+        // Right pane / Phase 9 trust graph / standalone banner all unused
+        // on this path. Reparent / hide as needed so a flip from iPad or
+        // from the DEBUG legacy path leaves no orphans.
+        rightPaneContainer.isHidden = true
+        trustGraphView.isHidden = true
+        chainIntegrityBanner?.isHidden = true
+        // Detach the standalone banner from bodyContainer on iPhone (R4 —
+        // not part of the iPhone scroll order on this path; iPad mount
+        // remains intact in buildIPadSplitLayout).
+        chainIntegrityBanner?.removeFromSuperview()
+
+        // Re-parent bodyView back to bodyContainer if a prior iPad split
+        // moved it into rightPaneContainer (mirrors the legacy CR-02 fix).
+        // The vertical-tree path will then move bodyView INTO the outer
+        // scroll's content stack.
+        if bodyView.superview !== bodyContainer {
+            bodyView.removeFromSuperview()
+            bodyContainer.addSubview(bodyView)
+        }
+
+        // Body owns NO pinned header on iPhone — the VC owns a top-level one.
+        bodyView.hidesPinnedSummaryHeader = true
+        // Plan 09.1: disable bodyView's internal scrolling — the OUTER
+        // iPhoneVerticalTreeScrollView owns scrolling for the whole
+        // composition (strip + card + body sections scroll as one).
+        bodyView.isInternalScrollEnabled = false
+
+        // Ensure the top-level pinned header exists.
+        let pinned = ensurePinnedHeaderTopLevelView()
+        pinned.isHidden = false
+
+        // Mount the outer scroll view + content stack into bodyContainer
+        // (once — subsequent rebuilds reuse the same instance).
+        if iPhoneVerticalTreeScrollView.superview !== bodyContainer {
+            iPhoneVerticalTreeScrollView.removeFromSuperview()
+            bodyContainer.addSubview(iPhoneVerticalTreeScrollView)
+        }
+        if iPhoneVerticalTreeContentStack.superview !== iPhoneVerticalTreeScrollView {
+            iPhoneVerticalTreeContentStack.removeFromSuperview()
+            iPhoneVerticalTreeScrollView.addSubview(iPhoneVerticalTreeContentStack)
+        }
+
+        // Pre-attach the strip, card, and bodyView into the content stack
+        // in canonical iPhone scroll order (R8). Each is removed from any
+        // prior superview first so a size-class flip cleanly re-parents.
+        everyoneOnLoadStripView.translatesAutoresizingMaskIntoConstraints = false
+        chainOfVouchesView.translatesAutoresizingMaskIntoConstraints = false
+
+        // Remove from any prior arrangedSubview / superview before re-inserting.
+        for v in iPhoneVerticalTreeContentStack.arrangedSubviews {
+            iPhoneVerticalTreeContentStack.removeArrangedSubview(v)
+            v.removeFromSuperview()
+        }
+        if everyoneOnLoadStripView.superview != nil {
+            everyoneOnLoadStripView.removeFromSuperview()
+        }
+        if chainOfVouchesView.superview != nil {
+            chainOfVouchesView.removeFromSuperview()
+        }
+        if bodyView.superview != nil {
+            bodyView.removeFromSuperview()
+        }
+
+        iPhoneVerticalTreeContentStack.addArrangedSubview(everyoneOnLoadStripView)
+        iPhoneVerticalTreeContentStack.addArrangedSubview(chainOfVouchesView)
+        iPhoneVerticalTreeContentStack.addArrangedSubview(bodyView)
+
+        // Per-pair spacing per UI-SPEC §iPhone Scroll Order:
+        //   strip → card  : DS.Spacing.md (16pt)
+        //   card  → body  : DS.Spacing.xl (32pt — wider separation so the
+        //                    chain block reads as the dominant feature)
+        iPhoneVerticalTreeContentStack.setCustomSpacing(DS.Spacing.md, after: everyoneOnLoadStripView)
+        iPhoneVerticalTreeContentStack.setCustomSpacing(DS.Spacing.xl, after: chainOfVouchesView)
+
+        // Activate the composition geometry.
+        var cs: [NSLayoutConstraint] = [
+            // Pinned header — top of bodyContainer; horizontal pin.
+            pinned.topAnchor.constraint(equalTo: bodyContainer.topAnchor),
+            pinned.leadingAnchor.constraint(equalTo: bodyContainer.leadingAnchor),
+            pinned.trailingAnchor.constraint(equalTo: bodyContainer.trailingAnchor),
+
+            // Outer scroll view — fills the area below the pinned header.
+            // Vertical gap from pinned header to strip: DS.Spacing.md.
+            iPhoneVerticalTreeScrollView.topAnchor.constraint(
+                equalTo: pinned.bottomAnchor, constant: DS.Spacing.md),
+            iPhoneVerticalTreeScrollView.leadingAnchor.constraint(equalTo: bodyContainer.leadingAnchor),
+            iPhoneVerticalTreeScrollView.trailingAnchor.constraint(equalTo: bodyContainer.trailingAnchor),
+            iPhoneVerticalTreeScrollView.bottomAnchor.constraint(equalTo: bodyContainer.bottomAnchor),
+
+            // Content stack horizontal: pin to frameLayoutGuide so the
+            // stack content cannot scroll horizontally.
+            iPhoneVerticalTreeContentStack.leadingAnchor.constraint(
+                equalTo: iPhoneVerticalTreeScrollView.frameLayoutGuide.leadingAnchor),
+            iPhoneVerticalTreeContentStack.trailingAnchor.constraint(
+                equalTo: iPhoneVerticalTreeScrollView.frameLayoutGuide.trailingAnchor),
+
+            // Content stack vertical: pin to contentLayoutGuide so vertical
+            // scroll content size grows with the stack.
+            iPhoneVerticalTreeContentStack.topAnchor.constraint(
+                equalTo: iPhoneVerticalTreeScrollView.contentLayoutGuide.topAnchor),
+            iPhoneVerticalTreeContentStack.bottomAnchor.constraint(
+                equalTo: iPhoneVerticalTreeScrollView.contentLayoutGuide.bottomAnchor),
+        ]
+
+        NSLayoutConstraint.activate(cs)
+        compositionConstraints = cs
+    }
+
+    /// Plan 09.1 D-12 / D-13 — DEBUG-only legacy iPhone composition that
+    /// preserves the Phase 9 `[pinnedHeader ↓ banner ↓ trustGraphView ↓
+    /// bodyView]` posture verbatim. Reachable only when the
+    /// `-Mock2DTrustGraphOnIPhone` launch flag is present AND the build
+    /// configuration is DEBUG. Release builds never compile this method.
+    #if DEBUG
+    private func buildIPhoneLayoutLegacyTrustGraph() {
+        // Tear down any new-iPhone vertical-tree mounts (so a flip from the
+        // default path to the legacy DEBUG path during a single launch
+        // session — unusual, but possible — does not leave orphans).
+        iPhoneVerticalTreeScrollView.removeFromSuperview()
+        for v in iPhoneVerticalTreeContentStack.arrangedSubviews {
+            iPhoneVerticalTreeContentStack.removeArrangedSubview(v)
+            v.removeFromSuperview()
+        }
+        if everyoneOnLoadStripView.superview != nil {
+            everyoneOnLoadStripView.removeFromSuperview()
+        }
+        if chainOfVouchesView.superview != nil {
+            chainOfVouchesView.removeFromSuperview()
+        }
+        // Restore body's internal scrolling for the legacy path.
+        bodyView.isInternalScrollEnabled = true
+
         // Right pane is not used on iPhone.
         rightPaneContainer.isHidden = true
+        trustGraphView.isHidden = false
 
         // CR-02 fix (Phase 9 review): re-parent bodyView to bodyContainer
         // in case we're coming back from an iPad split layout — that path
-        // moved bodyView into `rightPaneContainer` (see buildIPadSplitLayout
-        // lines 556-559). Without this, an iPad→iPhone rotation leaves
-        // bodyView stranded under rightPaneContainer while the iPhone
-        // constraints anchor it to bodyContainer — AutoLayout cannot
-        // satisfy a constraint between two views in different subtrees,
-        // producing runtime "Unable to simultaneously satisfy constraints"
-        // breakages + silently broken iPhone layout after the trait flip.
-        // Mirrors the symmetric re-parent buildIPadSplitLayout already
-        // performs on the iPhone→iPad direction.
+        // moved bodyView into `rightPaneContainer`. Mirrors the symmetric
+        // re-parent buildIPadSplitLayout performs on iPhone→iPad.
         if bodyView.superview !== bodyContainer {
             bodyView.removeFromSuperview()
             bodyContainer.addSubview(bodyView)
@@ -564,12 +835,38 @@ public final class LoadDetailViewController: UIViewController {
         NSLayoutConstraint.activate(cs)
         compositionConstraints = cs
     }
+    #endif
 
-    /// iPad split composition (D-03):
+    /// iPad split composition (D-03 — UNCHANGED by Plan 09.1 per R10):
     /// [banner-if-non-clean (full-width top) ↓ horizontalSplit:
     ///  [trustGraphView (left 60%) | rightPaneContainer (right 40%):
     ///    [bodyView with embedded pinned header shown]]].
+    ///
+    /// Plan 09.1: also tears down any iPhone vertical-tree mounts so a flip
+    /// from .compact → .regular cleanly removes the strip / card / outer
+    /// scroll view (they are iPhone-only and would otherwise float as
+    /// orphans inside `bodyContainer`).
     private func buildIPadSplitLayout() {
+        // Plan 09.1: clear iPhone vertical-tree mounts when entering iPad.
+        // The strip and card never mount on iPad (R10 — iPad keeps Phase 9
+        // TrustGraphView verbatim).
+        for v in iPhoneVerticalTreeContentStack.arrangedSubviews {
+            iPhoneVerticalTreeContentStack.removeArrangedSubview(v)
+            v.removeFromSuperview()
+        }
+        iPhoneVerticalTreeScrollView.removeFromSuperview()
+        if everyoneOnLoadStripView.superview != nil {
+            everyoneOnLoadStripView.removeFromSuperview()
+        }
+        if chainOfVouchesView.superview != nil {
+            chainOfVouchesView.removeFromSuperview()
+        }
+        // Restore the body's internal scrolling for the iPad path (in case
+        // we're flipping back from the iPhone vertical-tree layout where it
+        // was disabled).
+        bodyView.isInternalScrollEnabled = true
+        trustGraphView.isHidden = false
+
         // Body owns its pinned header on iPad — header lives at the top of
         // the right pane.
         bodyView.hidesPinnedSummaryHeader = false
@@ -718,6 +1015,83 @@ public final class LoadDetailViewController: UIViewController {
         trustGraphView.edgeTapped = { [weak self] edgeID in
             self?.presentHandoffDetailSheet(for: edgeID)
         }
+
+        // Plan 09.1 D-08 / D-09 / D-10 — chip-tap → tree-scroll wiring.
+        // Set ONCE for the VC's lifetime. The handler is a no-op on iPad
+        // (chainOfVouchesView is not in the iPad composition; rowViews(for:)
+        // returns an empty array).
+        everyoneOnLoadStripView.onRoleTap = { [weak self] role in
+            self?.handleStripChipTap(role: role)
+        }
+    }
+
+    // MARK: - Plan 09.1 D-08 / D-09 / D-10 / W1 — chip-tap → tree-scroll
+
+    /// Handle a tap on a strip chip (D-08). Scrolls
+    /// `iPhoneVerticalTreeScrollView` so the UNION of ALL rows matching
+    /// the tapped role is on-screen (W1 — D-10 "the role is suspect, not
+    /// just one party"). The multi-broker VL-1009 case surfaces BOTH
+    /// broker rows after the scroll, not just the first.
+    ///
+    /// Window guard (Pitfall 2 / RESEARCH §Pitfall 2 lines 535-543):
+    /// `convert(_:to:)` returns garbage when either view is not yet in a
+    /// window; defer the scroll to the next runloop in that case.
+    ///
+    /// Haptic (D-08): `UISelectionFeedbackGenerator.selectionChanged()` —
+    /// the soft "selection-changed" click matches the segmented-control
+    /// precedent for selecting one item from a small set.
+    internal func handleStripChipTap(role: Role) {
+        // Mark the chip + matching rows as selected even before the scroll
+        // resolves — the user gets immediate visual feedback.
+        chainOfVouchesView.applySelectedRole(role)
+        everyoneOnLoadStripView.applySelectedRole(role)
+
+        let rows = chainOfVouchesView.rowViews(for: role)
+        guard !rows.isEmpty else {
+            // No matching rows (shouldn't happen — the chip wouldn't exist
+            // unless its role has at least one node in the chain). Defensive
+            // no-op: we've already applied the selection visual above.
+            return
+        }
+
+        // Pitfall 2 — both the rows AND the outer scroll view MUST be in a
+        // window before convert(_:to:) returns valid coordinates. If we're
+        // off-window (e.g. tapped during a view-controller transition), defer
+        // to the next runloop.
+        let allRowsInWindow = rows.allSatisfy { $0.window != nil }
+        guard iPhoneVerticalTreeScrollView.window != nil, allRowsInWindow else {
+            DispatchQueue.main.async { [weak self] in
+                self?.handleStripChipTap(role: role)
+            }
+            return
+        }
+
+        // W1 — fold ALL matching row frames into a single UNION rect so the
+        // scroll surfaces every implicated row, not just the first. For
+        // single-node roles the union equals one row's frame; for multi-node
+        // roles (VL-1009 BRK) it spans both broker rows so both are
+        // on-screen after the scroll.
+        let unionRect = rows.reduce(CGRect.null) { acc, row in
+            acc.union(row.convert(row.bounds, to: iPhoneVerticalTreeScrollView))
+        }
+        guard !unionRect.isNull else { return }
+
+        // Apply a top inset of DS.Spacing.md so the union does not butt
+        // against the strip above. insetBy(dx:, dy:) expands when the
+        // argument is negative; we use a negative dy to grow the rect by
+        // DS.Spacing.md on both vertical edges (top + bottom) so
+        // scrollRectToVisible places the union with breathing room.
+        let target = unionRect.insetBy(dx: 0, dy: -DS.Spacing.md)
+
+        // Stash for Plan 05 Task 2 (CompositionTests W1 assertion).
+        #if DEBUG
+        lastUnionRectForTesting = target
+        #endif
+
+        iPhoneVerticalTreeScrollView.scrollRectToVisible(target, animated: true)
+
+        // Haptic feedback (D-08).
+        UISelectionFeedbackGenerator().selectionChanged()
     }
 
     private func bindViewModel() {
@@ -767,21 +1141,39 @@ public final class LoadDetailViewController: UIViewController {
         cachedChainOfTrust = chainOfTrust
 
         // Build/replace the chain-integrity banner — verdict + reason are
-        // stored at init time so a new verdict needs a new instance. The
-        // banner self-hides for `.clean` (intrinsicContentSize == .zero,
-        // isHidden == true) and renders 36pt of yellow/red chrome otherwise.
+        // stored at init time so a new verdict needs a new instance.
+        //
+        // Plan 09.1 R4: the standalone banner is now ONLY mounted on iPad
+        // (or on the DEBUG iPhone-legacy path). On the default iPhone
+        // vertical-tree path, the verdict pill renders INSIDE
+        // `chainOfVouchesView`'s footer; the standalone banner is not used
+        // and we skip the instance build entirely on that path.
+        let needsStandaloneBanner: Bool
+        if compositionLayout == .iPadRegularSplit {
+            needsStandaloneBanner = true
+        } else {
+            #if DEBUG
+            needsStandaloneBanner = Debug2DGraphOverride.isActive
+            #else
+            needsStandaloneBanner = false
+            #endif
+        }
+
         chainIntegrityBanner?.removeFromSuperview()
-        let banner = ChainIntegrityBannerView(
-            verdict: chainOfTrust.integrity.verdict,
-            reason: chainOfTrust.integrity.reason
-        )
-        banner.translatesAutoresizingMaskIntoConstraints = false
-        chainIntegrityBanner = banner
+        chainIntegrityBanner = nil
+        if needsStandaloneBanner {
+            let banner = ChainIntegrityBannerView(
+                verdict: chainOfTrust.integrity.verdict,
+                reason: chainOfTrust.integrity.reason
+            )
+            banner.translatesAutoresizingMaskIntoConstraints = false
+            chainIntegrityBanner = banner
+        }
 
         // Rebuild the composition so the banner participates in its
         // position-and-size constraints. (The banner is part of the
-        // composition layout — buildIPhoneLayout / buildIPadSplitLayout
-        // pin it conditionally on `!banner.isHidden`.)
+        // composition layout — buildIPhoneLayoutLegacyTrustGraph /
+        // buildIPadSplitLayout pin it conditionally on `!banner.isHidden`.)
         NSLayoutConstraint.deactivate(compositionConstraints)
         compositionConstraints.removeAll()
         buildLayoutForCurrentComposition()
@@ -798,17 +1190,44 @@ public final class LoadDetailViewController: UIViewController {
         // D-02 — install the in-body verdict block. The body's
         // installVerdictBlock(...) handles the .clean branch defensively
         // (no block instantiated, slot collapses).
+        //
+        // Plan 09.1 R4: the in-body verdict block is part of Phase 9 body
+        // composition; on the iPhone vertical-tree path the chain-of-vouches
+        // footer pill is the primary fraud signal but leaving the body's
+        // verdict block in place preserves the bill-of-lading section order
+        // for users who scroll past the chain card. The body's block self-
+        // hides for `.clean` — no visual collision.
         bodyView.installVerdictBlock(
             verdict: chainOfTrust.integrity.verdict,
             reason: chainOfTrust.integrity.reason,
             implicatedNodeCount: chainOfTrust.integrity.implicatedNodeIDs.count
         )
 
-        // Plan 06 — drive the marquee graph from the WHOLE server-supplied
-        // ChainOfTrust. Every visual treatment (halo, edge dash, dim-others,
-        // accessibilityLabel) flows from this payload verbatim per Phase 7
-        // D-18 LOCK.
-        trustGraphView.configure(chainOfTrust: chainOfTrust)
+        // Plan 09.1 R5 — configure the new iPhone vertical-tree components
+        // on the iPhone default path; the iPad path + DEBUG legacy path
+        // continue to configure the Phase 9 trust graph.
+        let useIPhoneVerticalTree: Bool = {
+            guard compositionLayout == .iPhoneCompact else { return false }
+            #if DEBUG
+            return !Debug2DGraphOverride.isActive
+            #else
+            return true
+            #endif
+        }()
+
+        if useIPhoneVerticalTree {
+            // Plan 09.1 R3 — drive both new components from the WHOLE
+            // server-supplied ChainOfTrust (R11 — data model FROZEN; no
+            // derive*/compute* call).
+            everyoneOnLoadStripView.configure(chainOfTrust: chainOfTrust)
+            chainOfVouchesView.configure(chainOfTrust: chainOfTrust)
+        } else {
+            // Plan 06 — drive the marquee graph from the WHOLE server-
+            // supplied ChainOfTrust. Every visual treatment (halo, edge
+            // dash, dim-others, accessibilityLabel) flows from this payload
+            // verbatim per Phase 7 D-18 LOCK.
+            trustGraphView.configure(chainOfTrust: chainOfTrust)
+        }
 
         skeletonContainer.isHidden = true
         errorContainer.isHidden = true
@@ -832,14 +1251,31 @@ public final class LoadDetailViewController: UIViewController {
 
         switch compositionLayout {
         case .iPhoneCompact:
+            // Plan 09.1 R6 — iPhone leaf-element model. On the default
+            // vertical-tree path: pinned header → strip → card → body.
+            // On the DEBUG legacy path: keep the Phase 9 ordering.
+            #if DEBUG
+            let isLegacyDebugPath = Debug2DGraphOverride.isActive
+            #else
+            let isLegacyDebugPath = false
+            #endif
+
             if let pinned = pinnedHeaderTopLevelView, !pinned.isHidden {
                 elements.append(pinned)
             }
-            if let banner, !banner.isHidden {
-                elements.append(banner)
+            if isLegacyDebugPath {
+                // Phase 9 iPhone composition (legacy DEBUG path).
+                if let banner, !banner.isHidden {
+                    elements.append(banner)
+                }
+                elements.append(trustGraphView)
+                elements.append(bodyView)
+            } else {
+                // Plan 09.1 default iPhone vertical-tree composition.
+                elements.append(everyoneOnLoadStripView)
+                elements.append(chainOfVouchesView)
+                elements.append(bodyView)
             }
-            elements.append(trustGraphView)
-            elements.append(bodyView)
         case .iPadRegularSplit:
             if let banner, !banner.isHidden {
                 elements.append(banner)
