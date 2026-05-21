@@ -1692,17 +1692,77 @@ public final class LoadDetailViewController: UIViewController {
         }
     }
 
-    // MARK: - Phase 10 Plan 04 — tender sheet stub (Plan 06 will fill in)
+    // MARK: - Phase 10 Plan 06 — tender sheet presentation (replaces Plan 04 stub)
 
-    /// STUB — Plan 06 fills in the actual `UISheetPresentationController`
-    /// that collects the carrier + respond-by deadline + (on Send)
-    /// dispatches `viewModel.submit(action: .tender, body: ...)`. For Plan
-    /// 04 the stub exists so the handleActionTap routing test (Test 6 of
-    /// LoadDetailViewControllerActionRenderTests) can assert the tender
-    /// tap path is wired correctly.
+    /// Entry point for the tender flow. Phase 10 Plan 06 (D-06 / D-08 / D-09 /
+    /// D-11) fills in the Plan 04 stub:
+    ///   1. Fetch the carrier directory via `viewModel.fetchCarrierDirectory()`.
+    ///   2. Construct the sheet (TenderSheetViewController init with
+    ///      directory + onSend + onCancel closures — see below).
+    ///   3. Present it via `UISheetPresentationController` using the verbatim
+    ///      7-line recipe Phase 9 established (Pitfall 7 LOCK — NOT factored
+    ///      into a helper).
+    ///
+    /// On directory-fetch failure the VC does NOT render server text
+    /// (T-09-04 view-layer lock); the sheet simply does not present. A
+    /// follow-up could route the failure through the toast banner; for
+    /// v1.1 the simplest posture is the no-op fallback — the user can
+    /// re-tap Tender.
     private func presentTenderSheet() {
         presentTenderSheetCallCountForTesting += 1
-        // Plan 06: replace this body with the sheet presentation.
+        Task { [weak self] in
+            guard let self else { return }
+            do {
+                let directory = try await self.viewModel.fetchCarrierDirectory()
+                self.presentTenderSheet(directory: directory)
+            } catch {
+                // T-09-04 — never render the server's error text. The VM
+                // already logged the fetch-failed event with fields: [:].
+                // Sheet is simply not presented; user can re-tap Tender.
+            }
+        }
+    }
+
+    /// Construct + present the `TenderSheetViewController` with the verbatim
+    /// 7-line `UISheetPresentationController` recipe. PATTERNS.md §6 + Pitfall
+    /// 7 LOCK — the recipe is INLINED at every call site (count >= 3 across
+    /// this file after Plan 06: verification-basis + handoff-detail + tender).
+    private func presentTenderSheet(directory: [TrustNode]) {
+        let sheetVC = TenderSheetViewController(
+            directory: directory,
+            onSend: { [weak self] partyID, deadline in
+                guard let self else { return }
+                let body = LoadActionEndpoint.RequestBody(
+                    actorRole: self.viewModel.role,
+                    targetPartyID: partyID,
+                    respondByAt: deadline,
+                    note: nil
+                )
+                await self.viewModel.submit(action: .tender, body: body)
+                // On the .loaded render path post-success, the sheet is
+                // auto-dismissed; on .actionFailed the sheet stays visible
+                // and Plan 07's toast slides in over the parent.
+                if case .loaded = self.viewModel.state {
+                    self.dismiss(animated: true)
+                }
+            },
+            onCancel: { [weak self] in self?.dismiss(animated: true) }
+        )
+        sheetVC.modalPresentationStyle = .pageSheet
+        if let sheet = sheetVC.sheetPresentationController {
+            // VERBATIM 7-line recipe per PATTERNS.md §6 + Pitfall 7 LOCK —
+            // do NOT refactor into a helper. The grep gate's count >= 3
+            // (verification-basis + handoff-detail + this site) trips if a
+            // future refactor extracts this block.
+            sheet.detents = [.medium(), .large()]
+            sheet.selectedDetentIdentifier = .medium
+            sheet.prefersGrabberVisible = true
+            sheet.largestUndimmedDetentIdentifier = .medium  // D-08 + UI-SPEC line 439 CRITICAL — keeps parent interactive at .medium so the failure toast (Plan 07) lands OVER the still-visible sheet
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
+            sheet.prefersEdgeAttachedInCompactHeight = true
+            sheet.widthFollowsPreferredContentSizeWhenEdgeAttached = true
+        }
+        present(sheetVC, animated: true)
     }
 
     // MARK: - Phase 10 Plan 04 — action tap routing
