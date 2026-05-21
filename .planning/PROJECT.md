@@ -60,11 +60,11 @@ v1.0 closed with a `tech_debt` milestone audit — see `.planning/milestones/v1.
 
 <!-- v1.1 "Load Flows" scope — hypotheses until shipped + validated. Detailed in .planning/REQUIREMENTS.md. -->
 
-- [ ] Role-filtered load list — each of the 5 roles sees its relevant loads
-- [ ] Load detail screen
-- [ ] Interactive chain-of-trust graph — shipper→broker→carrier→dispatch→factoring node-graph with per-party verification state, tappable for verification basis
 - [ ] Per-role tender / accept / reject action sets across all 5 roles
 - [x] **LOAD-01, LOAD-02** — Load-domain mock endpoints + fixtures, contract-first foundation (`Core/Load/` value types, `RoleLoadPolicy`, 3 typed endpoints, 22-fixture matrix, DEBUG `MockLoadFixtureRegistry`) — Phase 7, 2026-05-19
+- [x] **LOAD-03..08, TRUST-02** — Role-filtered load list + per-role badges + empty/loading/error + pull-to-refresh — Phase 8, 2026-05-20 (5 device-UAT items pending in 08-HUMAN-UAT.md)
+- [x] **Load detail + chain-of-trust graph** — Status timeline, 2D `TrustGraphView` + `ChainIntegrityBannerView`, tap-for-verification-basis — Phase 9, 2026-05-20 (6 device-UAT scenarios pending in 09-HUMAN-UAT.md)
+- [x] **R1..R12 (iPhone Chain-of-Vouches Redesign)** — Vertical attribution tree + role strip on iPhone replacing the 2D graph (iPad keeps it); `DS.Colors.Verification`/`DS.Colors.Roles` TRUST-02 helpers; R12 single-source-of-truth grep gate locked — Phase 9.1, 2026-05-21 (4 device/visual items pending in 09.1-HUMAN-UAT.md)
 
 ### Deferred from M2 (post-v1.1)
 
@@ -168,8 +168,7 @@ TechStack.md (in repo root) is the iOS client's detailed technical spec — 13 s
 | Insert Phase 6 from the v1.0 audit to close DEV-04 / CI-03 gaps before milestone close | The audit found App Attest unwired at first login + Phase 4 unverified | ✓ Good — audit→closure-phase loop worked; re-audit closed `tech_debt` |
 | Scope the original M2 "Core Flows" down to v1.1 "Load Flows" — load list/detail/trust-graph/tender only; defer real backend, real-time, push, analytics, background `URLSession` | M2 was too large for a focused cycle; the load domain is a coherent vertical slice buildable against M1's `MockURLProtocol` pattern with zero backend dependency | — Pending |
 | Build v1.1 against `MockURLProtocol` fixtures; keep the production backend a separate GSD project | M1 proved contract-first iOS dev needs no running server; upholds the documented iOS/backend separation | — Pending |
-
-## Evolution
+| Insert Phase 9.1 from device-UAT 2026-05-20 to replace iPhone 2D trust-graph with a vertical attribution tree + role strip; preserve the 2D graph on iPad | iPhone composition collapsed at high broker counts (slot-collision + chip overcrowding); vertical attribution tree is the most direct fix — and folding the chain-integrity banner into the card footer + landing a shared `DS.Colors.Verification` helper strengthens TRUST-02 as a side effect | ✓ Good — 12/12 R-truths verified 2026-05-21 |
 
 This document evolves at phase transitions and milestone boundaries.
 
@@ -187,4 +186,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-20 — Phase 8 (Role-Filtered Load List) complete; LOAD-03, LOAD-04, LOAD-07, LOAD-08, TRUST-02 delivered (15/15 must-haves verified; 5 device-UAT items pending — see 08-HUMAN-UAT.md)*
+*Last updated: 2026-05-21 — Phase 9.1 (Chain-of-Vouches Redesign) complete; R1..R12 delivered (12/12 R-truths verified; 4 device/visual items pending in 09.1-HUMAN-UAT.md). The iPhone load-detail surface now mounts the vertical attribution tree + everyone-on-load strip; iPad continues to render the Phase 9 2D `TrustGraphView` unchanged. Next: Phase 10 (Per-Role Tender / Accept / Reject).*
