@@ -266,7 +266,7 @@
     ],
     "integrity": {
       "verdict": "clean",
-      "reason": "Short-haul dispatch confirmed; all parties verified.",
+      "reason": "3 vouches, no anonymous parties",
       "implicated_node_ids": [],
       "implicated_edge_ids": []
     }

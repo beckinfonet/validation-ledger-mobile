@@ -336,7 +336,7 @@
     ],
     "integrity": {
       "verdict": "clean",
-      "reason": "All parties verified; KYC current; carrier authority active; no fraud signals detected.",
+      "reason": "4 vouches, no anonymous parties",
       "implicated_node_ids": [],
       "implicated_edge_ids": []
     }

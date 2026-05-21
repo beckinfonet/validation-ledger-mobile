@@ -141,7 +141,7 @@
     ],
     "integrity": {
       "verdict": "clean",
-      "reason": "Awaiting tender; shipper and broker verified.",
+      "reason": "1 vouch, no anonymous parties",
       "implicated_node_ids": [],
       "implicated_edge_ids": []
     }

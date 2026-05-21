@@ -181,7 +181,7 @@
     ],
     "integrity": {
       "verdict": "caution",
-      "reason": "Prior tender expired without response from target carrier; KYC pending.",
+      "reason": "2 vouches, no anonymous parties",
       "implicated_node_ids": [
         "party-carrier-nationallink"
       ],
