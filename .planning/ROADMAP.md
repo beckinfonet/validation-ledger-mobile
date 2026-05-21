@@ -201,8 +201,8 @@ Plans:
 
 **Wave 4** *(parallel, blocked on Wave 3)*
 
-- [ ] 10-05-PLAN.md — CarrierDirectoryEndpoint (GET /carriers/directory) + tender-carrier-directory.json fixture (7 synthetic carriers spanning 4 VerificationState cases, Chameleon Cargo fraud archetype) + MockLoadFixtureRegistry handler + decode + mock-dispatch tests
-- [ ] 10-07-PLAN.md — LoadActionToastBannerView (hand-rolled UIView.animate slide-in/out + haptic + VoiceOver announcement + auto-dismiss + tap/swipe-up dismiss) + chain updating-overlay (alpha-fade + UIActivityIndicatorView) + presentToastBanner(copyKey:) wiring on VC
+- [x] 10-05-PLAN.md — CarrierDirectoryEndpoint (GET /carriers/directory) + tender-carrier-directory.json fixture (7 synthetic carriers spanning 4 VerificationState cases, Chameleon Cargo fraud archetype) + MockLoadFixtureRegistry handler + decode + mock-dispatch tests
+- [x] 10-07-PLAN.md — LoadActionToastBannerView (hand-rolled UIView.animate slide-in/out + haptic + VoiceOver announcement + auto-dismiss + tap/swipe-up dismiss) + chain updating-overlay (alpha-fade + UIActivityIndicatorView) + presentToastBanner(copyKey:) wiring on VC
 
 **Wave 5** *(parallel, blocked on Wave 4)*
 
@@ -237,7 +237,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 9.1 → 10
 | 8. Role-Filtered Load List | v1.1 | 4/4 | Complete   | 2026-05-20 |
 | 9. Load Detail & Chain-of-Trust Graph | v1.1 | 10/10 | Complete   | 2026-05-20 |
 | 9.1. Chain-of-Vouches Redesign (INSERTED — device UAT) | v1.1 | 5/5 | Complete   | 2026-05-21 |
-| 10. Per-Role Tender / Accept / Reject | v1.1 | 5/10 | In Progress|  |
+| 10. Per-Role Tender / Accept / Reject | v1.1 | 7/10 | In Progress|  |
 
 ---
 *Milestone v1.0 "M1 Foundation" shipped 2026-05-18 — see `.planning/MILESTONES.md`. Roadmap created 2026-04-20. v1.1 "Load Flows" phases 7-10 added 2026-05-19. Phase 09.1 inserted 2026-05-20 from device-UAT; planned 2026-05-21.*
