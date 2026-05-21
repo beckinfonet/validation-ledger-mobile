@@ -1,10 +1,11 @@
 ---
 phase: 10
 slug: per-role-tender-accept-reject
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: validated
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-05-21
+audited: 2026-05-21
 ---
 
 # Phase 10 — Validation Strategy
@@ -42,17 +43,19 @@ created: 2026-05-21
 
 | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File / Symbol | Status |
 |---|---|---|---|---|---|---|
-| ACTION-01 (per-role action surface, no `switch load.status`) | T-10-01 (privilege escalation via wrong action shown) | `RoleLoadPolicy.availableActions(for:in:)` is the only gate; lint test asserts zero `switch.*status` in `Features/Loads/**/*ViewController.swift` and `**/*Cell.swift` | unit + lint | `xcodebuild test … -only-testing:validationLedgerTests/Loads/RoleLoadPolicyAvailableActionsTests` + `grep -nE 'switch[[:space:]]+.*\.status' validationLedger/Features/Loads/**/*ViewController.swift \| (! grep .)` | `RoleLoadPolicyAvailableActionsTests.swift` (NEW) | ⬜ pending |
-| ACTION-02 (accept / advance forward-path mutates state) | T-10-02 (state mutation without server confirmation) | Mock POST returns symmetric `{ load, chainOfTrust }`; VM swaps to new load; action set recomputes | unit + UI test | `xcodebuild test … -only-testing:validationLedgerTests/Loads/LoadDetailViewModelActionTests/test_acceptForwardPath` + `validationLedgerUITests/LoadActionFlowsTests/test_carrierCanAcceptActiveTender` | `LoadDetailViewModelActionTests.swift` (NEW), `LoadActionFlowsTests.swift` (NEW) | ⬜ pending |
-| ACTION-03 (reject returns load to posted) | T-10-02 | `LoadActionPredictor.predict(.reject)` returns load with `.status = .posted`, `respondByAt = nil`, current counterparty cleared | unit + snapshot | `… -only-testing:validationLedgerTests/Loads/LoadActionPredictorTests/test_rejectReturnsToPosted` + Wave 4 snapshot row (carrier × .activeTender → .posted) | `LoadActionPredictorTests.swift` (NEW) | ⬜ pending |
-| ACTION-04 (tender requires verified counterparty — hard disable) | **T-10-04 (CRITICAL — platform thesis)** Tender to unverified counterparty | Tender button `isEnabled = false` AND inline reason label visible when no verified counterparties in directory; sheet picker filters `trustTier == .verified` | unit + snapshot + UI test | `… -only-testing:validationLedgerTests/Loads/TenderEligibilityGatingTests` + snapshot row (broker × .posted, no-verified-directory) + `validationLedgerUITests/TenderGateTests/test_unverifiedCounterpartyHardDisable` | `TenderEligibilityGatingTests.swift` (NEW), `TenderGateTests.swift` (NEW) | ⬜ pending |
-| ACTION-05 (optimistic UI + rollback on failure) | T-10-05 (state desync after rollback) | VM snapshots pre-action load; applies predictor result; on `URLError` / non-2xx restores snapshot, surfaces toast, re-enables action; in-flight set prevents double-submit | unit (deterministic mock) + UI test | `… -only-testing:validationLedgerTests/Loads/LoadDetailViewModelRollbackTests` + `validationLedgerUITests/LoadActionFlowsTests/test_rollbackOnServerError500` | `LoadDetailViewModelRollbackTests.swift` (NEW) | ⬜ pending |
-| ACTION-06 (post / cancel act on existing fixture loads as state actions; no creation form) | T-10-06 (broker accidentally cancels foreign load) | `RoleLoadPolicy.availableActions(broker, .posted)` includes `.cancel`, `.retender`; `.post` only available on `.draft`; no view controller exposes a multi-field create form | unit + UI absence test | `… -only-testing:validationLedgerTests/Loads/RoleLoadPolicyAvailableActionsTests/test_brokerCancelOnPosted` + `validationLedgerUITests/LoadActionFlowsTests/test_noLoadCreationFormExists` | `RoleLoadPolicyAvailableActionsTests.swift` (NEW) | ⬜ pending |
-| ACTION-07 (active-tender deadline visible inline) | T-10-07 (deadline silently passes) | Carrier on `.activeTender` sees inline "Respond by HH:mm · M/d" label sourced from `load.respondByAt` (rendered via `RelativeDateTimeFormatter` or DateFormatter — planner picks) | snapshot + unit | Wave 4 snapshot row (carrier × .activeTender) + `… -only-testing:validationLedgerTests/Loads/RespondByLabelTests` | `RespondByLabelTests.swift` (NEW) | ⬜ pending |
-| ACTION-08 (every action endpoint routes through v1.0 idempotency interceptor) | **T-10-08 (CRITICAL)** Replayed POST mutates state twice | `IdempotencyInterceptor` auto-injects `Idempotency-Key: <UUIDv4>` on every POST; assertion test confirms the interceptor is registered in `apiClient.requestInterceptors` AND that the action endpoint chain receives the header in the recorded mock request | unit (interceptor) + integration (mock dispatch) | `… -only-testing:validationLedgerTests/Networking/IdempotencyInterceptorRegistrationTests` + `… -only-testing:validationLedgerTests/Networking/Mock/MockLoadActionDispatchTests/test_actionRequestCarriesIdempotencyKey` | `IdempotencyInterceptorRegistrationTests.swift` (NEW or extend Phase-2 file), `MockLoadActionDispatchTests.swift` (NEW) | ⬜ pending |
-| ACTION-09 (after success, list reflects new state on pop-back) | T-10-09 (stale list state) | `LoadListViewController.viewWillAppear` → `fetchLoads()` is preserved; integration test pops back from detail and asserts cell shows new status | UI test (XCUITest) | `validationLedgerUITests/LoadActionFlowsTests/test_listReflectsNewStateOnPopBack` | `LoadActionFlowsTests.swift` (NEW) | ⬜ pending |
+| ACTION-01 (per-role action surface, no `switch load.status`) | T-10-01 (privilege escalation via wrong action shown) | `RoleLoadPolicy.availableActions(for:in:)` is the only gate; lint test asserts zero `switch.*status` in `Features/Loads/**/*ViewController.swift` and `**/*Cell.swift` | unit + lint | `xcodebuild test … -only-testing:validationLedgerTests/Loads/RoleLoadPolicyAvailableActionsTests` + `grep -nE 'switch[[:space:]]+.*\.status' validationLedger/Features/Loads/**/*ViewController.swift \| (! grep .)` | `RoleLoadPolicyAvailableActionsTests.swift` (NEW) | ✅ green |
+| ACTION-02 (accept / advance forward-path mutates state) | T-10-02 (state mutation without server confirmation) | Mock POST returns symmetric `{ load, chainOfTrust }`; VM swaps to new load; action set recomputes | unit + UI test | `xcodebuild test … -only-testing:validationLedgerTests/Loads/LoadDetailViewModelActionTests/test_acceptForwardPath` + `validationLedgerUITests/LoadActionFlowsTests/test_carrierCanAcceptActiveTender` | `LoadDetailViewModelActionTests.swift` (NEW), `LoadActionFlowsTests.swift` (NEW) | ✅ green |
+| ACTION-03 (reject returns load to posted) | T-10-02 | `LoadActionPredictor.predict(.reject)` returns load with `.status = .posted`, `respondByAt = nil`, current counterparty cleared | unit + snapshot | `… -only-testing:validationLedgerTests/Loads/LoadActionPredictorTests/test_rejectReturnsToPosted` + Wave 4 snapshot row (carrier × .activeTender → .posted) | `LoadActionPredictorTests.swift` (NEW) | ✅ green |
+| ACTION-04 (tender requires verified counterparty — hard disable) | **T-10-04 (CRITICAL — platform thesis)** Tender to unverified counterparty | Tender button `isEnabled = false` AND inline reason label visible when no verified counterparties in directory; sheet picker filters `trustTier == .verified` | unit + snapshot + UI test | `… -only-testing:validationLedgerTests/Loads/TenderEligibilityGatingTests` + snapshot row (broker × .posted, no-verified-directory) + `validationLedgerUITests/TenderGateTests/test_unverifiedCounterpartyHardDisable` | `TenderEligibilityGatingTests.swift` (NEW), `TenderGateTests.swift` (NEW) | ✅ green |
+| ACTION-05 (optimistic UI + rollback on failure) | T-10-05 (state desync after rollback) | VM snapshots pre-action load; applies predictor result; on `URLError` / non-2xx restores snapshot, surfaces toast, re-enables action; in-flight set prevents double-submit | unit (deterministic mock) + UI test | `… -only-testing:validationLedgerTests/Loads/LoadDetailViewModelRollbackTests` + `validationLedgerUITests/LoadActionFlowsTests/test_rollbackOnServerError500` | `LoadDetailViewModelRollbackTests.swift` (8 tests) | ✅ green ¹ |
+| ACTION-06 (post / cancel act on existing fixture loads as state actions; no creation form) | T-10-06 (broker accidentally cancels foreign load) | `RoleLoadPolicy.availableActions(broker, .posted)` includes `.cancel`, `.retender`; `.post` only available on `.draft`; no view controller exposes a multi-field create form | unit + UI absence test | `… -only-testing:validationLedgerTests/Loads/RoleLoadPolicyAvailableActionsTests/test_brokerCancelOnPosted` + `validationLedgerUITests/LoadActionFlowsTests/test_noLoadCreationFormExists` | `RoleLoadPolicyAvailableActionsTests.swift` (NEW) | ✅ green |
+| ACTION-07 (active-tender deadline visible inline) | T-10-07 (deadline silently passes) | Carrier on `.activeTender` sees inline "Respond by HH:mm · M/d" label sourced from `load.respondByAt` (rendered via `RelativeDateTimeFormatter` or DateFormatter — planner picks) | snapshot + unit | Wave 4 snapshot row (carrier × .activeTender) + `… -only-testing:validationLedgerTests/Loads/RespondByLabelTests` | `RespondByLabelTests.swift` (NEW) | ✅ green |
+| ACTION-08 (every action endpoint routes through v1.0 idempotency interceptor) | **T-10-08 (CRITICAL)** Replayed POST mutates state twice | `IdempotencyInterceptor` auto-injects `Idempotency-Key: <UUIDv4>` on every POST; assertion test confirms the interceptor is registered in `apiClient.requestInterceptors` AND that the action endpoint chain receives the header in the recorded mock request | unit (interceptor) + integration (mock dispatch) | `… -only-testing:validationLedgerTests/Networking/IdempotencyInterceptorRegistrationTests` + `… -only-testing:validationLedgerTests/Networking/Mock/MockLoadActionDispatchTests/test_actionRequestCarriesIdempotencyKey` | `IdempotencyInterceptorRegistrationTests.swift` (NEW or extend Phase-2 file), `MockLoadActionDispatchTests.swift` (NEW) | ✅ green |
+| ACTION-09 (after success, list reflects new state on pop-back) | T-10-09 (stale list state) | `LoadListViewController.viewWillAppear` → `fetchLoads()` is preserved; integration test pops back from detail and asserts cell shows new status | UI test (XCUITest) | `validationLedgerUITests/LoadActionFlowsTests/test_listReflectsNewStateOnPopBack` | `LoadActionFlowsTests.swift` (NEW) | ✅ green |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+
+> ¹ **ACTION-05 — partial coverage (accepted deferred follow-up).** `LoadDetailViewModelRollbackTests` has 8 green tests covering the canonical `.loaded → submit → fail → rollback` path, plus `LoadActionFlowsTests/test_rollbackOnServerError500`. The WR-06 code-review fix changed `LoadDetailViewModel.submit()` so the `.actionInFlight` rollback target is `lastConfirmedLoad` (server-confirmed) rather than the predicted `Load`. No automated test exercises a *chained* second action that itself fails — the exact path WR-06 rewrote. See **Deferred Automated Coverage** below. Verified human-needed in `10-VERIFICATION.md` (INFO, non-blocking).
 
 ---
 
@@ -92,12 +95,12 @@ Mock-toggle precedent: `-MockKYCStatusVerified` (`MockDefaultFixtures.swift:60-7
 
 > "Wave 0" here means "test infrastructure that must land alongside Wave 1, before any later wave can ship its automated verify."
 
-- [ ] `validationLedgerTests/Loads/LoadActionPredictorTests.swift` — predictor unit test scaffold (RED) before `LoadActionPredictor.swift` exists.
-- [ ] `validationLedgerTests/Loads/RoleLoadPolicyAvailableActionsTests.swift` — `availableActions(for:in:)` matrix test scaffold (RED) before policy extension lands.
-- [ ] `validationLedgerTests/Loads/LoadDetailViewModelActionTests.swift` — VM action-dispatch test scaffold.
-- [ ] `validationLedgerTests/Networking/IdempotencyInterceptorRegistrationTests.swift` — confirms `apiClient.requestInterceptors` contains `IdempotencyInterceptor` (may already exist from Phase 2 — planner verifies).
-- [ ] `validationLedgerTests/Networking/Mock/MockLoadActionDispatchTests.swift` — mock-bus dispatch assertions (idempotency header propagation).
-- [ ] `validationLedgerUITests/LoadActionFlowsTests.swift` — XCUITest scaffold for the 6 flows above.
+- [x] `validationLedgerTests/Loads/LoadActionPredictorTests.swift` — 10 tests green.
+- [x] `validationLedgerTests/Loads/RoleLoadPolicyAvailableActionsTests.swift` — 9 tests green.
+- [x] `validationLedgerTests/Loads/LoadDetailViewModelActionTests.swift` — 7 tests green.
+- [x] `validationLedgerTests/Networking/IdempotencyInterceptorRegistrationTests.swift` — 3 `@Test` cases green (Swift Testing).
+- [x] `validationLedgerTests/Networking/Mock/MockLoadActionDispatchTests.swift` — 5 `@Test` cases green (Swift Testing).
+- [x] `validationLedgerUITests/Loads/LoadActionFlowsTests.swift` — XCUITest with 6 flows (`brokerCanTenderToVerifiedCarrier`, `carrierCanAcceptActiveTender`, `carrierCanRejectActiveTender`, `unverifiedCounterpartyHardDisable`, `rollbackOnServerError500`, `doubleSubmitPrevented`).
 
 Framework install: **none required** — XCTest + `UIKitSnapshot` are already in repo.
 
@@ -113,15 +116,48 @@ Framework install: **none required** — XCTest + `UIKitSnapshot` are already in
 
 ---
 
+## Deferred Automated Coverage
+
+> Gaps surfaced by the 2026-05-21 Nyquist audit and **accepted as deferred follow-ups** (not phase blockers). Each requirement still maps to ≥1 green automated command — these are sub-path deepenings.
+
+| Gap | Requirement | Why Deferred | Follow-Up Test To Add |
+|---|---|---|---|
+| Chained-action failure rollback (WR-06 path) | ACTION-05 | The WR-06 fix made the `.actionInFlight` rollback target `lastConfirmedLoad` instead of the predicted `Load`. The 8 existing rollback tests only exercise the direct `.loaded → submit → fail` path, where old and new behavior coincide — so they do not verify WR-06. The two chained cancel-after-tender tests (`test_submit_cancelAndReplace_supersedesEarlierAction`, `test_submit_cancelledMidFlight_doesNotOverwriteFresherState`) both assert the *success* of the second action. No test covers a chained second action that itself fails. Accepted as non-blocking because the chained `submit()` path is unreachable through normal UI (action buttons are disabled during `.actionInFlight` per ACTION-08/D-17) and the new behavior is provably correct by inspection of the `lastConfirmedLoad` write path. | `LoadDetailViewModelRollbackTests.test_submit_chainedActionFailure_rollsBackToLastConfirmedLoad_notPredicted` — drive to `.loaded(posted)`, `submit(.tender)` (high-latency), then `submit(.cancel)` with a 500 fixture; assert rollback target is the confirmed `.posted` Load, not the predicted `.tendered`. Add in the next phase that touches `LoadDetailViewModel`. |
+
+---
+
 ## Validation Sign-Off
 
-- [ ] All ACTION-XX requirements have an automated `<automated>` verify in their plan's task (unit, snapshot, or XCUITest tier).
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify (planner enforces).
-- [ ] Wave 0 scaffolds land in the same plan as the implementation they test (RED-before-GREEN preserved).
-- [ ] No watch-mode flags in any command (CI must be deterministic).
-- [ ] Quick scoped feedback latency < 30s.
-- [ ] 65-cell snapshot matrix recorded and verified before phase verification.
-- [ ] DEBUG-only failure-injection toggles wrapped in `#if DEBUG` AND default to OFF when launch arg absent.
-- [ ] `nyquist_compliant: true` set in frontmatter after planner verifies all 9 ACTION-XX requirements map to at least one automated command.
+- [x] All ACTION-XX requirements have an automated `<automated>` verify in their plan's task (unit, snapshot, or XCUITest tier).
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify (planner enforces).
+- [x] Wave 0 scaffolds land in the same plan as the implementation they test (RED-before-GREEN preserved).
+- [x] No watch-mode flags in any command (CI must be deterministic).
+- [x] Quick scoped feedback latency < 30s.
+- [x] 65-cell snapshot matrix recorded and verified before phase verification (77 baselines in `__Snapshots__/LoadActionBarSnapshotMatrix/`).
+- [x] DEBUG-only failure-injection toggles wrapped in `#if DEBUG` AND default to OFF when launch arg absent.
+- [x] `nyquist_compliant: true` set in frontmatter — all 9 ACTION-XX requirements map to ≥1 green automated command (ACTION-05 with one accepted deferred sub-path; see Deferred Automated Coverage).
 
-**Approval:** pending
+**Approval:** validated (partial) — 2026-05-21 Nyquist audit. 9/9 requirements have automated verification; 1 deferred sub-path follow-up; 3 manual-only feel/visual items remain (see Manual-Only).
+
+---
+
+## Validation Audit 2026-05-21
+
+State A audit — existing draft `VALIDATION.md` reconciled against the executed test tree and `10-VERIFICATION.md`.
+
+| Metric | Count |
+|--------|-------|
+| Requirements audited | 9 (ACTION-01 … ACTION-09) |
+| COVERED | 8 |
+| PARTIAL | 1 (ACTION-05 — chained-rollback sub-path) |
+| MISSING | 0 |
+| Gaps found | 1 |
+| Resolved (test written) | 0 |
+| Deferred (accepted follow-up) | 1 |
+
+**Audit notes:**
+
+- All 6 Wave-0 scaffold files exist and are green per `10-VERIFICATION.md` (re-verified 2026-05-21T21:30Z after code-review fix iteration 1).
+- 65-cell snapshot matrix recorded: 77 PNG baselines in `validationLedgerTests/__Snapshots__/LoadActionBarSnapshotMatrix/`.
+- `IdempotencyInterceptorRegistrationTests` / `MockLoadActionDispatchTests` use Swift Testing (`@Test`), not XCTest `func test_` — both green; ACTION-08 fully covered.
+- The single PARTIAL gap (ACTION-05 chained-action failure rollback) was reviewed with the user and **accepted as a deferred follow-up** rather than filled now — rationale recorded in **Deferred Automated Coverage**. Test green-ness is taken from `10-VERIFICATION.md`; the suite was not re-run during this audit.
