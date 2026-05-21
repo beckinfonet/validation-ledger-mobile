@@ -241,6 +241,59 @@ enum ChainOfTrustFactory {
         )
     }
 
+    // ============================================================
+    // Phase 9.1 Plan 04 — additional fixtures (compromised + sparse)
+    // ============================================================
+    //
+    // Used by ChainOfVouchesViewTests + ChainOfVouchesViewAccessibilityTests
+    // + ChainOfVouchesViewSnapshotTests for verdict-coverage + sparse-chain
+    // attribution-fallback (Pitfall 7).
+    //
+    // Both factories follow the same in-memory construction shape +
+    // synthetic-displayName posture as the Plan 03 factories above (T-09.1-02
+    // PII discipline).
+
+    /// VL-1010 — compromised verdict, fewer roles than VL-1001.
+    /// Used by ChainOfVouchesViewSnapshotTests to demonstrate R7 supersedure
+    /// (full-alpha rows + footer pill is sole fraud signal on iPhone) and by
+    /// the unit tests to assert footer pill renders the compromised tier.
+    ///
+    /// 3 roles (SHP / BRK / CAR-flagged) — broker is the flagged actor;
+    /// carrier carries the cargo but the broker re-tender pattern is the
+    /// flagged signal.
+    static func vl1010_compromisedChain() -> ChainOfTrust {
+        let nodes: [TrustNode] = [
+            makeNode(partyID: "party-shipper-pacificgoods", role: .shipper, displayName: "Pacific Goods LLC",     state: .verified, usdotNumber: nil,        usdotAuth: .notApplicable),
+            makeNode(partyID: "party-broker-keystone",      role: .broker,  displayName: "Keystone Freight Group", state: .flagged, usdotNumber: nil,        usdotAuth: .notApplicable),
+            makeNode(partyID: "party-carrier-acme",         role: .carrier, displayName: "Acme Trucking Inc.",   state: .verified, usdotNumber: "1234567", usdotAuth: .active),
+        ]
+        return ChainOfTrust(
+            nodes: nodes,
+            edges: [],
+            integrity: ChainIntegrity(
+                verdict: .compromised,
+                reason: "Broker authority disputed; downstream carrier identity does not match the tender's assigned MC.",
+                implicatedNodeIDs: ["party-broker-keystone"],
+                implicatedEdgeIDs: []
+            )
+        )
+    }
+
+    /// Sparse chain: SHP + CAR only (no broker between them). Exercises
+    /// Pitfall 7 — the carrier's attribution walks UP the canonical
+    /// hierarchy (BRK missing) and lands on SHP ("VIA SHP").
+    static func twoRoleShipperCarrierClean() -> ChainOfTrust {
+        let nodes: [TrustNode] = [
+            makeNode(partyID: "party-shipper-globalexports", role: .shipper, displayName: "Global Exports Co.",  state: .verified, usdotNumber: nil,        usdotAuth: .notApplicable),
+            makeNode(partyID: "party-carrier-acme",          role: .carrier, displayName: "Acme Trucking Inc.", state: .verified, usdotNumber: "1234567", usdotAuth: .active),
+        ]
+        return ChainOfTrust(
+            nodes: nodes,
+            edges: [],
+            integrity: ChainIntegrity(verdict: .clean, reason: "Direct shipper-to-carrier; no broker on this load.", implicatedNodeIDs: [], implicatedEdgeIDs: [])
+        )
+    }
+
     // MARK: - Internal helpers
 
     /// Single-line TrustNode constructor used by the 5 Phase 9.1 factories.
