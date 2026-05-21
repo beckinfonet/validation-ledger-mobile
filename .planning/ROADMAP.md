@@ -215,7 +215,7 @@ Plans:
 
 **Wave 7** *(blocked on Wave 6)*
 
-- [ ] 10-10-PLAN.md — 6 XCUITest smoke flows (broker tender / carrier accept / carrier reject / ACTION-04 hard-disable / rollback on 500 / double-submit prevented) + 10-MANUAL-TESTS.md device-UAT checklist (3 Manual-Only verifications from VALIDATION.md + end-to-end happy-path)
+- [x] 10-10-PLAN.md — 6 XCUITest smoke flows (broker tender / carrier accept / carrier reject / ACTION-04 hard-disable / rollback on 500 / double-submit prevented) + 10-MANUAL-TESTS.md device-UAT checklist (3 Manual-Only verifications from VALIDATION.md + end-to-end happy-path)
 
 **UI hint**: yes
 **Notes**: The most cross-role-sensitive surface. Plan-time checklist must include an explicit item verifying every action endpoint is registered with the v1.0 idempotency interceptor, and that the rollback path ships in the same plan as the forward path for every action. Zero `switch load.status` in any view controller or cell — all action gating flows from `RoleLoadPolicy`. `post` and `cancel` (ACTION-06) act on pre-existing fixture loads as state actions — there is no multi-field load-creation form in v1.1.
@@ -237,7 +237,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 9.1 → 10
 | 8. Role-Filtered Load List | v1.1 | 4/4 | Complete   | 2026-05-20 |
 | 9. Load Detail & Chain-of-Trust Graph | v1.1 | 10/10 | Complete   | 2026-05-20 |
 | 9.1. Chain-of-Vouches Redesign (INSERTED — device UAT) | v1.1 | 5/5 | Complete   | 2026-05-21 |
-| 10. Per-Role Tender / Accept / Reject | v1.1 | 9/10 | In Progress|  |
+| 10. Per-Role Tender / Accept / Reject | v1.1 | 10/10 | Complete   | 2026-05-21 |
 
 ---
 *Milestone v1.0 "M1 Foundation" shipped 2026-05-18 — see `.planning/MILESTONES.md`. Roadmap created 2026-04-20. v1.1 "Load Flows" phases 7-10 added 2026-05-19. Phase 09.1 inserted 2026-05-20 from device-UAT; planned 2026-05-21.*
