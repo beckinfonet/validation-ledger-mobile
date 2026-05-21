@@ -448,13 +448,23 @@ public final class LoadDetailViewController: UIViewController {
     /// present (the closure-based API supersedes it for size-class-bounded
     /// rebuilds).
     internal func handleSizeClassChange() {
+        handleSizeClassChange(forceRebuild: false)
+    }
+
+    /// Internal seam for unit tests: `forceRebuild: true` rebuilds the
+    /// composition even when the size class did not change (used by the
+    /// trait-override pattern in `LoadDetailViewController*Tests.swift`
+    /// where the override is applied AFTER viewDidLoad has already laid
+    /// out the initial composition).
+    internal func handleSizeClassChange(forceRebuild: Bool) {
         let newCompositionLayout: CompositionLayout =
             (traitCollection.horizontalSizeClass == .regular)
             ? .iPadRegularSplit
             : .iPhoneCompact
         // Guard: avoid rebuild if the size class didn't actually flip
-        // (registerForTraitChanges fires on any registered trait change).
-        guard newCompositionLayout != compositionLayout else { return }
+        // (registerForTraitChanges fires on any registered trait change),
+        // unless the caller explicitly requested one.
+        guard forceRebuild || newCompositionLayout != compositionLayout else { return }
 
         // Preserve the graph's pan/zoom state across the rebuild (UI-SPEC line 813).
         let savedZoom = trustGraphView.scrollView.zoomScale
