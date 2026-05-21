@@ -82,7 +82,13 @@
 
 import UIKit
 
-public final class LoadActionsView: UIView {
+/// **`open` (not `final`)** so a same-module test spy (`Capturing
+/// LoadActionsView` in `LoadDetailViewControllerActionRenderTests.swift`)
+/// can subclass to capture configure(...) arguments. The `configure(...)`
+/// method itself is `open` for the same reason. Production callers MUST
+/// NOT subclass this view (one instance, owned by the VC); the open
+/// access level exists solely as a test seam.
+public class LoadActionsView: UIView {
 
     // MARK: - Subviews
 
@@ -282,7 +288,7 @@ public final class LoadActionsView: UIView {
     /// - `onTap`:             tap handler. Fired with the action whose
     ///                        button was tapped. NO-OP path is enforced at
     ///                        the call site by passing a no-op closure.
-    public func configure(
+    open func configure(
         actions: [LoadAction],
         role: Role,
         currentStatus: LoadStatus,

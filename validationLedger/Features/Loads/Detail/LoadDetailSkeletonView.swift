@@ -181,6 +181,33 @@ public final class LoadDetailSkeletonView: UIView {
         return v
     }
 
+    /// Phase 10 Plan 04 — build the 2-button action-row skeleton per
+    /// UI-SPEC line 428-431. Returns a `UIStackView` containing two
+    /// `cornerRadius=8`, `50pt`-height rounded rects split by an 8pt gap,
+    /// `.fillEqually`. The disabled-reason placeholder is NOT rendered
+    /// (UI-SPEC line 431 — skeleton doesn't predict which gate applies).
+    private static func makeActionRowSkeleton() -> UIStackView {
+        let left = UIView()
+        left.backgroundColor = DS.Colors.surface
+        left.layer.cornerRadius = 8
+        left.translatesAutoresizingMaskIntoConstraints = false
+        left.accessibilityIdentifier = "load-detail.skeleton.action-button"
+
+        let right = UIView()
+        right.backgroundColor = DS.Colors.surface
+        right.layer.cornerRadius = 8
+        right.translatesAutoresizingMaskIntoConstraints = false
+        right.accessibilityIdentifier = "load-detail.skeleton.action-button"
+
+        let row = UIStackView(arrangedSubviews: [left, right])
+        row.axis = .horizontal
+        row.distribution = .fillEqually
+        row.spacing = DS.Spacing.sm
+        row.translatesAutoresizingMaskIntoConstraints = false
+        row.accessibilityIdentifier = "load-detail.skeleton.action-row"
+        return row
+    }
+
     // MARK: - Reduce-motion notification observer
 
     private var reduceMotionObserver: NSObjectProtocol?
@@ -292,12 +319,16 @@ public final class LoadDetailSkeletonView: UIView {
     private func buildIPhonePortraitSilhouette() {
         let pinnedHeader = Self.makePinnedHeader()
         let graph = makeGraphRegion()
+        // Phase 10 Plan 04 — action-region skeleton slot. Sits after the
+        // graph and before the body rows (mirrors the live composition's
+        // scroll order: graph -> timeline -> action -> freight -> ...).
+        let actionRow = Self.makeActionRowSkeleton()
         let row1 = Self.makeBodyRow()
         let row2 = Self.makeBodyRow()
         let row3 = Self.makeBodyRow()
 
         let outer = UIStackView(arrangedSubviews: [
-            pinnedHeader, graph, row1, row2, row3,
+            pinnedHeader, graph, actionRow, row1, row2, row3,
         ])
         outer.axis = .vertical
         outer.alignment = .leading
@@ -337,6 +368,12 @@ public final class LoadDetailSkeletonView: UIView {
             row3.heightAnchor.constraint(equalToConstant: DS.Spacing.md),
             row3.leadingAnchor.constraint(equalTo: outer.layoutMarginsGuide.leadingAnchor),
             row3.widthAnchor.constraint(equalTo: outer.layoutMarginsGuide.widthAnchor, multiplier: 0.7),
+
+            // Phase 10 Plan 04 — action-row skeleton constraints per UI-SPEC
+            // line 430: 50pt height, full-width split by 8pt gap.
+            actionRow.heightAnchor.constraint(equalToConstant: 50),
+            actionRow.leadingAnchor.constraint(equalTo: outer.layoutMarginsGuide.leadingAnchor),
+            actionRow.trailingAnchor.constraint(equalTo: outer.layoutMarginsGuide.trailingAnchor),
         ])
     }
 
@@ -346,14 +383,19 @@ public final class LoadDetailSkeletonView: UIView {
     private func buildIPadSplitSilhouette() {
         let graph = makeGraphRegion()
         let pinnedHeader = Self.makePinnedHeader()
+        // Phase 10 Plan 04 — action-region skeleton in the iPad right pane.
+        // Sits after the pinned header (timeline lives in the body view's
+        // contentStack which we don't model in skeleton; the action region
+        // anchors visually near the top of the right pane scroll).
+        let actionRow = Self.makeActionRowSkeleton()
         let row1 = Self.makeBodyRow()
         let row2 = Self.makeBodyRow()
         let row3 = Self.makeBodyRow()
         let row4 = Self.makeBodyRow()
 
-        // Right pane: pinned header + 4 body rows in a vertical stack.
+        // Right pane: pinned header + action-row + 4 body rows in a vertical stack.
         let rightPane = UIStackView(arrangedSubviews: [
-            pinnedHeader, row1, row2, row3, row4,
+            pinnedHeader, actionRow, row1, row2, row3, row4,
         ])
         rightPane.axis = .vertical
         rightPane.alignment = .leading
@@ -404,6 +446,11 @@ public final class LoadDetailSkeletonView: UIView {
             row4.heightAnchor.constraint(equalToConstant: DS.Spacing.md),
             row4.leadingAnchor.constraint(equalTo: rightPane.layoutMarginsGuide.leadingAnchor),
             row4.widthAnchor.constraint(equalTo: rightPane.layoutMarginsGuide.widthAnchor, multiplier: 0.6),
+
+            // Phase 10 Plan 04 — action-row skeleton constraints (UI-SPEC line 430).
+            actionRow.heightAnchor.constraint(equalToConstant: 50),
+            actionRow.leadingAnchor.constraint(equalTo: rightPane.layoutMarginsGuide.leadingAnchor),
+            actionRow.trailingAnchor.constraint(equalTo: rightPane.layoutMarginsGuide.trailingAnchor),
         ])
     }
 

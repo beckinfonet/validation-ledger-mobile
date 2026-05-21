@@ -45,6 +45,11 @@ final class LoadDetailViewControllerActionRenderTests: XCTestCase {
     /// A test double that captures the arguments of the most recent
     /// `configure(...)` call. The VC's exposed `actionsView` is set to an
     /// instance of this subclass when running under tests.
+    ///
+    /// `@MainActor` matches the project's default isolation under
+    /// `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` — same as the VC and the
+    /// underlying LoadActionsView.
+    @MainActor
     fileprivate final class CapturingLoadActionsView: LoadActionsView {
         struct Capture {
             let actions: [LoadAction]
@@ -187,6 +192,7 @@ final class LoadDetailViewControllerActionRenderTests: XCTestCase {
     // MARK: - Test 1 — `.loaded` configures action region with role's policy
 
     /// Broker on posted load -> [.tender, .cancel] passed to configure().
+    @MainActor
     func test_render_loadedState_configuresActionRegionWithCorrectPolicy() async throws {
         let (_, spy, _) = try await makeVC(loadID: "VL-1003", role: .broker)
 
@@ -202,7 +208,7 @@ final class LoadDetailViewControllerActionRenderTests: XCTestCase {
 
     @MainActor
     func test_render_actionInFlightState_actionsListIsPreTapSnapshot() async throws {
-        let (vc, spy, vm) = try await makeVC(loadID: "VL-1003", role: .broker)
+        let (vc, spy, _) = try await makeVC(loadID: "VL-1003", role: .broker)
 
         // The .loaded render already captured the pre-tap actions [.tender, .cancel].
         XCTAssertEqual(spy.lastCapture?.actions, [.tender, .cancel])

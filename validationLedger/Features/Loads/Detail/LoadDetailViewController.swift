@@ -160,6 +160,41 @@ public final class LoadDetailViewController: UIViewController {
 
     private let bodyView = LoadDetailBodyView()
 
+    // MARK: - Phase 10 Plan 04 — action region (D-01 / D-02 / D-09 / D-12)
+    //
+    // The VC owns the LoadActionsView instance and mounts it inside
+    // `bodyView.actionsContainer` (UI-SPEC line 409). On every `.loaded`
+    // render, the VC computes the role-policy action set via
+    // `RoleLoadPolicy.availableActions(for: viewModel.role, in: load)` and
+    // hands the result + the load's tender eligibility + respond-by date
+    // to the view's configure() method.
+    //
+    // The action region is internal-visible for the action-render tests
+    // (replaceActionsViewForTesting swaps in a CapturingLoadActionsView spy).
+    internal var actionsView: LoadActionsView = LoadActionsView()
+
+    /// Pre-tap snapshot of the action set computed on the last `.loaded`
+    /// render. Used during `.actionInFlight` per Pitfall 6 — the in-flight
+    /// render passes this snapshot to `actionsView.configure(actions:)`
+    /// rather than recomputing against the predicted Load. Without this,
+    /// the in-flight view would render the post-tap action set (typically
+    /// empty), making the tapped button disappear before its spinner
+    /// animation completes.
+    private var lastConfiguredActions: [LoadAction] = []
+
+    /// Phase 10 Plan 04 — chain "updating..." overlay (single ref per
+    /// Pitfall 1; UI-SPEC line 477-489). Mounted on `.actionInFlight`,
+    /// dismounted on `.loaded` / `.actionFailed`. This plan ships the
+    /// mount/dismount STUB (a translucent UIView with the surface tint);
+    /// Plan 07 swaps in the activity indicator + alpha-fade animation
+    /// without re-entering the render dispatcher.
+    private var chainOverlay: UIView?
+
+    // Test seams — `internal` so the action-render tests can introspect
+    // the stub state without re-implementing the render path.
+    internal var chainOverlayForTesting: UIView? { chainOverlay }
+    internal private(set) var presentTenderSheetCallCountForTesting: Int = 0
+
     // MARK: - Trust graph (Plan 06 — D-01 / D-04 / D-06 / D-15 / D-22)
     //
     // The MARQUEE region of the screen. Plan 09 places it ABOVE `bodyView`
@@ -390,6 +425,9 @@ public final class LoadDetailViewController: UIViewController {
         installSkeletonView()
         installBodyViewIntoContainer()
         installErrorView()
+        // Phase 10 Plan 04 — mount the actions view inside the body's
+        // actionsContainer (UI-SPEC line 409).
+        installActionsView()
 
         // Set the initial compositionLayout from the trait collection AND
         // build the body's composition geometry for that posture.
@@ -571,6 +609,20 @@ public final class LoadDetailViewController: UIViewController {
         // the iPad layout activates it (avoids invisible-but-positioned
         // chrome on iPhone).
         rightPaneContainer.isHidden = true
+    }
+
+    /// Phase 10 Plan 04 — pin the action region's hosted view into
+    /// `bodyView.actionsContainer` edge-to-edge. The container survives
+    /// state transitions; only `actionsView.configure(...)` re-runs.
+    private func installActionsView() {
+        actionsView.translatesAutoresizingMaskIntoConstraints = false
+        bodyView.actionsContainer.addSubview(actionsView)
+        NSLayoutConstraint.activate([
+            actionsView.topAnchor.constraint(equalTo: bodyView.actionsContainer.topAnchor),
+            actionsView.leadingAnchor.constraint(equalTo: bodyView.actionsContainer.leadingAnchor),
+            actionsView.trailingAnchor.constraint(equalTo: bodyView.actionsContainer.trailingAnchor),
+            actionsView.bottomAnchor.constraint(equalTo: bodyView.actionsContainer.bottomAnchor),
+        ])
     }
 
     /// Assemble the hand-rolled error-state subviews per D-20.
@@ -1126,30 +1178,47 @@ public final class LoadDetailViewController: UIViewController {
         case .loaded(let load, let chainOfTrust):
             applyLoadedRender(load: load, chainOfTrust: chainOfTrust)
 
-        case .actionInFlight(let predicted, let frozenChain, _):
-            // Phase 10 Plan 03 (D-12 / D-13) — re-render against the
-            // PREDICTED Load + the FROZEN pre-tap chain. Visually the body
-            // looks like a successful .loaded render of the predicted state;
-            // Plan 04 will overlay the action-region spinner + disable the
-            // action region for the duration of the in-flight transition.
-            // For Plan 03 the minimal render is "treat the predicted snapshot
-            // as if it were a .loaded snapshot" — no chain prediction (D-13
-            // — frozenChain comes from the pre-tap snapshot), no behavior
-            // change versus a .loaded render of the same payload.
-            applyLoadedRender(load: predicted, chainOfTrust: frozenChain)
+        case .actionInFlight(let predicted, let frozenChain, let action):
+            // Phase 10 Plan 04 (D-12 / D-13 / Pitfall 6) — re-render the body
+            // against the PREDICTED Load + FROZEN pre-tap chain; configure
+            // the action region with the PRE-TAP action set (NOT a recompute
+            // against the predicted Load) and the `inFlight: action` marker
+            // so the tapped button shows the spinner; mount the chain
+            // overlay stub for Plan 07 to upgrade.
+            applyBodyRender(load: predicted, chainOfTrust: frozenChain)
+            actionsView.configure(
+                actions: lastConfiguredActions,
+                role: viewModel.role,
+                currentStatus: predicted.status,
+                tenderEligibility: nil,           // disabled-reason hidden in-flight
+                respondByAt: predicted.respondByAt,
+                inFlight: action,
+                onTap: { _ in /* in-flight ignores taps */ }
+            )
+            mountChainOverlayIfNeeded()
 
         case .actionFailed(let rollbackTo, let frozenChain, _):
-            // Phase 10 Plan 03 (D-15) — re-render against the ROLLBACK Load
-            // + the FROZEN pre-tap chain (both restored to the captured
-            // pre-tap snapshot). Plan 04 will surface the localized error
-            // banner referencing the LOCKED `errorCopyKey` (UI-SPEC line
-            // 343-348). For Plan 03 the minimal render is the rollback
-            // snapshot rendered as a `.loaded` body; the error banner UI
-            // lands in Plan 04 (the state.actionFailed.errorCopyKey carries
-            // the localization key forward — no server-text leakage; the
-            // T-09-04 lock is enforced at the VM by Test 5/6 of the
-            // rollback test suite).
-            applyLoadedRender(load: rollbackTo, chainOfTrust: frozenChain)
+            // Phase 10 Plan 04 (D-15) — re-render the body against the
+            // ROLLBACK Load + FROZEN pre-tap chain; configure the action
+            // region against the rollback state (no in-flight marker; the
+            // pre-tap action set survives since rollback restores pre-tap).
+            // Dismount the chain overlay — the spinner UI is gone.
+            //
+            // Plan 07 inserts the toast banner here referencing the LOCKED
+            // `errorCopyKey` from the state's associated value. For Phase 10
+            // Plan 04 the toast is NOT yet shown — only the body + action
+            // region re-render and the overlay dismount land here.
+            applyBodyRender(load: rollbackTo, chainOfTrust: frozenChain)
+            actionsView.configure(
+                actions: lastConfiguredActions,
+                role: viewModel.role,
+                currentStatus: rollbackTo.status,
+                tenderEligibility: rollbackTo.tenderEligibility,
+                respondByAt: rollbackTo.respondByAt,
+                inFlight: nil,
+                onTap: { [weak self] action in self?.handleActionTap(action) }
+            )
+            dismissChainOverlay()
 
         case .error:
             // T-09-04 — the .error associated `message` is NEVER read here.
@@ -1159,16 +1228,46 @@ public final class LoadDetailViewController: UIViewController {
         }
     }
 
-    /// Apply a `.loaded(load, chainOfTrust)` render: cache the payload,
-    /// build/refresh the banner from the verdict, install the verdict block
-    /// in the body, configure the body + graph, then update accessibility
-    /// ordering for the current composition.
+    /// Apply a `.loaded(load, chainOfTrust)` render: render the body
+    /// content + chain visuals (via `applyBodyRender`), THEN compute the
+    /// pre-tap action set via `RoleLoadPolicy.availableActions(...)` and
+    /// configure the action region against the loaded state. The pre-tap
+    /// snapshot is cached in `lastConfiguredActions` for the `.actionInFlight`
+    /// + `.actionFailed` render arms (Pitfall 6).
     ///
     /// Per T-09-03: every visual surface (banner color, verdict-block tint,
     /// graph halo, accessibilityLabel) is driven by the server-supplied
     /// `chainIntegrity.verdict` + `reason` + implicated sets. No client
     /// derivation; Phase 7 D-18 LOCK.
     private func applyLoadedRender(load: Load, chainOfTrust: ChainOfTrust) {
+        applyBodyRender(load: load, chainOfTrust: chainOfTrust)
+        // Phase 10 Plan 04 — compute the pre-tap action set + configure the
+        // action region. Single source of truth (RoleLoadPolicy); the policy
+        // gate (NOT a status-switch in the view layer) drives the visible
+        // button set.
+        let actions = RoleLoadPolicy.availableActions(for: viewModel.role, in: load)
+        lastConfiguredActions = actions
+        actionsView.configure(
+            actions: actions,
+            role: viewModel.role,
+            currentStatus: load.status,
+            tenderEligibility: load.tenderEligibility,
+            respondByAt: load.respondByAt,
+            inFlight: nil,
+            onTap: { [weak self] action in self?.handleActionTap(action) }
+        )
+        // On a fresh .loaded (success or initial fetch), the chain overlay
+        // is gone — it was either never mounted (initial fetch) or it's
+        // being torn down post-action.
+        dismissChainOverlay()
+    }
+
+    /// Render the body content + chain visuals against the supplied
+    /// (Load, ChainOfTrust) without touching the action region. Extracted
+    /// from `applyLoadedRender` so the `.actionInFlight` + `.actionFailed`
+    /// render arms can re-use the body composition without overwriting the
+    /// action region's in-flight or post-rollback configuration.
+    private func applyBodyRender(load: Load, chainOfTrust: ChainOfTrust) {
         // Cache the payload so composition rebuilds (e.g. rotation) can
         // re-render without re-fetching.
         cachedLoad = load
@@ -1321,6 +1420,148 @@ public final class LoadDetailViewController: UIViewController {
 
         view.accessibilityElements = elements
     }
+
+    // MARK: - Phase 10 Plan 04 — chain "updating..." overlay (stub for Plan 07)
+
+    /// Mount the chain overlay over the chain region (UI-SPEC line 485-486).
+    /// Idempotent — does nothing when the overlay is already mounted.
+    /// Plan 07 swaps the stub UIView for the activity-indicator alpha-fade
+    /// variant; the API surface (`mountChainOverlayIfNeeded`,
+    /// `dismissChainOverlay`) stays stable.
+    ///
+    /// On iPhone vertical-tree composition, the overlay covers the strip +
+    /// card region (above the body view). On iPad, it covers the left
+    /// graph pane. The DEBUG legacy iPhone path uses the trust-graph view
+    /// as the anchor (same as iPad's left pane semantically).
+    private func mountChainOverlayIfNeeded() {
+        guard chainOverlay == nil else { return }
+
+        let overlay = UIView()
+        overlay.translatesAutoresizingMaskIntoConstraints = false
+        overlay.backgroundColor = DS.Colors.surface.withAlphaComponent(0.6)
+        overlay.isUserInteractionEnabled = false
+        overlay.accessibilityIdentifier = "load-detail.chain-overlay"
+        overlay.accessibilityLabel = NSLocalizedString(
+            "loads.actions.chain.refreshing.a11y",
+            value: "Chain refreshing",
+            comment: "Phase 10 Plan 04 chain overlay — VoiceOver label (UI-SPEC line 489)"
+        )
+        overlay.accessibilityTraits = .updatesFrequently
+
+        // Choose an anchor surface based on the current composition (Pitfall 1).
+        let anchor: UIView
+        #if DEBUG
+        let isLegacyDebugPath = (compositionLayout == .iPhoneCompact && Debug2DGraphOverride.isActive)
+        #else
+        let isLegacyDebugPath = false
+        #endif
+        if compositionLayout == .iPadRegularSplit || isLegacyDebugPath {
+            anchor = trustGraphView
+        } else {
+            // iPhone vertical-tree path — overlay covers the strip + card.
+            // We approximate the union by anchoring to the strip's top and
+            // the card's bottom. If either is not yet in the hierarchy
+            // (mid-rebuild), fall back to the body container.
+            anchor = chainOfVouchesView.superview != nil ? chainOfVouchesView : bodyContainer
+        }
+        view.addSubview(overlay)
+        NSLayoutConstraint.activate([
+            overlay.topAnchor.constraint(equalTo: everyoneOnLoadStripView.superview != nil
+                ? everyoneOnLoadStripView.topAnchor
+                : anchor.topAnchor),
+            overlay.bottomAnchor.constraint(equalTo: anchor.bottomAnchor),
+            overlay.leadingAnchor.constraint(equalTo: anchor.leadingAnchor),
+            overlay.trailingAnchor.constraint(equalTo: anchor.trailingAnchor),
+        ])
+        chainOverlay = overlay
+    }
+
+    /// Dismount the chain overlay. Idempotent — does nothing when nothing
+    /// is mounted. Plan 07 inserts the alpha-fade animation here; for
+    /// Phase 10 Plan 04 the dismount is immediate.
+    private func dismissChainOverlay() {
+        chainOverlay?.removeFromSuperview()
+        chainOverlay = nil
+    }
+
+    // MARK: - Phase 10 Plan 04 — tender sheet stub (Plan 06 will fill in)
+
+    /// STUB — Plan 06 fills in the actual `UISheetPresentationController`
+    /// that collects the carrier + respond-by deadline + (on Send)
+    /// dispatches `viewModel.submit(action: .tender, body: ...)`. For Plan
+    /// 04 the stub exists so the handleActionTap routing test (Test 6 of
+    /// LoadDetailViewControllerActionRenderTests) can assert the tender
+    /// tap path is wired correctly.
+    private func presentTenderSheet() {
+        presentTenderSheetCallCountForTesting += 1
+        // Plan 06: replace this body with the sheet presentation.
+    }
+
+    // MARK: - Phase 10 Plan 04 — action tap routing
+
+    /// Handle a tap on an action button. For `.tender` we present the
+    /// tender sheet (Plan 06 wires the sheet → on Send calls submit()).
+    /// For every other action, we build the request body with the VM's
+    /// session role + nil target/respondBy/note (Plan 06 may extend the
+    /// body for `.accept`/`.reject` if the carrier needs to pass extra
+    /// metadata; v1.1 keeps it minimal) and dispatch via
+    /// `viewModel.submit(action:body:)`.
+    private func handleActionTap(_ action: LoadAction) {
+        if action == .tender {
+            presentTenderSheet()
+            return
+        }
+        let body = LoadActionEndpoint.RequestBody(
+            actorRole: viewModel.role,
+            targetPartyID: nil,
+            respondByAt: nil,
+            note: nil
+        )
+        Task { [viewModel] in
+            await viewModel.submit(action: action, body: body)
+        }
+    }
+
+    // MARK: - Phase 10 Plan 04 — test seams
+
+    #if DEBUG
+    /// Swap the actions-view instance with a test spy. Used by the
+    /// LoadDetailViewControllerActionRenderTests CapturingLoadActionsView
+    /// pattern to capture configure(...) arguments. Available only in
+    /// DEBUG; Release builds never compile this symbol.
+    internal func replaceActionsViewForTesting(with replacement: LoadActionsView) {
+        actionsView.removeFromSuperview()
+        actionsView = replacement
+        installActionsView()
+        // Re-pump the current state through render() so the new view picks
+        // up the captured configure(...) call.
+        render(state: viewModel.state)
+    }
+
+    /// Force a `.actionInFlight(...)` render — test-only seam. Mirrors
+    /// what the VM's onStateChange callback would deliver if a real submit
+    /// were in flight; the test uses this to assert the render arm's
+    /// behavior (Pitfall 6 pre-tap actions, chain-overlay mount) without
+    /// the network round-trip.
+    internal func applyTestState_actionInFlight(predicted: Load, frozenChain: ChainOfTrust, action: LoadAction) {
+        render(state: .actionInFlight(predicted: predicted, frozenChain: frozenChain, action: action))
+    }
+
+    /// Force a `.actionFailed(...)` render — test-only seam.
+    internal func applyTestState_actionFailed(rollbackTo: Load, frozenChain: ChainOfTrust, errorCopyKey: String) {
+        render(state: .actionFailed(rollbackTo: rollbackTo, frozenChain: frozenChain, errorCopyKey: errorCopyKey))
+    }
+
+    /// Force a `.loaded(...)` render — test-only seam.
+    internal func applyTestState_loaded(load: Load, chain: ChainOfTrust) {
+        render(state: .loaded(load, chain))
+    }
+
+    /// Invoke the action-tap routing — test-only seam.
+    internal func handleActionTapForTesting(action: LoadAction) {
+        handleActionTap(action)
+    }
+    #endif
 
     // MARK: - TRUST-03 / TRUST-04 sheet presentation (Plans 07/08)
 
