@@ -259,6 +259,25 @@ enum MockLoadFixtureRegistry {
             guard actionPathSegments.contains(actionSegment) else { return nil }
             return make200(body: actionSuccessPayload, url: request.url)
         }
+
+        // (4) Phase 10 D-07 (Plan 05) — Carrier directory handler.
+        // GET /carriers/directory → 200 + tenderCarrierDirectoryPayload.
+        // The path namespace is disjoint from /loads/* (no overlap with the
+        // four existing /loads/* handlers above), so registration order
+        // relative to (1)/(2)/(3a-d)/(3) does NOT affect shadowing — the
+        // exact path-equality guard structurally precludes over-match
+        // (T-10-PR-02 mitigation; CarrierDirectoryMockTests Tests 2-4 are
+        // the regression guards).
+        //
+        // Drives the Plan 06 tender-sheet picker: Phase 9 D-07's "tender
+        // picker source" decision puts the carrier directory on a dedicated
+        // endpoint (NOT ChainOfTrust.nodes) because the canonical happy-path
+        // tender targets a `.posted` load whose chain has no carrier yet.
+        MockURLProtocol.register { request in
+            guard request.httpMethod == "GET" else { return nil }
+            guard request.url?.path == "/carriers/directory" else { return nil }
+            return make200(body: tenderCarrierDirectoryPayload, url: request.url)
+        }
     }
 
     // MARK: - HTTPURLResponse builder
@@ -5050,6 +5069,114 @@ enum MockLoadFixtureRegistry {
     }
   ],
   "next_cursor": null
+}
+"""#.utf8)
+
+    // MARK: - Phase 10 D-07 Plan 05 — Tender-sheet carrier directory payload
+    //
+    // Inlined byte-faithfully from
+    // `validationLedgerTests/Networking/Fixtures/tender-carrier-directory.json`.
+    // Keep these two in sync — a future fixture edit MUST update both
+    // (CarrierDirectoryMockTests Test 5 is the regression guard).
+    //
+    // === Roster (7 synthetic carriers, all 4 VerificationState cases) ===
+    //   Acme Logistics Inc.        — .verified  (KYC + active USDOT)
+    //   Northwind Freight Co.      — .verified  (second .verified row)
+    //   Cascadia Cartage           — .pending   (KYC submitted, no completion)
+    //   Summit Routing LLC         — .pending   (second .pending row)
+    //   Anonymous Hauling          — .unverified (no KYC, no USDOT)
+    //   Chameleon Cargo LLC        — .flagged   (Specifics line 264 fraud
+    //                                            archetype anchor; revoked
+    //                                            authority + mismatched device)
+    //   Phantom Express            — .flagged   (suspended authority +
+    //                                            mismatched device — second
+    //                                            disabled-with-reason row)
+    //
+    // T-10-04 zero-PII discipline: synthetic names only; no real-world
+    // carrier brand names. CarrierDirectoryDecodeTests Test 5 has the
+    // allowlist guard.
+    private static let tenderCarrierDirectoryPayload: Data = Data(#"""
+{
+  "_comment": "Phase 10 D-07. Static demo carrier directory for the tender-sheet picker. 7 SYNTHETIC carriers spanning all 4 VerificationState cases (.verified / .pending / .unverified / .flagged). 'Chameleon Cargo LLC' + 'Phantom Express' are the .flagged fraud-archetype anchors (Specifics line 263-265 — cross-references Phase 7 D-13 chameleon-carrier archetype). NO real-world carrier brand names — T-10-04 (T-08-04 inheritance) zero-PII discipline. Authoritative editing source; MockLoadFixtureRegistry.tenderCarrierDirectoryPayload mirrors this file byte-faithfully — a future fixture edit MUST update both, CarrierDirectoryMockTests Test 5 is the regression guard.",
+  "carriers": [
+    {
+      "party_id": "party-carrier-acme",
+      "role": "carrier",
+      "display_name": "Acme Logistics Inc.",
+      "verification_state": "verified",
+      "kyc_completed_at": "2025-09-22T13:05:00Z",
+      "device_binding_status": "bound",
+      "usdot_number": "0123456",
+      "usdot_authority_status": "active",
+      "prior_relationships": []
+    },
+    {
+      "party_id": "party-carrier-northwind",
+      "role": "carrier",
+      "display_name": "Northwind Freight Co.",
+      "verification_state": "verified",
+      "kyc_completed_at": "2025-11-08T10:42:00Z",
+      "device_binding_status": "bound",
+      "usdot_number": "0234567",
+      "usdot_authority_status": "active",
+      "prior_relationships": []
+    },
+    {
+      "party_id": "party-carrier-cascadia",
+      "role": "carrier",
+      "display_name": "Cascadia Cartage",
+      "verification_state": "pending",
+      "kyc_completed_at": null,
+      "device_binding_status": "unbound",
+      "usdot_number": "0345678",
+      "usdot_authority_status": "active",
+      "prior_relationships": []
+    },
+    {
+      "party_id": "party-carrier-summit",
+      "role": "carrier",
+      "display_name": "Summit Routing LLC",
+      "verification_state": "pending",
+      "kyc_completed_at": null,
+      "device_binding_status": "unbound",
+      "usdot_number": null,
+      "usdot_authority_status": "active",
+      "prior_relationships": []
+    },
+    {
+      "party_id": "party-carrier-anonymous",
+      "role": "carrier",
+      "display_name": "Anonymous Hauling",
+      "verification_state": "unverified",
+      "kyc_completed_at": null,
+      "device_binding_status": "unbound",
+      "usdot_number": null,
+      "usdot_authority_status": "not_applicable",
+      "prior_relationships": []
+    },
+    {
+      "party_id": "party-carrier-chameleon",
+      "role": "carrier",
+      "display_name": "Chameleon Cargo LLC",
+      "verification_state": "flagged",
+      "kyc_completed_at": null,
+      "device_binding_status": "mismatched",
+      "usdot_number": "9999991",
+      "usdot_authority_status": "revoked",
+      "prior_relationships": []
+    },
+    {
+      "party_id": "party-carrier-phantom",
+      "role": "carrier",
+      "display_name": "Phantom Express",
+      "verification_state": "flagged",
+      "kyc_completed_at": null,
+      "device_binding_status": "mismatched",
+      "usdot_number": "9999992",
+      "usdot_authority_status": "suspended",
+      "prior_relationships": []
+    }
+  ]
 }
 """#.utf8)
 }
