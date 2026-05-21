@@ -176,6 +176,21 @@ public final class LoadDetailViewModel {
     // a no-op rather than a crash.
     private var actionTask: Task<Void, Never>?
 
+    // MARK: - Last-server-confirmed snapshot (WR-06 rollback-truth)
+    //
+    // BL-06 WR-06 — the optimistic-predict rollback contract (D-15) requires
+    // that the pre-tap snapshot is the LAST SERVER-CONFIRMED `(load, chain)`,
+    // NOT a predicted Load from a prior in-flight action. Without this
+    // separation, a cancel-after-tender on an in-flight action would
+    // capture `preLoad = predicted` (e.g. `.tendered`), so a failed cancel
+    // would roll the UI back to `.tendered` — a state the server never
+    // confirmed. The first successful `fetchLoadDetail` and every
+    // successful `performAction` swaps `lastConfirmed*` to the wire
+    // response. submit() reads these in the `.actionInFlight` arm so the
+    // rollback snapshot is always restorable on the server.
+    private var lastConfirmedLoad: Load?
+    private var lastConfirmedChain: ChainOfTrust?
+
     // MARK: - Dependencies (initializer-DI per ARCH-04)
 
     private let loadID: String
@@ -304,6 +319,12 @@ public final class LoadDetailViewModel {
         logger?.info(event: LogEvent("load_detail_loaded"), fields: [:])
         // D-18 — the WHOLE Decodable response flows into the associated
         // values verbatim. No derived state, no flattened booleans.
+        // WR-06 — also record (load, chain) as the last-server-confirmed
+        // snapshot so any subsequent `.actionInFlight` → `.actionFailed`
+        // rollback restores to a state the server actually acknowledged
+        // (D-15 rollback truth).
+        lastConfirmedLoad = response.load
+        lastConfirmedChain = response.chainOfTrust
         state = .loaded(response.load, response.chainOfTrust)
     }
 
@@ -380,10 +401,32 @@ public final class LoadDetailViewModel {
         case .loaded(let load, let chain):
             preLoad = load
             preChain = chain
-        case .actionInFlight(let predicted, let frozenChain, _):
-            preLoad = predicted
+        case .actionInFlight(_, let frozenChain, _):
+            // WR-06 — override-in-flight (BL-01 cancel-and-replace). The
+            // OPTIMISTIC predicted Load is visible on screen, but the server
+            // has NOT confirmed it. Per D-15 the rollback snapshot MUST be
+            // a state the server actually acknowledged; otherwise a failed
+            // cancel-after-tender would roll the UI to `.tendered` — a state
+            // that never existed on the server. Read the last-server-
+            // confirmed Load instead. The chain stayed frozen across the
+            // in-flight transition (D-13), so frozenChain is already the
+            // last-confirmed chain — use it directly to preserve the D-13
+            // chain-stays-frozen invariant exactly.
+            guard let confirmedLoad = lastConfirmedLoad else {
+                // Defensive: no server-confirmed Load yet (shouldn't be
+                // reachable — .actionInFlight is only entered from a
+                // submit() that itself came from .loaded → so
+                // lastConfirmedLoad MUST have been set by the prior
+                // performAction's success arm or fetchLoadDetail). If it
+                // ever is, bail rather than capture a fabricated snapshot.
+                return
+            }
+            preLoad = confirmedLoad
             preChain = frozenChain
         case .actionFailed(let rollbackTo, let frozenChain, _):
+            // `.actionFailed.rollbackTo` was itself derived from a
+            // last-server-confirmed snapshot at the previous submit's entry
+            // (D-15 invariant maintained by induction), so it IS restorable.
             preLoad = rollbackTo
             preChain = frozenChain
         case .loading, .error:
@@ -475,6 +518,11 @@ public final class LoadDetailViewModel {
         // D-14 — the WHOLE Decodable response flows into the associated
         // values verbatim. No derived state, no flattened booleans. Both
         // load AND chainOfTrust swap from the server response.
+        // WR-06 — also swap the last-server-confirmed snapshot so a
+        // subsequent override-in-flight submit() captures THIS response
+        // as its rollback target, not a predicted intermediate.
+        lastConfirmedLoad = response.load
+        lastConfirmedChain = response.chainOfTrust
         state = .loaded(response.load, response.chainOfTrust)
     }
 
