@@ -316,8 +316,24 @@ public final class LoadActionToastBannerView: UIView {
     // MARK: - removeFromSuperview override (fires onRemoved hook)
 
     public override func removeFromSuperview() {
+        // WR-08 — belt-and-suspenders: invalidate any pending auto-dismiss
+        // timer before tearing down the view. Without this, paths that
+        // remove the banner WITHOUT going through playSlideOutAndRemove
+        // (parent VC teardown, memory-warning eviction) would leave the
+        // Timer alive — Timer retains its target/closure, so its fire
+        // block would run against an out-of-hierarchy view.
+        autoDismissTimer?.invalidate()
+        autoDismissTimer = nil
         super.removeFromSuperview()
         onRemoved?()
+    }
+
+    // WR-08 — catch-all timer cleanup. deinit runs on the actor (the
+    // class is @MainActor); Timer.invalidate() is itself thread-safe.
+    // Belt-and-suspenders for any path that nils the last reference
+    // without first invoking playSlideOutAndRemove or removeFromSuperview.
+    deinit {
+        autoDismissTimer?.invalidate()
     }
 
     // MARK: - Private
@@ -342,8 +358,16 @@ public final class LoadActionToastBannerView: UIView {
         #else
         delay = Self.defaultAutoDismissDelay
         #endif
+        // WR-08 — the inner Task captures self weakly too. The original
+        // closure pattern `Task { @MainActor in self?.… }` hoisted the
+        // unwrapped self into the Task body as a STRONG reference for the
+        // duration of the closure (on iOS 18+ this could briefly retain
+        // the view past the timer's natural fire). [weak self] on both
+        // the Timer block AND the Task closure makes the lifetime fully
+        // explicit; if the view has dealloc'd by the time the Task hop
+        // schedules, the dispatch is a no-op.
         autoDismissTimer = Timer.scheduledTimer(withTimeInterval: delay, repeats: false) { [weak self] _ in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.playSlideOutAndRemove(onComplete: nil)
             }
         }
