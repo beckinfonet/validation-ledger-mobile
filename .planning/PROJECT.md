@@ -60,11 +60,11 @@ v1.0 closed with a `tech_debt` milestone audit — see `.planning/milestones/v1.
 
 <!-- v1.1 "Load Flows" scope — hypotheses until shipped + validated. Detailed in .planning/REQUIREMENTS.md. -->
 
-- [ ] Per-role tender / accept / reject action sets across all 5 roles
 - [x] **LOAD-01, LOAD-02** — Load-domain mock endpoints + fixtures, contract-first foundation (`Core/Load/` value types, `RoleLoadPolicy`, 3 typed endpoints, 22-fixture matrix, DEBUG `MockLoadFixtureRegistry`) — Phase 7, 2026-05-19
 - [x] **LOAD-03..08, TRUST-02** — Role-filtered load list + per-role badges + empty/loading/error + pull-to-refresh — Phase 8, 2026-05-20 (5 device-UAT items pending in 08-HUMAN-UAT.md)
 - [x] **Load detail + chain-of-trust graph** — Status timeline, 2D `TrustGraphView` + `ChainIntegrityBannerView`, tap-for-verification-basis — Phase 9, 2026-05-20 (6 device-UAT scenarios pending in 09-HUMAN-UAT.md)
 - [x] **R1..R12 (iPhone Chain-of-Vouches Redesign)** — Vertical attribution tree + role strip on iPhone replacing the 2D graph (iPad keeps it); `DS.Colors.Verification`/`DS.Colors.Roles` TRUST-02 helpers; R12 single-source-of-truth grep gate locked — Phase 9.1, 2026-05-21 (4 device/visual items pending in 09.1-HUMAN-UAT.md)
+- [x] **ACTION-01..ACTION-09 (Per-role tender / accept / reject)** — `RoleLoadPolicy`-driven action region, `LoadDetailViewModel` `.actionInFlight`/`.actionFailed` state machine with optimistic predict + rollback (D-15), `TenderSheetViewController` with two-gate ACTION-04 (load-level + carrier-level visible-but-disabled), 4 DEBUG failure-injection toggles, `IdempotencyInterceptor` registration mitigation, 86 snapshot baselines (65-cell Role × LoadStatus matrix + variants), 6 XCUITest smoke flows. Code-review fixed 2 Criticals (defense-in-depth Send guard + per-loadID mock echo) + 8 Warnings — Phase 10, 2026-05-21 (5 device-UAT items pending in 10-HUMAN-UAT.md)
 
 ### Deferred from M2 (post-v1.1)
 
@@ -186,4 +186,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-21 — Phase 9.1 (Chain-of-Vouches Redesign) complete; R1..R12 delivered (12/12 R-truths verified; 4 device/visual items pending in 09.1-HUMAN-UAT.md). The iPhone load-detail surface now mounts the vertical attribution tree + everyone-on-load strip; iPad continues to render the Phase 9 2D `TrustGraphView` unchanged. Next: Phase 10 (Per-Role Tender / Accept / Reject).*
+*Last updated: 2026-05-21 — Phase 10 (Per-Role Tender / Accept / Reject) complete; ACTION-01..ACTION-09 delivered (5/5 success criteria verified; 5 device-UAT items pending in 10-HUMAN-UAT.md). The load-detail surface is now fully actionable across all 5 roles: action region is policy-driven (`RoleLoadPolicy`), optimistic-predict + server-confirmed rollback ships with the D-15 contract, tender to an unverified counterparty is hard-disabled at both load and carrier gates, and the v1.0 idempotency interceptor routes every action POST. v1.1 "Load Flows" milestone scope is complete (Phases 7, 8, 9, 9.1, 10 — 5 of 5 phases shipped). Next: device UAT close-out across the open 10-HUMAN-UAT.md (5), 09.1-HUMAN-UAT.md (4), 09-HUMAN-UAT.md (6), 08-HUMAN-UAT.md (5) — then milestone close.*
