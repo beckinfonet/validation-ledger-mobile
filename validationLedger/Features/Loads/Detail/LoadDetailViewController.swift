@@ -422,8 +422,17 @@ public final class LoadDetailViewController: UIViewController {
         // payload — visible UI churn and unnecessary load on the backend.
         // Pull-to-refresh + the .error retry CTA remain on the
         // unconditional fetch path (they call fetchLoadDetail() directly).
+        //
+        // Phase 10 Plan 03 (D-22 follow-on): .actionInFlight and .actionFailed
+        // ALSO suppress the re-fetch — they already carry data (predicted
+        // Load + frozen chain, or rollback Load + frozen chain). A re-fetch
+        // here would clobber the optimistic state mid-action or overwrite a
+        // freshly-applied rollback with the server's (potentially stale)
+        // cached payload. Plan 04 lands the action-region UI; the render
+        // arms below stay minimal in Plan 03 (no behavior change to the
+        // user-visible content).
         switch viewModel.state {
-        case .loaded:
+        case .loaded, .actionInFlight, .actionFailed:
             return
         case .loading, .error:
             // Capture `viewModel` to avoid a [weak self] guard for the simple
@@ -1116,6 +1125,31 @@ public final class LoadDetailViewController: UIViewController {
 
         case .loaded(let load, let chainOfTrust):
             applyLoadedRender(load: load, chainOfTrust: chainOfTrust)
+
+        case .actionInFlight(let predicted, let frozenChain, _):
+            // Phase 10 Plan 03 (D-12 / D-13) — re-render against the
+            // PREDICTED Load + the FROZEN pre-tap chain. Visually the body
+            // looks like a successful .loaded render of the predicted state;
+            // Plan 04 will overlay the action-region spinner + disable the
+            // action region for the duration of the in-flight transition.
+            // For Plan 03 the minimal render is "treat the predicted snapshot
+            // as if it were a .loaded snapshot" — no chain prediction (D-13
+            // — frozenChain comes from the pre-tap snapshot), no behavior
+            // change versus a .loaded render of the same payload.
+            applyLoadedRender(load: predicted, chainOfTrust: frozenChain)
+
+        case .actionFailed(let rollbackTo, let frozenChain, _):
+            // Phase 10 Plan 03 (D-15) — re-render against the ROLLBACK Load
+            // + the FROZEN pre-tap chain (both restored to the captured
+            // pre-tap snapshot). Plan 04 will surface the localized error
+            // banner referencing the LOCKED `errorCopyKey` (UI-SPEC line
+            // 343-348). For Plan 03 the minimal render is the rollback
+            // snapshot rendered as a `.loaded` body; the error banner UI
+            // lands in Plan 04 (the state.actionFailed.errorCopyKey carries
+            // the localization key forward — no server-text leakage; the
+            // T-09-04 lock is enforced at the VM by Test 5/6 of the
+            // rollback test suite).
+            applyLoadedRender(load: rollbackTo, chainOfTrust: frozenChain)
 
         case .error:
             // T-09-04 — the .error associated `message` is NEVER read here.

@@ -167,13 +167,17 @@ final class LoadListViewController: UIViewController {
     /// `collectionView(_:didSelectItemAt:)` invokes
     /// `detailScreenFactory(load.id)` and pushes the returned VC onto the
     /// navigation stack. Threaded from `AppContainer.makeLoadListScreen(role:)`
-    /// which captures `[weak self]` to invoke `makeLoadDetailScreen(loadID:)`
-    /// — the same closure-factory pattern Phase 8 used for `kycStatusScreen
-    /// Factory`. Default fallback returns an empty `UIViewController` so the
-    /// existing in-tree tests / preview-only call sites that do not pass a
-    /// factory still compile; a row-tap in that fallback path pushes an
-    /// inert white screen (never reached in production — the AppContainer
-    /// always threads the real factory).
+    /// which captures `[weak self]` to invoke
+    /// `makeLoadDetailScreen(loadID:role:)` (Phase 10 Plan 03 — D-22: the
+    /// `role:` parameter is the captured session role from the outer
+    /// `makeLoadListScreen(role:)` scope, forwarded into the per-screen VM
+    /// so the action region can perform the policy lookup). The same
+    /// closure-factory pattern Phase 8 used for `kycStatusScreenFactory`.
+    /// Default fallback returns an empty `UIViewController` so the existing
+    /// in-tree tests / preview-only call sites that do not pass a factory
+    /// still compile; a row-tap in that fallback path pushes an inert white
+    /// screen (never reached in production — the AppContainer always
+    /// threads the real factory).
     private let detailScreenFactory: (String) -> UIViewController
 
     init(

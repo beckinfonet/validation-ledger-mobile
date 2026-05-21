@@ -65,7 +65,11 @@ final class LoadDetailViewControllerCompositionTests: XCTestCase {
             statusCode: 200, body: data
         )
 
-        let vm = LoadDetailViewModel(loadID: loadID, apiClient: makeAPIClient(), logger: nil)
+        // Phase 10 Plan 03 D-22: VM init now requires `role:`. The Phase 9
+        // composition tests are role-agnostic (the VC's body composition is
+        // not gated on role); `.broker` is chosen as the canonical default
+        // matching the Phase 10 action-region tests.
+        let vm = LoadDetailViewModel(loadID: loadID, role: .broker, apiClient: makeAPIClient(), logger: nil)
         let vc = LoadDetailViewController(viewModel: vm)
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 400, height: 900))
         window.rootViewController = vc
