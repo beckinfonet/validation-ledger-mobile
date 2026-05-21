@@ -20,6 +20,10 @@ final class LoadWithExtensionTests: XCTestCase {
     /// Decode VL-1001 — the canonical shared-world fixture (Phase 7 D-11) —
     /// through the production decoder configuration so the source Load is
     /// fully formed (stateHistory, every field exercised).
+    ///
+    /// `@MainActor` matches the project's `SWIFT_DEFAULT_ACTOR_ISOLATION =
+    /// MainActor` — Load's Decodable conformance is main-actor isolated.
+    @MainActor
     private func loadFromFixture() throws -> Load {
         let data = try FixtureLoader.loadFixture("load-detail-VL-1001")
         let response = try APIClient.defaultDecoder()
@@ -31,6 +35,7 @@ final class LoadWithExtensionTests: XCTestCase {
 
     /// `load.with(status: .tendered, respondByAt: <date>)` returns a new Load
     /// with EXACTLY those two fields changed and every other field equal.
+    @MainActor
     func test_with_setsStatusAndRespondByAt_otherFieldsEqual() throws {
         let original = try loadFromFixture()
         let newDate = Date(timeIntervalSinceReferenceDate: 12345)
@@ -64,6 +69,7 @@ final class LoadWithExtensionTests: XCTestCase {
     /// The source Load is unchanged (value-type purity guard — Test 9 in Task 2
     /// will lock this same invariant at the predictor layer; this asserts it
     /// at the helper layer as a redundant safety net).
+    @MainActor
     func test_with_doesNotMutateSource() throws {
         let original = try loadFromFixture()
         let originalStatus = original.status
@@ -76,6 +82,7 @@ final class LoadWithExtensionTests: XCTestCase {
     /// `load.with(status: .cancelled, respondByAt: nil)` correctly nils
     /// respondByAt even when the source carried a non-nil value (covers the
     /// .accept/.reject/.cancel arms in the predictor that clear the deadline).
+    @MainActor
     func test_with_clearsRespondByAtToNil() throws {
         let original = try loadFromFixture()
         // Synthesize a pre-state with a non-nil respondByAt by chaining

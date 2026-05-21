@@ -50,6 +50,12 @@ final class LoadActionPredictorTests: XCTestCase {
     /// `respondByAt` is wired as an ISO-8601 string when non-nil, omitted
     /// when nil (Load.respondByAt is `Date?` — `decodeIfPresent` returns nil
     /// for the missing key).
+    ///
+    /// `@MainActor` matches the project's `SWIFT_DEFAULT_ACTOR_ISOLATION =
+    /// MainActor` — `Load`'s synthesized `Decodable` conformance is
+    /// main-actor isolated in this codebase, so the decode call site must be
+    /// main-actor too (Swift 6 enforces this; Swift 5 mode warns).
+    @MainActor
     private func makeLoad(status: LoadStatus, respondByAt: Date? = nil) throws -> Load {
         let respondByAtJSON: String = {
             guard let respondByAt else { return "" }
