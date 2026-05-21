@@ -183,7 +183,40 @@ Plans:
   4. A failed (mocked) action rolls the screen back to its pre-action state and shows an error; in-flight actions are disabled to prevent double-submit and route through the v1.0 idempotency interceptor.
   5. After a successful action, the load list reflects the new state on pop-back.
 
-**Plans**: TBD
+**Plans**: 10 plans
+
+Plans:
+**Wave 1** *(parallel)*
+
+- [ ] 10-01-PLAN.md — LoadActionPredictor pure namespace + LoadStatus.localizedDisplayName + Load.with(status:respondByAt:) extension + exhaustive (LoadAction × LoadStatus) coverage
+- [ ] 10-02-PLAN.md — RoleLoadPolicy.availableActions(for:in:) wrapper + LoadActionTitleResolver pure namespace + per-action title resolver + nextStatus(from:) helper
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 10-03-PLAN.md — LoadDetailViewModel State enum +2 cases (.actionInFlight, .actionFailed) + submit(action:body:) + role plumb + AppContainer.makeLoadDetailScreen(loadID:role:) + 15 VM tests
+
+**Wave 3** *(blocked on Wave 2)*
+
+- [ ] 10-04-PLAN.md — LoadActionsView (programmatic UIView with empty-state caption, ACTION-07 inline disabled-reason, respond-by inline label, Dynamic Type axis flip) + LoadDetailBodyView contentStack index-2 insertion + LoadDetailViewController render arms for .actionInFlight/.actionFailed + chain-overlay stubs + lint test asserting zero switch.*\\.status in Features/Loads/
+
+**Wave 4** *(parallel, blocked on Wave 3)*
+
+- [ ] 10-05-PLAN.md — CarrierDirectoryEndpoint (GET /carriers/directory) + tender-carrier-directory.json fixture (7 synthetic carriers spanning 4 VerificationState cases, Chameleon Cargo fraud archetype) + MockLoadFixtureRegistry handler + decode + mock-dispatch tests
+- [ ] 10-07-PLAN.md — LoadActionToastBannerView (hand-rolled UIView.animate slide-in/out + haptic + VoiceOver announcement + auto-dismiss + tap/swipe-up dismiss) + chain updating-overlay (alpha-fade + UIActivityIndicatorView) + presentToastBanner(copyKey:) wiring on VC
+
+**Wave 5** *(parallel, blocked on Wave 4)*
+
+- [ ] 10-06-PLAN.md — TenderSheetViewController + TenderSheetCarrierRowView (UISheetPresentationController .medium detent, 7-line recipe inlined per Pitfall 7) + carrier-level ACTION-04 gate (visible-but-disabled with inline reason, badge stays at full alpha) + deadline picker (5 chips with Custom… reveal) + Send-button 3-gate enable + TenderEligibilityGatingTests (named VALIDATION.md ACTION-04 test)
+- [ ] 10-08-PLAN.md — MockActionFailureToggles (4 #if DEBUG launch args: -MockActionConflict409/Validation422/ServerError500/LatencySlow per Phase 5 precedent) + MockLoadFixtureRegistry failure handlers (first-match-wins precedence) + T-10-08 CRITICAL mitigation: IdempotencyInterceptorRegistrationTests + MockLoadActionDispatchTests
+
+**Wave 6** *(blocked on Wave 5)*
+
+- [ ] 10-09-PLAN.md — 65-cell (Role × LoadStatus) snapshot matrix RECORD + VERIFY in single pass (UI-SPEC line 537 regression gate) + 5-cell tenderEligibility-disabled variant + 2-cell empty-state caption variant + 4-scenario TenderSheet snapshots + 6-scenario Toast banner snapshots (~80 baselines total)
+
+**Wave 7** *(blocked on Wave 6)*
+
+- [ ] 10-10-PLAN.md — 6 XCUITest smoke flows (broker tender / carrier accept / carrier reject / ACTION-04 hard-disable / rollback on 500 / double-submit prevented) + 10-MANUAL-TESTS.md device-UAT checklist (3 Manual-Only verifications from VALIDATION.md + end-to-end happy-path)
+
 **UI hint**: yes
 **Notes**: The most cross-role-sensitive surface. Plan-time checklist must include an explicit item verifying every action endpoint is registered with the v1.0 idempotency interceptor, and that the rollback path ships in the same plan as the forward path for every action. Zero `switch load.status` in any view controller or cell — all action gating flows from `RoleLoadPolicy`. `post` and `cancel` (ACTION-06) act on pre-existing fixture loads as state actions — there is no multi-field load-creation form in v1.1.
 
@@ -204,7 +237,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 9.1 → 10
 | 8. Role-Filtered Load List | v1.1 | 4/4 | Complete   | 2026-05-20 |
 | 9. Load Detail & Chain-of-Trust Graph | v1.1 | 10/10 | Complete   | 2026-05-20 |
 | 9.1. Chain-of-Vouches Redesign (INSERTED — device UAT) | v1.1 | 5/5 | Complete   | 2026-05-21 |
-| 10. Per-Role Tender / Accept / Reject | v1.1 | 0/TBD | Not started | - |
+| 10. Per-Role Tender / Accept / Reject | v1.1 | 0/10 | Planned (7 waves) | - |
 
 ---
 *Milestone v1.0 "M1 Foundation" shipped 2026-05-18 — see `.planning/MILESTONES.md`. Roadmap created 2026-04-20. v1.1 "Load Flows" phases 7-10 added 2026-05-19. Phase 09.1 inserted 2026-05-20 from device-UAT; planned 2026-05-21.*
