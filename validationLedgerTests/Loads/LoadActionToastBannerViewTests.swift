@@ -202,9 +202,18 @@ final class LoadActionToastBannerViewTests: XCTestCase {
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 400, height: 800))
         window.addSubview(container)
         container.frame = window.bounds
-        container.layoutIfNeeded()
 
         container.addSubview(banner)
+        // Caller's responsibility per the API contract: pin leading/trailing
+        // BEFORE invoking playSlideIn (the method only manages the vertical
+        // slide-in animation + the auto-dismiss timer).
+        banner.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            banner.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            banner.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+        ])
+        container.layoutIfNeeded()
+
         banner.playSlideIn(in: container, topAnchor: container.topAnchor, after: 0, onComplete: nil)
 
         // After the slide-in animation completes the banner sits at
@@ -235,13 +244,19 @@ final class LoadActionToastBannerViewTests: XCTestCase {
         ])
         container.layoutIfNeeded()
 
-        banner.playSlideIn(in: container, topAnchor: container.topAnchor, after: 1.0 /* delay so transform sits */, onComplete: nil)
-        // With a 1.0s start delay, the transform sits at the pre-animation
-        // position. Bounds.height must be non-zero (we laid out above).
+        banner.playSlideIn(in: container, topAnchor: container.topAnchor, after: 0, onComplete: nil)
+        // `UIView.animate`'s animations closure synchronously sets the
+        // model-layer's transform to `.identity` (its end state); reading
+        // `banner.transform` after the call would observe `.identity`,
+        // not the pre-animation value. The view captures the pre-animation
+        // transform via `preAnimationTransformForTesting` BEFORE entering
+        // the animate block — that is the deterministic seam tests use.
         XCTAssertGreaterThan(banner.bounds.height, 0,
                              "Banner has laid-out intrinsic height before slide-in")
         let expectedY = -(banner.bounds.height + 24)
-        XCTAssertEqual(banner.transform.ty, expectedY, accuracy: 1.0,
+        let captured = banner.preAnimationTransformForTesting
+        XCTAssertNotNil(captured, "Pre-animation transform captured before UIView.animate commits")
+        XCTAssertEqual(captured?.ty ?? 0, expectedY, accuracy: 1.0,
                        "Pre-anim transform is -(banner.bounds.height + 24) per UI-SPEC line 467")
     }
 
