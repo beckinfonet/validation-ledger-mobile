@@ -161,3 +161,45 @@ public struct Load: Decodable, Sendable {
     /// + `disabledReason`.
     public let tenderEligibility: TenderEligibility?
 }
+
+// MARK: - Phase 10 (per D-16) — predictor helper extension
+//
+// Internal-access helper consumed by LoadActionPredictor; same module, no
+// public-init exposure (Phase 7 contract unchanged at the public surface).
+//
+// Rationale per 10-RESEARCH.md § Open Question 1:
+//   Every stored property on Load is `public let`, so Swift synthesizes an
+//   internal-access memberwise `init(id:referenceNumber:...:tenderEligibility:)`.
+//   The synthesized init is accessible from a same-module extension WITHOUT
+//   widening Load's public surface — exactly the access level the predictor
+//   needs (it lives in the same module under Core/Load/).
+//
+// Signature is the minimal one the predictor needs:
+//   `with(status:respondByAt:)` — both ACTION-02/04/05 and the .accept/.reject
+//   arms only need to override these two fields. Every other field forwards.
+extension Load {
+    /// Returns a new Load with `status` and `respondByAt` overridden and
+    /// every other stored property forwarded unchanged.
+    ///
+    /// Pure value-type construction — does NOT mutate `self`. The
+    /// LoadActionPredictor calls this on the current Load to produce the
+    /// optimistic-forward predicted Load that lands in the ViewModel's
+    /// `.actionInFlight` state (per Plan 03's D-16 rollback contract).
+    func with(status: LoadStatus, respondByAt: Date?) -> Load {
+        Load(
+            id: self.id,
+            referenceNumber: self.referenceNumber,
+            origin: self.origin,
+            destination: self.destination,
+            equipment: self.equipment,
+            weight: self.weight,
+            rate: self.rate,
+            pickupAt: self.pickupAt,
+            deliverAt: self.deliverAt,
+            status: status,
+            stateHistory: self.stateHistory,
+            respondByAt: respondByAt,
+            tenderEligibility: self.tenderEligibility
+        )
+    }
+}
