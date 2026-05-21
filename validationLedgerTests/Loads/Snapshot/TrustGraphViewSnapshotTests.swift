@@ -1,8 +1,21 @@
 // validationLedgerTests/Loads/Snapshot/TrustGraphViewSnapshotTests.swift
 //
-// Phase 9 Plan 06 Task 2 — populates the Plan 02 Wave 0 shell with the
-// 12-fingerprint matrix (3 verdicts × 2 devices × 2 Dynamic Type sizes)
-// per RESEARCH §3 line 390.
+// Phase 9 Plan 06 Task 2 — populated the original 12-fingerprint matrix
+// (3 verdicts × 2 devices × 2 Dynamic Type sizes). PHASE 9.1 D-05
+// **constrains this suite to iPad sizes only** — iPhone no longer mounts
+// TrustGraphView (R5: iPhone uses the new vertical-tree layout from Plans
+// 03 + 04; TrustGraphView is mounted only on iPad regular). The Phase 9
+// iPhone-sized snapshot methods have been REMOVED — keeping them would
+// test a code path the app no longer presents in production.
+//
+// === Phase 9.1 D-05 / D-06 — iPad-only snapshot posture ===
+// New iPad sizes per UI-SPEC §Snapshot Test Matrix:
+//   - iPadMiniPortraitSize   = 744 × 1024
+//   - iPadMiniLandscapeSize  = 1133 × 744
+// The previous iPadSplitSize (700×600) is retained as a regression for
+// the existing iPad split-pane render scenario.
+// WR-04 baseline sanity-check (Phase 9 close-out) collapses into this
+// re-record pass — the human reviewer walks the new iPad attachments once.
 //
 // === Pitfall 8 / RESEARCH §3 line 408 ===
 // Every compromised-verdict snapshot test sets `halo.opacity = 1.0` BEFORE
@@ -20,10 +33,16 @@ import XCTest
 
 class TrustGraphViewSnapshotTests: XCTestCase {
 
-    // MARK: - Helpers
+    // MARK: - Helpers — iPad-only canvas sizes (Phase 9.1 D-05)
 
-    private static let iPhonePortraitSize = CGSize(width: 393, height: 600)
+    /// Phase 9 split-pane width retained as a regression scenario (the
+    /// iPad bodyContainer's left 60% pane is roughly this width on iPad
+    /// mini / iPad Air landscape splits).
     private static let iPadSplitSize = CGSize(width: 700, height: 600)
+    /// Phase 9.1 D-05 / UI-SPEC §Snapshot Test Matrix — iPad mini portrait.
+    private static let iPadMiniPortraitSize = CGSize(width: 744, height: 1024)
+    /// Phase 9.1 D-05 / UI-SPEC §Snapshot Test Matrix — iPad mini landscape.
+    private static let iPadMiniLandscapeSize = CGSize(width: 1133, height: 744)
 
     /// Build a TrustGraphView, configure it with a synthetic chain at the
     /// given verdict, and lay it out at the requested canvas size.
@@ -31,16 +50,9 @@ class TrustGraphViewSnapshotTests: XCTestCase {
     /// compromised snapshots are deterministic (Pitfall 8 — capture
     /// resting frame).
     ///
-    /// WR-04 fix (Phase 9 review): the `contentSize` parameter now drives
+    /// WR-04 fix (Phase 9 review): the `contentSize` parameter drives
     /// `view.traitOverrides.preferredContentSizeCategory` so the DTLarge
     /// vs DTAXXXL snapshot variants actually render at different sizes.
-    /// Previously the parameter was captured as `contentSize _` and never
-    /// applied — the two DT legs of the 12-fingerprint matrix rendered
-    /// identically (both at the default content size), giving illusory
-    /// coverage. The iOS 17 `traitOverrides` API is the right tool here:
-    /// it injects the trait override locally on the view without
-    /// mutating `UIApplication.shared.preferredContentSizeCategory`
-    /// (which would leak across tests and require host-app teardown).
     private func renderedView(
         verdict: ChainIntegrity.Verdict,
         size: CGSize,
@@ -58,8 +70,7 @@ class TrustGraphViewSnapshotTests: XCTestCase {
         // WR-04: inject the Dynamic Type content-size category via the iOS
         // 17 trait-override channel. Must be applied BEFORE configure(...)
         // + layoutIfNeeded() so the view sees the override during its
-        // initial layout pass. The override is scoped to this view's
-        // subtree — no global state mutation.
+        // initial layout pass.
         v.traitOverrides.preferredContentSizeCategory = contentSize
         v.configure(chainOfTrust: chain)
         v.layoutIfNeeded()
@@ -77,19 +88,7 @@ class TrustGraphViewSnapshotTests: XCTestCase {
         )
     }
 
-    // MARK: - clean × iPhone × {Large, XXXLarge}
-
-    func test_cleanVerdict_iPhonePortrait_dynamicTypeLarge_rendersExpectedFrame() {
-        render(.clean, size: Self.iPhonePortraitSize, contentSize: .large,
-               name: "TrustGraph-clean-iPhonePortrait-DTLarge")
-    }
-
-    func test_cleanVerdict_iPhonePortrait_dynamicTypeXXXLarge_rendersExpectedFrame() {
-        render(.clean, size: Self.iPhonePortraitSize, contentSize: .accessibilityExtraExtraExtraLarge,
-               name: "TrustGraph-clean-iPhonePortrait-DTAXXXL")
-    }
-
-    // MARK: - clean × iPad × {Large, XXXLarge}
+    // MARK: - clean × iPad split × {Large, XXXLarge}
 
     func test_cleanVerdict_iPadSplit_dynamicTypeLarge_rendersExpectedFrame() {
         render(.clean, size: Self.iPadSplitSize, contentSize: .large,
@@ -101,19 +100,21 @@ class TrustGraphViewSnapshotTests: XCTestCase {
                name: "TrustGraph-clean-iPadSplit-DTAXXXL")
     }
 
-    // MARK: - caution × iPhone × {Large, XXXLarge}
+    // MARK: - clean × iPad mini portrait
 
-    func test_cautionVerdict_iPhonePortrait_dynamicTypeLarge_rendersExpectedFrame() {
-        render(.caution, size: Self.iPhonePortraitSize, contentSize: .large,
-               name: "TrustGraph-caution-iPhonePortrait-DTLarge")
+    func test_cleanVerdict_iPadMiniPortrait_dynamicTypeLarge_rendersExpectedFrame() {
+        render(.clean, size: Self.iPadMiniPortraitSize, contentSize: .large,
+               name: "TrustGraph-clean-iPadMiniPortrait-DTLarge")
     }
 
-    func test_cautionVerdict_iPhonePortrait_dynamicTypeXXXLarge_rendersExpectedFrame() {
-        render(.caution, size: Self.iPhonePortraitSize, contentSize: .accessibilityExtraExtraExtraLarge,
-               name: "TrustGraph-caution-iPhonePortrait-DTAXXXL")
+    // MARK: - clean × iPad mini landscape
+
+    func test_cleanVerdict_iPadMiniLandscape_dynamicTypeLarge_rendersExpectedFrame() {
+        render(.clean, size: Self.iPadMiniLandscapeSize, contentSize: .large,
+               name: "TrustGraph-clean-iPadMiniLandscape-DTLarge")
     }
 
-    // MARK: - caution × iPad × {Large, XXXLarge}
+    // MARK: - caution × iPad split × {Large, XXXLarge}
 
     func test_cautionVerdict_iPadSplit_dynamicTypeLarge_rendersExpectedFrame() {
         render(.caution, size: Self.iPadSplitSize, contentSize: .large,
@@ -125,34 +126,50 @@ class TrustGraphViewSnapshotTests: XCTestCase {
                name: "TrustGraph-caution-iPadSplit-DTAXXXL")
     }
 
-    // MARK: - compromised × iPhone × {Large, XXXLarge} — Pitfall 8 resting frame
+    // MARK: - caution × iPad mini portrait
 
-    func test_compromisedVerdict_iPhonePortrait_dynamicTypeLarge_rendersExpectedFrame() {
-        let view = renderedView(verdict: .compromised, size: Self.iPhonePortraitSize, contentSize: .large)
+    func test_cautionVerdict_iPadMiniPortrait_dynamicTypeLarge_rendersExpectedFrame() {
+        render(.caution, size: Self.iPadMiniPortraitSize, contentSize: .large,
+               name: "TrustGraph-caution-iPadMiniPortrait-DTLarge")
+    }
+
+    // MARK: - caution × iPad mini landscape
+
+    func test_cautionVerdict_iPadMiniLandscape_dynamicTypeLarge_rendersExpectedFrame() {
+        render(.caution, size: Self.iPadMiniLandscapeSize, contentSize: .large,
+               name: "TrustGraph-caution-iPadMiniLandscape-DTLarge")
+    }
+
+    // MARK: - compromised × iPad split × {Large, XXXLarge} — Pitfall 8 resting frame
+
+    func test_compromisedVerdict_iPadSplit_dynamicTypeLarge_rendersExpectedFrame() {
+        let view = renderedView(verdict: .compromised, size: Self.iPadSplitSize, contentSize: .large)
         for halo in view._testHaloLayers() {
             XCTAssertNil(halo.animation(forKey: "pulse"),
                          "Pitfall 8: compromised snapshot must capture resting frame, no pulse animation attached.")
         }
         UIKitSnapshot.attach(
-            UIKitSnapshot.image(of: view, size: Self.iPhonePortraitSize),
-            name: "TrustGraph-compromised-iPhonePortrait-DTLarge", to: self
+            UIKitSnapshot.image(of: view, size: Self.iPadSplitSize),
+            name: "TrustGraph-compromised-iPadSplit-DTLarge", to: self
         )
-    }
-
-    func test_compromisedVerdict_iPhonePortrait_dynamicTypeXXXLarge_rendersExpectedFrame() {
-        render(.compromised, size: Self.iPhonePortraitSize, contentSize: .accessibilityExtraExtraExtraLarge,
-               name: "TrustGraph-compromised-iPhonePortrait-DTAXXXL")
-    }
-
-    // MARK: - compromised × iPad × {Large, XXXLarge}
-
-    func test_compromisedVerdict_iPadSplit_dynamicTypeLarge_rendersExpectedFrame() {
-        render(.compromised, size: Self.iPadSplitSize, contentSize: .large,
-               name: "TrustGraph-compromised-iPadSplit-DTLarge")
     }
 
     func test_compromisedVerdict_iPadSplit_dynamicTypeXXXLarge_rendersExpectedFrame() {
         render(.compromised, size: Self.iPadSplitSize, contentSize: .accessibilityExtraExtraExtraLarge,
                name: "TrustGraph-compromised-iPadSplit-DTAXXXL")
+    }
+
+    // MARK: - compromised × iPad mini portrait
+
+    func test_compromisedVerdict_iPadMiniPortrait_dynamicTypeLarge_rendersExpectedFrame() {
+        render(.compromised, size: Self.iPadMiniPortraitSize, contentSize: .large,
+               name: "TrustGraph-compromised-iPadMiniPortrait-DTLarge")
+    }
+
+    // MARK: - compromised × iPad mini landscape
+
+    func test_compromisedVerdict_iPadMiniLandscape_dynamicTypeLarge_rendersExpectedFrame() {
+        render(.compromised, size: Self.iPadMiniLandscapeSize, contentSize: .large,
+               name: "TrustGraph-compromised-iPadMiniLandscape-DTLarge")
     }
 }

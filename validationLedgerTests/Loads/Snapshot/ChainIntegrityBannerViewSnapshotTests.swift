@@ -1,9 +1,13 @@
 // validationLedgerTests/Loads/Snapshot/ChainIntegrityBannerViewSnapshotTests.swift
 //
 // Phase 9 Plan 09 Task 1 — populated banner snapshot suite for the
-// ChainIntegrityBannerView (D-15 / D-16). Mirrors the Plan 04
-// LoadDetailSkeletonViewSnapshotTests pattern: structural + accessibility
-// assertions + UIKitSnapshot.attach for visual review on CI.
+// ChainIntegrityBannerView (D-15 / D-16). **Phase 9.1 D-05** narrows the
+// canvas to iPad-only width (the banner is no longer mounted above the
+// iPhone title bar after 9.1 — R4: the verdict pill renders inside
+// `ChainOfVouchesView`'s footer on iPhone; only iPad regular keeps the
+// standalone banner). Banner canvas widened from 393pt (iPhone 17) to
+// 744pt (iPad mini portrait) per UI-SPEC §Snapshot Test Matrix.
+// Banner intrinsic height (36pt) is unchanged.
 //
 // === Three methods covering the three Verdict cases ===
 //   1. test_cautionVerdict_rendersYellowBanner — `.caution` snapshot +
@@ -29,12 +33,16 @@ import XCTest
 
 class ChainIntegrityBannerViewSnapshotTests: XCTestCase {
 
-    // MARK: - Helpers — banner canvas size
+    // MARK: - Helpers — banner canvas size (Phase 9.1 D-05 iPad-only)
 
-    /// Banner canvas: iPhone 17 width × 36pt fixed banner height (PATTERNS E4
-    /// mirror — LimitedTrustBannerView.bannerHeight). Snapshot at the exact
-    /// intrinsic height so the rendered chrome is the entire banner surface.
-    private static let bannerSize = CGSize(width: 393, height: 36)
+    /// Banner canvas: iPad mini portrait width × 36pt fixed banner height
+    /// (PATTERNS E4 mirror — LimitedTrustBannerView.bannerHeight). Snapshot
+    /// at the exact intrinsic height so the rendered chrome is the entire
+    /// banner surface.
+    ///
+    /// Phase 9.1 D-05: widened from 393pt (iPhone 17 width) to 744pt
+    /// (iPad mini portrait width) — the banner is iPad-only after 9.1.
+    private static let bannerSize = CGSize(width: 744, height: 36)
 
     // MARK: - 1. caution → yellow banner
 

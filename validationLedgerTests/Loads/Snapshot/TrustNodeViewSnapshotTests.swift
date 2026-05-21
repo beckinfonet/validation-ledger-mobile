@@ -1,6 +1,10 @@
 // validationLedgerTests/Loads/Snapshot/TrustNodeViewSnapshotTests.swift
 //
 // Phase 9 Plan 06 Task 1 — populates the Wave 0 shell from Plan 02.
+// **Phase 9.1 D-05**: this suite is now iPad-only. TrustNodeView is mounted
+// only on the iPad path after 9.1 (R5: iPhone uses the new vertical-tree
+// layout from Plans 03 + 04). The chrome-size constant has been renamed
+// to convey iPad-only intent.
 //
 // Locked targets:
 //   - 09-06-PLAN.md Task 1 (4 representative verification-state × role frames).
@@ -24,11 +28,14 @@ import XCTest
 
 class TrustNodeViewSnapshotTests: XCTestCase {
 
-    // MARK: - Helpers
+    // MARK: - Helpers — Phase 9.1 D-05 iPad-only intent
 
-    /// Default chrome size — square 100×100pt mirrors the iPhone fit-all-
-    /// nodes-tight rendering (≈90pt node chrome at default zoom).
-    private static let chromeSize = CGSize(width: 100, height: 100)
+    /// Default node chrome canvas — square 100×100pt mirrors the iPad
+    /// fit-all-nodes-tight rendering (≈90pt node chrome at default zoom).
+    /// Renamed from `chromeSize` to `iPadChromeSize` per Phase 9.1 D-05 to
+    /// convey the iPad-only mounting posture (iPhone no longer renders
+    /// TrustNodeView in the production composition).
+    private static let iPadChromeSize = CGSize(width: 100, height: 100)
 
     private func makeNode(
         role: Role,
@@ -54,7 +61,7 @@ class TrustNodeViewSnapshotTests: XCTestCase {
         isDimmed: Bool = false
     ) -> TrustNodeView {
         let v = TrustNodeView()
-        v.bounds = CGRect(origin: .zero, size: Self.chromeSize)
+        v.bounds = CGRect(origin: .zero, size: Self.iPadChromeSize)
         v.configure(node: node, isImplicated: isImplicated, isDimmed: isDimmed)
         v.layoutIfNeeded()
         return v
@@ -75,7 +82,7 @@ class TrustNodeViewSnapshotTests: XCTestCase {
                        "Node identifier must follow load-detail.trust-graph.node.{partyID} convention.")
 
         UIKitSnapshot.attach(
-            UIKitSnapshot.image(of: view, size: Self.chromeSize),
+            UIKitSnapshot.image(of: view, size: Self.iPadChromeSize),
             name: "TrustNode-verified-carrier", to: self
         )
     }
@@ -93,7 +100,7 @@ class TrustNodeViewSnapshotTests: XCTestCase {
                        "isDimmed=true must render at alpha 0.5 (D-15 dim-others).")
 
         UIKitSnapshot.attach(
-            UIKitSnapshot.image(of: view, size: Self.chromeSize),
+            UIKitSnapshot.image(of: view, size: Self.iPadChromeSize),
             name: "TrustNode-flagged-carrier-dimmed", to: self
         )
     }
@@ -104,7 +111,7 @@ class TrustNodeViewSnapshotTests: XCTestCase {
         )
 
         UIKitSnapshot.attach(
-            UIKitSnapshot.image(of: view, size: Self.chromeSize),
+            UIKitSnapshot.image(of: view, size: Self.iPadChromeSize),
             name: "TrustNode-pending-broker", to: self
         )
     }
@@ -115,7 +122,7 @@ class TrustNodeViewSnapshotTests: XCTestCase {
         )
 
         UIKitSnapshot.attach(
-            UIKitSnapshot.image(of: view, size: Self.chromeSize),
+            UIKitSnapshot.image(of: view, size: Self.iPadChromeSize),
             name: "TrustNode-unverified-shipper", to: self
         )
     }
