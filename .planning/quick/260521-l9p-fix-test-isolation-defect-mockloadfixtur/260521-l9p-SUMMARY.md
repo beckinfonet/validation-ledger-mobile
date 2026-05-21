@@ -1,6 +1,7 @@
 ---
 phase: quick-260521-l9p
 plan: 01
+status: complete
 subsystem: test-infrastructure
 tags: [test-isolation, mock-registry, phase-7, wr-01]
 requires:

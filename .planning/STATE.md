@@ -2,35 +2,33 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Load Flows
-status: milestone_complete
-stopped_at: Milestone complete (Phase 10 was final phase)
-last_updated: 2026-05-21T20:19:41.422Z
-last_activity: 2026-05-21 -- Phase 10 execution started
+status: Awaiting next milestone
+stopped_at: Phase 10 UI-SPEC approved
+last_updated: "2026-05-21T22:34:32.263Z"
+last_activity: 2026-05-21 — Milestone v1.1 completed and archived
 progress:
   total_phases: 5
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 35
   completed_plans: 35
-  percent: 80
+  percent: 100
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-19)
+See: .planning/PROJECT.md (updated 2026-05-21)
 
 **Core value:** Identity that cannot be spoofed and a chain-of-trust that cannot be faked.
-**Current focus:** Milestone complete
+**Current focus:** Planning next milestone — run `/gsd-new-milestone`
 
 ## Current Position
 
-Phase: 10
-Plan: Not started
-Status: Milestone complete
-Last activity: 2026-05-21 - Completed quick task 260521-l9p: Fix test isolation defect: MockLoadFixtureRegistry static guard not reset between tests
-
-Progress: [░░░░░░░░░░] 0%
+Phase: Milestone v1.1 complete
+Plan: —
+Status: Awaiting next milestone
+Last activity: 2026-05-21 — Milestone v1.1 completed and archived
 
 ## Performance Metrics
 
@@ -115,6 +113,26 @@ None yet for v1.1.
 
 All `verification_gap` and `uat_gap` items are physical-device observation tasks against verified code — they need real hardware and an active self-hosted runner, not code work. The v1.0 phase directories holding these artifacts were archived under `.planning/milestones/v1.0-phases/01-06*/`.
 
+### v1.1 "Load Flows" — acknowledged at close (2026-05-21)
+
+The v1.1 milestone audit closed `tech_debt`. These items were acknowledged and deferred at close:
+
+| Category | Item | Status | Deferred At |
+|----------|------|--------|-------------|
+| verification_gap | 08-VERIFICATION.md | human_needed — 5 device/visual/VoiceOver items | 2026-05-21 |
+| verification_gap | 09-VERIFICATION.md | human_needed — 6 device/gesture/VoiceOver items | 2026-05-21 |
+| verification_gap | 09.1-VERIFICATION.md | human_needed — 4 device/visual items | 2026-05-21 |
+| verification_gap | 10-VERIFICATION.md | human_needed — 5 device/visual items | 2026-05-21 |
+| uat_gap | 08-HUMAN-UAT.md | partial — 5 pending scenarios | 2026-05-21 |
+| uat_gap | 09-HUMAN-UAT.md | pending — 0 open scenarios | 2026-05-21 |
+| uat_gap | 09.1-HUMAN-UAT.md | partial — 4 pending scenarios | 2026-05-21 |
+| uat_gap | 10-MANUAL-TESTS.md | pending — 5 device-UAT scenarios | 2026-05-21 |
+| tech_debt | Nyquist coverage — Phases 7/8/9.1 VALIDATION.md un-advanced (draft/planned) | open — run `/gsd-validate-phase` | 2026-05-21 |
+| tech_debt | LOAD-05/LOAD-06 absent from 09-03/09-05 SUMMARY frontmatter (both verified implemented) | open — doc fix | 2026-05-21 |
+| tech_debt | 6 advisory Phase 9.1 code-review warnings (a11y suffix, dark-mode contrast, duplicate haptic, etc.) | open — non-blocking | 2026-05-21 |
+
+The 2 red test-isolation tests the v1.1 audit flagged were fixed before close (quick task `260521-l9p`, commit `d8df71c`). The ≈20 device-UAT scenarios across Phases 8/9/9.1/10 are real-hardware observation tasks against verified code. Full detail in `milestones/v1.1-MILESTONE-AUDIT.md`.
+
 ## Session Continuity
 
 Last session: 2026-05-21T11:58:17.839Z
@@ -123,5 +141,4 @@ Resume file: .planning/phases/10-per-role-tender-accept-reject/10-UI-SPEC.md
 
 ## Operator Next Steps
 
-- Execute Phase 09.1: `/gsd-execute-phase 9.1` (5 plans, 4 waves — Wave 1: color helper foundation; Wave 2: RoleAvatarView; Wave 3 (parallel): EveryoneOnLoadStripView + ChainOfVouchesView; Wave 4: LoadDetailViewController routing + DEBUG flag + D-05 snapshot re-record).
-- Recommend `/clear` first for a fresh context window before execution.
+- Start the next milestone with /gsd-new-milestone
