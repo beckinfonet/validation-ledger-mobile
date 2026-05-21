@@ -150,12 +150,12 @@ Plans:
 **Goal:** On iPhone, replace the Phase 9 2D TrustGraphView with a top-anchored EveryoneOnLoadStripView + ChainOfVouchesView (vertical attribution tree card with folded chain-integrity footer pill) that renders all 9 fixture role-count variants at chip-readable typography without the multi-broker slot-collision and chip-overcrowding defects device-UAT 2026-05-20 exposed. Preserves Phase 9 TrustGraphView UNCHANGED on iPad regular size class. Strengthens TRUST-02 by extracting the verification color ramp into a shared DS.Colors.Verification helper consumed by both the existing VerificationBadgeView and a new RoleAvatarView primitive (R12 negative-grep gate).
 **Requirements**: R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12
 **Depends on:** Phase 9
-**Plans:** 5 plans
+**Plans:** 1/5 plans executed
 
 Plans:
 **Wave 1**
 
-- [ ] 09.1-01-PLAN.md — TRUST-02 color helper foundation: DS.Colors.Verification + DS.Colors.Roles namespaces; VerificationBadgeView refactored to consume the helper; VerificationBadgeViewTests R12 invariant suite + R12 negative-grep gate wired (R12)
+- [x] 09.1-01-PLAN.md — TRUST-02 color helper foundation: DS.Colors.Verification + DS.Colors.Roles namespaces; VerificationBadgeView refactored to consume the helper; VerificationBadgeViewTests R12 invariant suite + R12 negative-grep gate wired (R12)
 
 **Wave 2** *(blocked on Wave 1)*
 
@@ -203,7 +203,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 9.1 → 10
 | 7. Load Domain Model & Mock Contract | v1.1 | 6/6 | Complete    | 2026-05-20 |
 | 8. Role-Filtered Load List | v1.1 | 4/4 | Complete   | 2026-05-20 |
 | 9. Load Detail & Chain-of-Trust Graph | v1.1 | 10/10 | Complete   | 2026-05-20 |
-| 9.1. Chain-of-Vouches Redesign (INSERTED — device UAT) | v1.1 | 0/5 | Planned | - |
+| 9.1. Chain-of-Vouches Redesign (INSERTED — device UAT) | v1.1 | 1/5 | In Progress|  |
 | 10. Per-Role Tender / Accept / Reject | v1.1 | 0/TBD | Not started | - |
 
 ---
