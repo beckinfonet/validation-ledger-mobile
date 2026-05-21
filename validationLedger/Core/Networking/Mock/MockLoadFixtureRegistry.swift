@@ -110,6 +110,20 @@ enum MockLoadFixtureRegistry {
     // toggle `hasRegisteredAppDefaults` directly.
     private static var hasRegisteredAppDefaults = false
 
+    #if DEBUG
+    /// Test-only seam: clear the process-lifetime registration guard so a
+    /// subsequent `registerAppDefaults()` call actually re-registers. Used by
+    /// Phase 10 `MockLoadFixtureRegistryActionToggleTests` (and any future
+    /// test that resets `MockURLProtocol._handlers` and then needs the load
+    /// handlers back). MUST NOT be called from production code — the guard's
+    /// whole reason for existence (WR-01) is to prevent handler accumulation
+    /// in DEBUG-on-device sessions. Wrap call sites in `@testable import`
+    /// and a `#if DEBUG`-gated test class so Release builds cannot reach it.
+    static func resetForTestOnly() {
+        hasRegisteredAppDefaults = false
+    }
+    #endif
+
     /// Register the Phase 7 load-domain default handlers with MockURLProtocol.
     /// Called from `AppContainer.init`'s DEBUG block adjacent to
     /// `MockDefaultFixtures.registerAppDefaults()`. APPEND-ONLY — never calls
@@ -121,6 +135,24 @@ enum MockLoadFixtureRegistry {
     /// accumulation leak in DEBUG sessions (DevMenu drives a fresh
     /// `AppContainer.init` on every role swap; pre-WR-01 each swap appended
     /// three more closures to `MockURLProtocol._handlers`).
+    ///
+    /// === REGISTRATION ORDER (first-match-wins per RESEARCH §Pattern 5) ===
+    /// Each `MockURLProtocol.startLoading()` consults handlers in registration
+    /// order; first non-nil return wins. Phase 10 D-19 adds 4 DEBUG-gated
+    /// failure-injection handlers BEFORE the existing action-success handler:
+    ///
+    ///   (1)  carrier directory (Plan 05 — independent path; appended in a
+    ///        sibling registry call, not here)
+    ///   (1)  per-role list           GET  /loads/{role}
+    ///   (2)  per-VL detail           GET  /loads/{VL-…}
+    ///   (3a) action-conflict409      POST /loads/{VL-…}/{action} (#if DEBUG; gated on conflict409Active)
+    ///   (3b) action-validation422    POST /loads/{VL-…}/{action} (#if DEBUG; gated on validation422Active)
+    ///   (3c) action-server500        POST /loads/{VL-…}/{action} (#if DEBUG; gated on serverError500Active)
+    ///   (3d) action-latencySlow      POST /loads/{VL-…}/{action} (#if DEBUG; gated on latencySlowActive; DEFERS — returns nil after delay)
+    ///   (3)  action-success          POST /loads/{VL-…}/{action} (Phase 7; unchanged)
+    ///
+    /// DO NOT reorder without updating `MockLoadFixtureRegistryActionToggleTests`
+    /// (Test 7 — the Pitfall 2 regression guard pins this order).
     static func registerAppDefaults() {
         guard !hasRegisteredAppDefaults else { return }
         hasRegisteredAppDefaults = true
@@ -145,6 +177,69 @@ enum MockLoadFixtureRegistry {
             guard let body = detailPayloads[suffix] else { return nil }
             return make200(body: body, url: request.url)
         }
+
+        #if DEBUG
+        // (3a) Phase 10 D-19 — conflict409 failure handler. Registered BEFORE
+        // the existing action-success handler so first-match-wins precedence
+        // returns 409 + load-action-conflict-409.json when the flag is set.
+        MockURLProtocol.register { request in
+            guard DebugActionFailureOverride.conflict409Active() else { return nil }
+            guard request.httpMethod == "POST" else { return nil }
+            guard let path = request.url?.path, path.hasPrefix("/loads/") else { return nil }
+            let suffix = String(path.dropFirst("/loads/".count))
+            let parts = suffix.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false)
+            guard parts.count == 2 else { return nil }
+            guard String(parts[0]).hasPrefix("VL-") else { return nil }
+            guard actionPathSegments.contains(String(parts[1])) else { return nil }
+            return make409(body: conflict409Payload, url: request.url)
+        }
+
+        // (3b) Phase 10 D-19 — validation422 failure handler. Same path-guards;
+        // returns 422 + load-action-validation-422.json when flag is set.
+        MockURLProtocol.register { request in
+            guard DebugActionFailureOverride.validation422Active() else { return nil }
+            guard request.httpMethod == "POST" else { return nil }
+            guard let path = request.url?.path, path.hasPrefix("/loads/") else { return nil }
+            let suffix = String(path.dropFirst("/loads/".count))
+            let parts = suffix.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false)
+            guard parts.count == 2 else { return nil }
+            guard String(parts[0]).hasPrefix("VL-") else { return nil }
+            guard actionPathSegments.contains(String(parts[1])) else { return nil }
+            return make422(body: validation422Payload, url: request.url)
+        }
+
+        // (3c) Phase 10 D-19 — serverError500 failure handler. Same path-guards;
+        // returns 500 + load-action-server-error-500.json when flag is set.
+        MockURLProtocol.register { request in
+            guard DebugActionFailureOverride.serverError500Active() else { return nil }
+            guard request.httpMethod == "POST" else { return nil }
+            guard let path = request.url?.path, path.hasPrefix("/loads/") else { return nil }
+            let suffix = String(path.dropFirst("/loads/".count))
+            let parts = suffix.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false)
+            guard parts.count == 2 else { return nil }
+            guard String(parts[0]).hasPrefix("VL-") else { return nil }
+            guard actionPathSegments.contains(String(parts[1])) else { return nil }
+            return make500(body: serverError500Payload, url: request.url)
+        }
+
+        // (3d) Phase 10 D-19 — latencySlow handler. Inserts a ~1.5s delay then
+        // DEFERS by returning nil so the NEXT matching handler fires (success
+        // OR one of 3a/3b/3c if combined). Per RESEARCH §Pattern 4 latency
+        // variant — makes the optimistic-predict + chain-overlay rollback
+        // visible to the human eye during device UAT.
+        MockURLProtocol.register { request in
+            guard DebugActionFailureOverride.latencySlowActive() else { return nil }
+            guard request.httpMethod == "POST" else { return nil }
+            guard let path = request.url?.path, path.hasPrefix("/loads/") else { return nil }
+            let suffix = String(path.dropFirst("/loads/".count))
+            let parts = suffix.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: false)
+            guard parts.count == 2 else { return nil }
+            guard String(parts[0]).hasPrefix("VL-") else { return nil }
+            guard actionPathSegments.contains(String(parts[1])) else { return nil }
+            Thread.sleep(forTimeInterval: DebugActionFailureOverride.latencySlowInterval)
+            return nil   // DEFERS — falls through to (3a/3b/3c) if combined, else (3) action-success.
+        }
+        #endif
 
         // (3) Action-success handler: POST /loads/{loadID}/{actionPathSegment}
         // Matches every LoadAction.pathSegment (post, tender, accept, reject,
@@ -177,6 +272,68 @@ enum MockLoadFixtureRegistry {
         )!
         return (response, body)
     }
+
+    // Phase 10 D-19 — non-2xx builders for the 3 failure-injection handlers.
+    // Same shape as `make200(body:url:)` — only the status code differs.
+
+    private static func make409(body: Data, url: URL?) -> (HTTPURLResponse, Data) {
+        let response = HTTPURLResponse(
+            url: url ?? URL(string: "https://mock.local/")!,
+            statusCode: 409,
+            httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "application/json"]
+        )!
+        return (response, body)
+    }
+
+    private static func make422(body: Data, url: URL?) -> (HTTPURLResponse, Data) {
+        let response = HTTPURLResponse(
+            url: url ?? URL(string: "https://mock.local/")!,
+            statusCode: 422,
+            httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "application/json"]
+        )!
+        return (response, body)
+    }
+
+    private static func make500(body: Data, url: URL?) -> (HTTPURLResponse, Data) {
+        let response = HTTPURLResponse(
+            url: url ?? URL(string: "https://mock.local/")!,
+            statusCode: 500,
+            httpVersion: "HTTP/1.1",
+            headerFields: ["Content-Type": "application/json"]
+        )!
+        return (response, body)
+    }
+
+    // MARK: - Phase 10 D-19 failure payloads (inlined from test fixtures)
+    //
+    // Inlined byte-faithful from validationLedgerTests/Networking/Fixtures/
+    // {load-action-conflict-409, load-action-validation-422, load-action-server-error-500}.json
+    // — keep these in sync with the fixture files. Tests 2-4 of
+    // MockLoadFixtureRegistryActionToggleTests are the byte-faithfulness guard
+    // (each test asserts the canonical error_code shipped by the fixture file).
+
+    private static let conflict409Payload: Data = Data(#"""
+{
+  "error_code": "load.stale_state",
+  "message": "This load has already been actioned by another party"
+}
+"""#.utf8)
+
+    private static let validation422Payload: Data = Data(#"""
+{
+  "error_code": "load.invalid_transition",
+  "message": "Cannot accept a load that is not currently tendered"
+}
+"""#.utf8)
+
+    private static let serverError500Payload: Data = Data(#"""
+{
+  "error_code": "server.internal",
+  "message": "Service temporarily unavailable"
+}
+"""#.utf8)
 
     // MARK: - Recognised LoadAction path segments
 

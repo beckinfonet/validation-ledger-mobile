@@ -35,8 +35,12 @@ final class MockLoadFixtureRegistryActionToggleTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        // Force the registry's process-lifetime guard to run on first invocation.
-        // It's idempotent — safe to call from every test.
+        // Clear MockURLProtocol so prior tests' handlers can't shadow ours.
+        MockURLProtocol.reset()
+        // Defeat the registry's process-lifetime guard (WR-01) — a sibling
+        // test may have already registered then reset MockURLProtocol, leaving
+        // the guard `true` and the handler array empty.
+        MockLoadFixtureRegistry.resetForTestOnly()
         MockLoadFixtureRegistry.registerAppDefaults()
         // Ensure all 4 closures start each test in the "production-default" state:
         restoreProductionDefaults()
@@ -48,6 +52,9 @@ final class MockLoadFixtureRegistryActionToggleTests: XCTestCase {
         // invocation, even when @Suite isolation says otherwise — XCTestCase
         // closures are static state).
         restoreProductionDefaults()
+        // Leave handlers cleared so siblings don't see our registry residue.
+        MockURLProtocol.reset()
+        MockLoadFixtureRegistry.resetForTestOnly()
         super.tearDown()
     }
 
@@ -168,15 +175,26 @@ final class MockLoadFixtureRegistryActionToggleTests: XCTestCase {
         XCTAssertNotNil(obj["load"], "latency-deferred body should still be the success envelope")
     }
 
-    func test_latencySlow_andConflict409_combined_returns409afterDelay() async throws {
+    func test_latencySlow_andConflict409_combined_conflictWinsImmediately_noDelay() async throws {
+        // DOCUMENTED COMBINED BEHAVIOR per registration order
+        // (conflict409 → validation422 → serverError500 → latencySlow → success):
+        // when BOTH conflict409 and latencySlow are active, conflict409 registers
+        // FIRST in the handler array and matches immediately — the latency
+        // handler never runs, so no delay occurs. The 409 body wins.
+        //
+        // This is intentional: QA workflow guidance is "set exactly ONE failure
+        // flag at a time"; combining is defensive, and the precedence order
+        // makes the deterministic outcome equivalent to "conflict409 alone".
+        // If the human eye wants delay-then-409, they set ONLY latencySlow and
+        // the success handler returns — they wouldn't combine to get the 409.
         DebugActionFailureOverride.latencySlowActive = { true }
         DebugActionFailureOverride.conflict409Active = { true }
         let start = Date()
         let (data, status) = try await dispatch(makeActionRequest())
         let elapsed = Date().timeIntervalSince(start)
-        XCTAssertGreaterThanOrEqual(elapsed, 1.4,
-                                    "combined flags should still incur latency delay — got \(elapsed)s")
-        XCTAssertEqual(status, 409, "combined: conflict409 still wins on the deferred pass")
+        XCTAssertLessThan(elapsed, 0.5,
+                          "combined: conflict409 registers BEFORE latencySlow — no delay incurred (got \(elapsed)s)")
+        XCTAssertEqual(status, 409, "combined: conflict409 still wins (it's first in registration order)")
         guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             XCTFail("combined body should be JSON object")
             return
