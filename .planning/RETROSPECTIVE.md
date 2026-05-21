@@ -52,6 +52,56 @@
 
 ---
 
+## Milestone: v1.1 — Load Flows
+
+**Shipped:** 2026-05-21
+**Phases:** 5 (7, 8, 9, 9.1, 10) | **Plans:** 35 | **Tasks:** 65 | **Span:** ~3 days execution (2026-05-19 → 2026-05-21)
+
+### What Was Built
+
+- Contract-first load domain: the `Core/Load/` value-type kernel with fail-closed decoders, `RoleLoadPolicy`, 3 typed endpoints, a 22-fixture matrix.
+- Role-filtered load list for all 5 roles — diffable `LoadListViewController`, the reusable TRUST-02 verification badge, skeleton/empty/error states, pull-to-refresh.
+- Load detail with a status timeline and the marquee interactive chain-of-trust graph (pannable/zoomable, tap-node-for-basis, tap-edge-for-handoff).
+- Phase 9.1 (inserted from device UAT): the iPhone chain-of-vouches redesign — vertical attribution tree + role strip, with a `DS.Colors.Verification` single-source helper.
+- Per-role tender/accept/reject — `RoleLoadPolicy`-driven action region, optimistic predict + server-confirmed rollback, two-gate tender-to-unverified hard-disable.
+
+### What Worked
+
+- **The Phase 7 contract-first gate held** — locking the `Core/Load/` kernel + endpoints + fixture matrix before any UI meant Phases 8/9/10 each decoded a stable contract; no schema churn rippled downstream.
+- **Device-UAT-driven phase insertion (9.1)** — the 2026-05-20 device UAT caught the iPhone trust-graph slot-collision defect; inserting Phase 9.1 fixed it cleanly, and the redesign strengthened TRUST-02 as a side effect (the shared color helper + R12 grep gate).
+- **Tooling-enforced invariants** — the R12 negative-grep gate and the "zero `switch load.status` in `Features/Loads/`" lint-as-test turned design rules into CI-checkable structure rather than discipline.
+- **Code-review-then-re-verify loop on Phase 10** — 10 code-review findings (2 Critical + 8 Warning) fixed across 9 commits, then re-verified — caught a real T-10-04 defense-in-depth gap before close.
+
+### What Was Inefficient
+
+- **SUMMARY frontmatter hygiene drifted again** — LOAD-05/LOAD-06 never reached the `requirements-completed` frontmatter of plans 09-03/09-05, surfacing as 2 "partial" requirements at the milestone audit despite both being fully implemented and verified. Same class of defect flagged in the v1.0 retrospective — not yet fixed at the source.
+- **A test-isolation defect rode from Phase 8 to milestone close** — Phase 8's WR-01 idempotency-guard fix left `AppContainerLoadEndpointsConfigSwapTests` red; it was visible in 09- and 10-VERIFICATION.md but only fixed at milestone close (quick task `260521-l9p`). A red test should be fixed in the phase that reddens it.
+- **Physical-device UAT compounded again** — ≈20 v1.1 HUMAN-UAT scenarios deferred phase-by-phase, exactly the pattern the v1.0 retrospective flagged; the parallel device-UAT track still has no scheduled cadence.
+- **Auto-generated milestone accomplishments were unusable** — `milestone.complete` dumped raw SUMMARY text (including `"One-liner:"` placeholders and `[Rule 1 — Bug]` deviation lines) and the MILESTONES.md entry needed a full manual rewrite — a direct downstream cost of the frontmatter-hygiene drift.
+
+### Patterns Established
+
+- Contract-first domain kernel as a hard phase gate — no UI phase starts before the value types + endpoints + fixtures decode green.
+- Fail-closed enum decoders (`VerificationState → .unverified`, `ChainIntegrity.Verdict → .compromised`) as the security primitive for a trust-rendering UI.
+- Negative-grep gates (R12) + lint-as-test (`switch load.status`) to enforce single-source-of-truth and policy-only gating structurally.
+- Size-class-routed composition — one VC mounting different subviews per `horizontalSizeClass` while preserving the other class's surface unchanged.
+- DEBUG launch-arg failure toggles (`-MockActionConflict409`, …) for exercising optimistic-UI rollback paths.
+
+### Key Lessons
+
+1. **Fix a red test in the phase that reddens it** — the Phase 8 → Phase 10 test-isolation leak proves a red suite tolerated for "later" rides all the way to milestone close.
+2. **SUMMARY `requirements-completed` frontmatter needs a per-plan gate** — two milestones running, the same hygiene drift produced "partial" requirements and unusable auto-accomplishments. Worth a planner/executor checklist item or a CI check.
+3. **Device-UAT can drive useful scope** — Phase 9.1 shows real-hardware feedback inserted as a phase beats a minimal patch; but the un-run device-UAT backlog still needs a cadence (v1.0 lesson, still open).
+4. **The audit→quick-fix→close sequence works** — the milestone audit flagging the 2 red tests, fixing them via a tracked quick task, then closing, kept the milestone from shipping with a known red suite.
+
+### Cost Observations
+
+- Model mix: not separately instrumented (`model_profile: quality` — opus planner/executor, sonnet checker/verifier).
+- Sessions: v1.1 executed fast — ~3 days wall-clock for 35 plans across 5 phases.
+- Notable: Phase 9.1 (5 plans, inserted) cost less than re-opening Phase 9 would have, and left the codebase better (shared color helper, R12 gate) than a minimal patch.
+
+---
+
 ## Cross-Milestone Trends
 
 ### Process Evolution
@@ -59,14 +109,18 @@
 | Milestone | Phases | Plans | Key Change |
 |-----------|--------|-------|------------|
 | v1.0 M1 Foundation | 6 | 55 | First milestone — established the GSD phase/plan/wave workflow; added Phase 6 via audit-driven insertion |
+| v1.1 Load Flows | 5 | 35 | Contract-first domain kernel as a hard phase gate; first device-UAT-driven phase insertion (9.1); tooling-enforced invariants (R12 grep gate, lint-as-test) |
 
 ### Cumulative Quality
 
 | Milestone | Tests | Coverage | Dependency Additions |
 |-----------|-------|----------|----------------------|
 | v1.0 M1 Foundation | ~391 simulator unit/UI tests + device security-surface suites | ~77% `Core/` | 2 SPM packages (Nuke, SwiftLintPlugins); 0 analytics/crash SDKs |
+| v1.1 Load Flows | Project total grew past ~600 simulator tests; 86 new snapshot baselines in Phase 10 alone | not separately re-measured | 0 — UIKit/Foundation/QuartzCore only, no new SPM packages |
 
 ### Top Lessons (Verified Across Milestones)
 
-1. Per-phase verification gates catch cross-phase gaps that individual phase work cannot see. *(v1.0 — to be re-tested in M2.)*
-2. Contract-first mocking decouples a client from an in-parallel backend with no late refactor. *(v1.0 — to be re-tested in M2.)*
+1. Per-phase verification gates catch cross-phase gaps that individual phase work cannot see. *(v1.0; reaffirmed v1.1 — Phase 10's per-phase re-verify caught the T-10-04 gap.)*
+2. Contract-first mocking decouples a client from an in-parallel backend with no late refactor. *(v1.0; reaffirmed v1.1 — the Phase 7 `Core/Load/` contract gated all UI phases with zero schema churn.)*
+3. SUMMARY `requirements-completed` frontmatter hygiene drifts without a gate — it produced empty `one_liner`s in v1.0 and 2 "partial" requirements in v1.1. *(v1.0 + v1.1 — recurring; needs a per-plan check.)*
+4. A red test tolerated for "later" rides to milestone close — fix it in the phase that reddens it. *(v1.1 — to be re-tested in M2.)*
