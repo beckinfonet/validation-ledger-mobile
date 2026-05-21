@@ -25,6 +25,15 @@
 //     - .tertiarySystemFill on .unverified is a system-managed NEUTRAL grey
 //       (NOT a chromatic color — signals "no chromatic semantic claimed").
 //
+// === Phase 9.1 update — TRUST-02 single-source-of-truth (R12) ===
+// The color ramp ABOVE is now read from `DS.Colors.Verification.color(for:)`
+// in `validationLedger/UI/DesignSystem/Colors.swift`. `apply(state:)` hoists a
+// single `backgroundColor = DS.Colors.Verification.color(for: state)` call
+// outside the switch; the per-case branches no longer set `backgroundColor`.
+// `RoleAvatarView` (Phase 9.1 Plan 02) consumes the same helper for its
+// status-dot fill, so the badge + avatar can never drift apart. The TRUST-02
+// invariant block lives at the helper's declaration site in `Colors.swift`.
+//
 // === D-03 fail-closed nil (LOCKED) ===
 // `configure(stateOrNil: nil)` renders the .unverified visuals AND sets the
 // accessibilityLabel to "Counterparty not verified" — the literal "not"
@@ -151,9 +160,14 @@ public final class VerificationBadgeView: UIView {
     // MARK: - Internal rendering
 
     private func apply(state: VerificationState) {
+        // TRUST-02 single-source-of-truth (Phase 9.1 R12): the background color
+        // is read from `DS.Colors.Verification.color(for:)` so this badge and
+        // `RoleAvatarView`'s status dot can never drift apart. Per-case
+        // branches still own SF Symbol image, tint, label copy, label color,
+        // and the locked accessibilityLabel literals.
+        backgroundColor = DS.Colors.Verification.color(for: state)
         switch state {
         case .verified:
-            backgroundColor = DS.Colors.primary
             symbolView.image = UIImage(systemName: "checkmark.seal.fill")
             symbolView.tintColor = .white
             label.text = NSLocalizedString(
@@ -169,7 +183,6 @@ public final class VerificationBadgeView: UIView {
             )
 
         case .pending:
-            backgroundColor = .systemYellow
             symbolView.image = UIImage(systemName: "clock.fill")
             symbolView.tintColor = .label
             label.text = NSLocalizedString(
@@ -185,7 +198,6 @@ public final class VerificationBadgeView: UIView {
             )
 
         case .unverified:
-            backgroundColor = .tertiarySystemFill
             symbolView.image = UIImage(systemName: "questionmark.circle.fill")
             symbolView.tintColor = .secondaryLabel
             label.text = NSLocalizedString(
@@ -204,7 +216,6 @@ public final class VerificationBadgeView: UIView {
             )
 
         case .flagged:
-            backgroundColor = DS.Colors.destructive
             symbolView.image = UIImage(systemName: "exclamationmark.triangle.fill")
             symbolView.tintColor = .white
             label.text = NSLocalizedString(
