@@ -42,6 +42,16 @@ import XCTest
 
 final class TenderSheetViewControllerTests: XCTestCase {
 
+    // MARK: - Window retention (avoid `view.window == nil` race when the
+    // local `UIWindow` falls out of scope at the end of `makeSheet`).
+
+    private var retainedWindows: [UIWindow] = []
+
+    override func tearDown() {
+        retainedWindows.removeAll()
+        super.tearDown()
+    }
+
     // MARK: - In-test directory factory
 
     /// 6-carrier roster mirroring the Plan 05 fixture partyIDs:
@@ -125,7 +135,7 @@ final class TenderSheetViewControllerTests: XCTestCase {
     @MainActor
     private func makeSheet(
         directory: [TrustNode]? = nil,
-        onSend: @escaping (_ targetPartyID: String, _ respondByAt: Date) async -> Void = { _, _ in },
+        onSend: @escaping @MainActor (_ targetPartyID: String, _ respondByAt: Date) async -> Void = { _, _ in },
         onCancel: @escaping () -> Void = {}
     ) -> TenderSheetViewController {
         let dir = directory ?? makeStandardDirectory()
@@ -133,6 +143,10 @@ final class TenderSheetViewControllerTests: XCTestCase {
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 400, height: 700))
         window.rootViewController = vc
         window.makeKeyAndVisible()
+        // Retain the window on the test instance so `view.window != nil`
+        // holds for the lifetime of the test (avoids the local-scope GC
+        // that strands the VC's view without a host window).
+        retainedWindows.append(window)
         vc.loadViewIfNeeded()
         vc.view.bounds = CGRect(x: 0, y: 0, width: 400, height: 700)
         vc.view.layoutIfNeeded()
@@ -326,10 +340,12 @@ final class TenderSheetViewControllerTests: XCTestCase {
 
     @MainActor
     func test_onSendClosure_invokedWithCorrectRequestBody() async throws {
-        var captured: (partyID: String, deadline: Date)?
+        var capturedID: String?
+        var capturedDate: Date?
         let exp = expectation(description: "onSend invoked")
         let vc = makeSheet(onSend: { partyID, deadline in
-            captured = (partyID, deadline)
+            capturedID = partyID
+            capturedDate = deadline
             exp.fulfill()
         })
         vc.selectCarrierForTesting(at: 0)  // Acme
@@ -338,9 +354,9 @@ final class TenderSheetViewControllerTests: XCTestCase {
         vc.tapSendForTesting()
         await fulfillment(of: [exp], timeout: 2.0)
 
-        XCTAssertEqual(captured?.partyID, "party-carrier-acme",
+        XCTAssertEqual(capturedID, "party-carrier-acme",
                        "onSend called with selected carrier's partyID")
-        if let actual = captured?.deadline {
+        if let actual = capturedDate {
             XCTAssertEqual(actual.timeIntervalSince1970,
                            expectedDeadline.timeIntervalSince1970,
                            accuracy: 0.5,
