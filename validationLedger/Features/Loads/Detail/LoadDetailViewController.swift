@@ -1716,9 +1716,14 @@ public final class LoadDetailViewController: UIViewController {
                 let directory = try await self.viewModel.fetchCarrierDirectory()
                 self.presentTenderSheet(directory: directory)
             } catch {
-                // T-09-04 — never render the server's error text. The VM
-                // already logged the fetch-failed event with fields: [:].
-                // Sheet is simply not presented; user can re-tap Tender.
+                // WR-05 — surface a LOCKED-key toast so the user knows the
+                // tap was acknowledged but the directory load failed. Still
+                // honors T-09-04 (NEVER render server-supplied error text) —
+                // the toast uses a locked English fallback resolved from
+                // NSLocalizedString, not the thrown `error`'s description.
+                // Without this, the user would tap Tender, see nothing
+                // happen, and may time out / lose the tender window.
+                self.presentToastBanner(copyKey: "loads.actions.error.tender_failed")
             }
         }
     }
