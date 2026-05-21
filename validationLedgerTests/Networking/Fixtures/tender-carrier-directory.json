@@ -1,0 +1,82 @@
+{
+  "_comment": "Phase 10 D-07. Static demo carrier directory for the tender-sheet picker. 7 SYNTHETIC carriers spanning all 4 VerificationState cases (.verified / .pending / .unverified / .flagged). 'Chameleon Cargo LLC' + 'Phantom Express' are the .flagged fraud-archetype anchors (Specifics line 263-265 — cross-references Phase 7 D-13 chameleon-carrier archetype). NO real-world carrier brand names — T-10-04 (T-08-04 inheritance) zero-PII discipline. Authoritative editing source; MockLoadFixtureRegistry.tenderCarrierDirectoryPayload mirrors this file byte-faithfully — a future fixture edit MUST update both, CarrierDirectoryMockTests Test 5 is the regression guard.",
+  "carriers": [
+    {
+      "party_id": "party-carrier-acme",
+      "role": "carrier",
+      "display_name": "Acme Logistics Inc.",
+      "verification_state": "verified",
+      "kyc_completed_at": "2025-09-22T13:05:00Z",
+      "device_binding_status": "bound",
+      "usdot_number": "0123456",
+      "usdot_authority_status": "active",
+      "prior_relationships": []
+    },
+    {
+      "party_id": "party-carrier-northwind",
+      "role": "carrier",
+      "display_name": "Northwind Freight Co.",
+      "verification_state": "verified",
+      "kyc_completed_at": "2025-11-08T10:42:00Z",
+      "device_binding_status": "bound",
+      "usdot_number": "0234567",
+      "usdot_authority_status": "active",
+      "prior_relationships": []
+    },
+    {
+      "party_id": "party-carrier-cascadia",
+      "role": "carrier",
+      "display_name": "Cascadia Cartage",
+      "verification_state": "pending",
+      "kyc_completed_at": null,
+      "device_binding_status": "unbound",
+      "usdot_number": "0345678",
+      "usdot_authority_status": "active",
+      "prior_relationships": []
+    },
+    {
+      "party_id": "party-carrier-summit",
+      "role": "carrier",
+      "display_name": "Summit Routing LLC",
+      "verification_state": "pending",
+      "kyc_completed_at": null,
+      "device_binding_status": "unbound",
+      "usdot_number": null,
+      "usdot_authority_status": "active",
+      "prior_relationships": []
+    },
+    {
+      "party_id": "party-carrier-anonymous",
+      "role": "carrier",
+      "display_name": "Anonymous Hauling",
+      "verification_state": "unverified",
+      "kyc_completed_at": null,
+      "device_binding_status": "unbound",
+      "usdot_number": null,
+      "usdot_authority_status": "not_applicable",
+      "prior_relationships": []
+    },
+    {
+      "party_id": "party-carrier-chameleon",
+      "role": "carrier",
+      "display_name": "Chameleon Cargo LLC",
+      "verification_state": "flagged",
+      "kyc_completed_at": null,
+      "device_binding_status": "mismatched",
+      "usdot_number": "9999991",
+      "usdot_authority_status": "revoked",
+      "prior_relationships": []
+    },
+    {
+      "party_id": "party-carrier-phantom",
+      "role": "carrier",
+      "display_name": "Phantom Express",
+      "verification_state": "flagged",
+      "kyc_completed_at": null,
+      "device_binding_status": "mismatched",
+      "usdot_number": "9999992",
+      "usdot_authority_status": "suspended",
+      "prior_relationships": []
+    }
+  ]
+}
