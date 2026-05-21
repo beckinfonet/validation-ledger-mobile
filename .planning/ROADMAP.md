@@ -206,7 +206,7 @@ Plans:
 
 **Wave 5** *(parallel, blocked on Wave 4)*
 
-- [ ] 10-06-PLAN.md — TenderSheetViewController + TenderSheetCarrierRowView (UISheetPresentationController .medium detent, 7-line recipe inlined per Pitfall 7) + carrier-level ACTION-04 gate (visible-but-disabled with inline reason, badge stays at full alpha) + deadline picker (5 chips with Custom… reveal) + Send-button 3-gate enable + TenderEligibilityGatingTests (named VALIDATION.md ACTION-04 test)
+- [x] 10-06-PLAN.md — TenderSheetViewController + TenderSheetCarrierRowView (UISheetPresentationController .medium detent, 7-line recipe inlined per Pitfall 7) + carrier-level ACTION-04 gate (visible-but-disabled with inline reason, badge stays at full alpha) + deadline picker (5 chips with Custom… reveal) + Send-button 3-gate enable + TenderEligibilityGatingTests (named VALIDATION.md ACTION-04 test)
 - [x] 10-08-PLAN.md — MockActionFailureToggles (4 #if DEBUG launch args: -MockActionConflict409/Validation422/ServerError500/LatencySlow per Phase 5 precedent) + MockLoadFixtureRegistry failure handlers (first-match-wins precedence) + T-10-08 CRITICAL mitigation: IdempotencyInterceptorRegistrationTests + MockLoadActionDispatchTests
 
 **Wave 6** *(blocked on Wave 5)*
@@ -237,7 +237,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 9.1 → 10
 | 8. Role-Filtered Load List | v1.1 | 4/4 | Complete   | 2026-05-20 |
 | 9. Load Detail & Chain-of-Trust Graph | v1.1 | 10/10 | Complete   | 2026-05-20 |
 | 9.1. Chain-of-Vouches Redesign (INSERTED — device UAT) | v1.1 | 5/5 | Complete   | 2026-05-21 |
-| 10. Per-Role Tender / Accept / Reject | v1.1 | 7/10 | In Progress|  |
+| 10. Per-Role Tender / Accept / Reject | v1.1 | 8/10 | In Progress|  |
 
 ---
 *Milestone v1.0 "M1 Foundation" shipped 2026-05-18 — see `.planning/MILESTONES.md`. Roadmap created 2026-04-20. v1.1 "Load Flows" phases 7-10 added 2026-05-19. Phase 09.1 inserted 2026-05-20 from device-UAT; planned 2026-05-21.*
