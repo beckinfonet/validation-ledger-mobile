@@ -58,7 +58,10 @@ final class LoadDetailViewControllerSizeClassRoutingTests: XCTestCase {
             statusCode: 200, body: data
         )
 
-        let vm = LoadDetailViewModel(loadID: "VL-1001", apiClient: makeAPIClient(), logger: nil)
+        // Phase 10 Plan 03 D-22: VM init now requires `role:`. The Phase 9
+        // size-class routing tests are role-agnostic; `.broker` is the
+        // canonical default matching the Phase 10 action-region tests.
+        let vm = LoadDetailViewModel(loadID: "VL-1001", role: .broker, apiClient: makeAPIClient(), logger: nil)
         let vc = LoadDetailViewController(viewModel: vm)
         // Embed in a window so view-hierarchy + window-guard checks work.
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 400, height: 800))

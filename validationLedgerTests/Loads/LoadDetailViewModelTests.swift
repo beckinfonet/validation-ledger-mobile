@@ -52,7 +52,14 @@ struct LoadDetailViewModelTests {
 
     @MainActor
     private func makeViewModel(loadID: String, logger: any Logger) -> LoadDetailViewModel {
-        LoadDetailViewModel(loadID: loadID, apiClient: makeAPIClient(), logger: logger)
+        // Phase 10 Plan 03 — D-22: the VM now requires a `role:` parameter
+        // at designated-init time. The Phase 9 fetch-path tests in this file
+        // are role-agnostic (the fetch path does not consult role), so any
+        // role is acceptable. `.broker` is chosen as a representative role
+        // for consistency with the new Phase 10 LoadDetailViewModelActionTests
+        // / LoadDetailViewModelRollbackTests neighbors that exercise the
+        // action region under the broker role.
+        LoadDetailViewModel(loadID: loadID, role: .broker, apiClient: makeAPIClient(), logger: logger)
     }
 
     /// The locked user-facing copy (matches LoadDetailViewModel.userFacingMessage).

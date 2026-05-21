@@ -202,7 +202,7 @@ final class LoadDetailViewModelActionTests: XCTestCase {
               "role": "broker",
               "display_name": "Acme Brokerage",
               "verification_state": "verified",
-              "device_binding_status": "active",
+              "device_binding_status": "bound",
               "usdot_authority_status": "not_applicable",
               "prior_relationships": []
             }
@@ -328,8 +328,17 @@ final class LoadDetailViewModelActionTests: XCTestCase {
 
     // MARK: - Test 1: init stores role (D-22 invariant)
 
+    /// Marked `async throws` (despite being a sync assertion) so XCTest's
+    /// iOS runner spawns it on its async lane — the synchronous-test lane
+    /// has a known interaction with URLSession-with-MockURLProtocol
+    /// teardown that surfaces as a `malloc: pointer being freed was not
+    /// allocated` crash on the simulator. The async-lane spawn fully
+    /// synchronizes the URLSession invalidation through `await Task.yield()`
+    /// before the test method returns. (The other 6 tests in this file are
+    /// already `async throws` for the same reason — Test 1 was sync only
+    /// because it has no `await` site.)
     @MainActor
-    func test_init_storesRole() {
+    func test_init_storesRole() async throws {
         let vm = LoadDetailViewModel(
             loadID: "VL-A-1",
             role: .broker,
@@ -337,6 +346,10 @@ final class LoadDetailViewModelActionTests: XCTestCase {
         )
         XCTAssertEqual(vm.role, .broker,
                        "D-22 / Pitfall 4: the role plumb MUST store role on the VM (a `public let` per Plan 03 action step 4); the VC reads viewModel.role for the policy lookup")
+        // Yield once to let the URLSession's internal queues drain before
+        // ARC tears down the test stack frame (defensive against the
+        // ephemeral-session teardown race).
+        await Task.yield()
     }
 
     // MARK: - Test 2: submit from .loaded → .actionInFlight with predicted Load + frozen chain

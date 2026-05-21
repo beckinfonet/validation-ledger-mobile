@@ -252,9 +252,18 @@ final class AppContainer {
         // UIViewController is logically unreachable (AppContainer outlives
         // every LoadListViewController it constructs) but guards against a
         // future refactor that detaches scene lifetimes from the container.
+        //
+        // Phase 10 Plan 03 — D-22: the outer `role` parameter is captured
+        // (implicit capture; `role` is in scope from this function's
+        // signature) and forwarded into the new
+        // `makeLoadDetailScreen(loadID:role:)` so the per-screen VM has the
+        // session role available for the policy-gate lookup that the action
+        // region (Plan 04) performs. D-23: the role is fixed for the detail
+        // screen's lifetime (a user switching roles requires logout +
+        // re-login — mirrors v1.0 SHELL-04 lock).
         let detailFactory: (String) -> UIViewController = { [weak self] loadID in
             guard let self else { return UIViewController() }
-            return self.makeLoadDetailScreen(loadID: loadID)
+            return self.makeLoadDetailScreen(loadID: loadID, role: role)
         }
         return LoadListViewController(
             viewModel: viewModel,
@@ -269,8 +278,17 @@ final class AppContainer {
     //     subsystem as the list — no new `LoggingSubsystem` case added; per
     //     Phase 8 doctrine, additive subsystem expansion is a deferred
     //     decision that does not block Phase 9).
-    //   - Constructs `LoadDetailViewModel(loadID:apiClient:logger:)`.
+    //   - Constructs `LoadDetailViewModel(loadID:role:apiClient:logger:)`
+    //     (Phase 10 Plan 03 — D-22 role plumb).
     //   - Returns `LoadDetailViewController(viewModel:)`.
+    //
+    // Phase 10 Plan 03 — D-22 / D-23: the `role` parameter is the session
+    // role captured by the calling `makeLoadListScreen(role:)` closure (line
+    // 255-258 area) — fixed for the detail screen's lifetime; a user
+    // switching roles requires logout + re-login (mirrors v1.0 SHELL-04
+    // lock). The VM stores it as `public let role: Role`; the VC reads
+    // `viewModel.role` for the action-region policy lookup
+    // (`RoleLoadPolicy.availableActions(for: viewModel.role, in: load)`).
     //
     // The factory is invoked by `LoadListViewController.collectionView(_:
     // didSelectItemAt:)` via the closure threaded above in
@@ -280,13 +298,14 @@ final class AppContainer {
     // retain across navigations; mirrors the `kycStatusScreenFactory`
     // precedent established in `makeKYCStatusScreen()` above).
     @MainActor
-    func makeLoadDetailScreen(loadID: String) -> UIViewController {
+    func makeLoadDetailScreen(loadID: String, role: Role) -> UIViewController {
         let featureLogger = OSLogLoggerImpl(
             subsystem: LoggingSubsystem.app,
             category: "feature.loads"
         )
         let viewModel = LoadDetailViewModel(
             loadID: loadID,
+            role: role,
             apiClient: apiClient,
             logger: featureLogger
         )
