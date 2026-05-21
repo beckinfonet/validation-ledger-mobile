@@ -478,6 +478,35 @@ public final class LoadDetailViewModel {
         state = .loaded(response.load, response.chainOfTrust)
     }
 
+    // MARK: - Carrier directory fetch (Phase 10 Plan 06 — tender sheet picker source)
+
+    /// Fetch the operating carrier directory used by the Plan 06 tender
+    /// sheet's picker. Per D-07: the directory is on a DEDICATED endpoint
+    /// (not derived from `ChainOfTrust.nodes`) because the canonical happy-
+    /// path tender targets a `.posted` load whose chain has no carrier yet.
+    ///
+    /// This is a THIN pass-through — no state machine transition. The VC's
+    /// `presentTenderSheet()` awaits this method, then constructs
+    /// `TenderSheetViewController(directory: result, ...)`.
+    ///
+    /// T-09-04 view-layer lock: the VC catches errors here and does NOT
+    /// render server-supplied error text. The VM's logger fires the fetch-
+    /// failed event with `fields: [:]` (no PII).
+    public func fetchCarrierDirectory() async throws -> [TrustNode] {
+        do {
+            let response = try await apiClient.request(CarrierDirectoryEndpoint())
+            return response.carriers
+        } catch {
+            // Mirror performFetch's logging contract: fields stay empty so a
+            // server response body (which may carry party names) never leaks
+            // to the analytics channel. The error type itself is propagated
+            // for the VC to catch; the VC does NOT render the error's
+            // description (T-09-04 lock extended).
+            logger?.error(event: LogEvent("carrier_directory_fetch_failed"), fields: [:])
+            throw error
+        }
+    }
+
     // MARK: - Per-action error-copy key resolver (UI-SPEC line 343-348 — LOCKED)
 
     /// Map a LoadAction to its locked localization key per UI-SPEC line
