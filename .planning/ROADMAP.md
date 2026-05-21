@@ -147,13 +147,28 @@ Plans:
 
 ### Phase 09.1: Chain-of-Vouches Redesign — vertical attribution tree + everyone-on-load strip (INSERTED)
 
-**Goal:** [Urgent work - to be planned]
-**Requirements**: TBD
+**Goal:** On iPhone, replace the Phase 9 2D TrustGraphView with a top-anchored EveryoneOnLoadStripView + ChainOfVouchesView (vertical attribution tree card with folded chain-integrity footer pill) that renders all 9 fixture role-count variants at chip-readable typography without the multi-broker slot-collision and chip-overcrowding defects device-UAT 2026-05-20 exposed. Preserves Phase 9 TrustGraphView UNCHANGED on iPad regular size class. Strengthens TRUST-02 by extracting the verification color ramp into a shared DS.Colors.Verification helper consumed by both the existing VerificationBadgeView and a new RoleAvatarView primitive (R12 negative-grep gate).
+**Requirements**: R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12
 **Depends on:** Phase 9
-**Plans:** 0 plans
+**Plans:** 5 plans
 
 Plans:
-- [ ] TBD (run /gsd-plan-phase 09.1 to break down)
+**Wave 1**
+
+- [ ] 09.1-01-PLAN.md — TRUST-02 color helper foundation: DS.Colors.Verification + DS.Colors.Roles namespaces; VerificationBadgeView refactored to consume the helper; VerificationBadgeViewTests R12 invariant suite + R12 negative-grep gate wired (R12)
+
+**Wave 2** *(blocked on Wave 1)*
+
+- [ ] 09.1-02-PLAN.md — RoleAvatarView primitive (programmatic UIView; 2 size variants .strip 40pt / .tree 32pt; status dot via DS.Colors.Verification.color(for:); LOCKED 3-letter abbreviations SHP/BRK/CAR/DSP/FCT) + 20 case unit tests + 40 snapshot attachments (R1, R12)
+
+**Wave 3** *(blocked on Wave 2 — parallel)*
+
+- [ ] 09.1-03-PLAN.md — EveryoneOnLoadStripView (dynamic horizontal chip strip; de-dup multi-node roles to single chip with most-suspicious-wins state; onRoleTap closure + leaf-element a11y; trailing "All watching live · tap for details" caption) + unit + snapshot tests for 5 representative fixtures (R2, R6)
+- [ ] 09.1-04-PLAN.md — ChainOfVouchesView (vertical attribution tree card with role-hierarchy "VIA X" suffixes; per-row dashed Y-fork CAShapeLayer connectors; D-15 supersedure on iPhone; folded 3-tier footer pill including new green .clean tint) + tree-builder + a11y + snapshot tests + clean-fixture chainIntegrity.reason text-only re-author for affirmative cadence (R3, R4, R7, R9, R11)
+
+**Wave 4** *(blocked on Wave 3 — Plans 03 + 04)*
+
+- [ ] 09.1-05-PLAN.md — LoadDetailViewController size-class routing (iPhone compact mounts new components; iPad regular preserves TrustGraphView unchanged); chip-tap → tree-scroll wiring with Pitfall-2 window guard + UISelectionFeedbackGenerator haptic; iOS 17 registerForTraitChanges replaces traitCollectionDidChange override; DEBUG-only -Mock2DTrustGraphOnIPhone fallback (#if DEBUG-gated); Phase 9 trust-graph snapshot re-record to iPad-only sizes (D-05 + D-06 collapse); phase-final R10 + R11 + R12 gates + view-layer logging lock + 3 new VC test suites (R5, R6, R8, R10, R11)
 
 ### Phase 10: Per-Role Tender / Accept / Reject
 
@@ -188,8 +203,8 @@ Phases execute in numeric order: 7 → 8 → 9 → 9.1 → 10
 | 7. Load Domain Model & Mock Contract | v1.1 | 6/6 | Complete    | 2026-05-20 |
 | 8. Role-Filtered Load List | v1.1 | 4/4 | Complete   | 2026-05-20 |
 | 9. Load Detail & Chain-of-Trust Graph | v1.1 | 10/10 | Complete   | 2026-05-20 |
-| 9.1. Chain-of-Vouches Redesign (INSERTED — device UAT) | v1.1 | 0/TBD | Not started | - |
+| 9.1. Chain-of-Vouches Redesign (INSERTED — device UAT) | v1.1 | 0/5 | Planned | - |
 | 10. Per-Role Tender / Accept / Reject | v1.1 | 0/TBD | Not started | - |
 
 ---
-*Milestone v1.0 "M1 Foundation" shipped 2026-05-18 — see `.planning/MILESTONES.md`. Roadmap created 2026-04-20. v1.1 "Load Flows" phases 7-10 added 2026-05-19.*
+*Milestone v1.0 "M1 Foundation" shipped 2026-05-18 — see `.planning/MILESTONES.md`. Roadmap created 2026-04-20. v1.1 "Load Flows" phases 7-10 added 2026-05-19. Phase 09.1 inserted 2026-05-20 from device-UAT; planned 2026-05-21.*
