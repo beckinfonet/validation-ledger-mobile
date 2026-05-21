@@ -127,3 +127,37 @@ public enum RoleLoadPolicy {
         }
     }
 }
+
+// MARK: - Phase 10 — VM-facing call shape (D-22 / Pitfall 4)
+//
+// `availableActions(for:in:)` is the SINGLE call shape the action region
+// (Plan 04) uses. The VM stores `role`; the load comes from the VM's `.loaded`
+// state — `availableActions(for: viewModel.role, in: load)` matches that
+// composition naturally.
+//
+// This extension is **naming sugar**, NOT new policy. It delegates one-to-one
+// to the frozen Phase 7 `actions(for:status:)` truth table. The 5 × 13
+// invariant continues to live in the Phase 7 tests
+// (validationLedgerTests/Load/RoleLoadPolicyTests.swift); the Phase 10
+// `RoleLoadPolicyAvailableActionsTests` asserts only the delegation.
+//
+// Locating this extension in the SAME file as the underlying enum keeps the
+// truth-table and its VM-facing wrapper visible together — any future change
+// to the policy table forces a re-read of this delegation in the same diff.
+public extension RoleLoadPolicy {
+
+    /// The legal `[LoadAction]` for a given role on the given load — VM
+    /// composition shape.
+    ///
+    /// Pure delegation to `actions(for: role, status: load.status)`. No
+    /// additional read from the Load aggregate; the Phase 7 policy contract
+    /// is `(Role, LoadStatus) → [LoadAction]`, full stop. This wrapper exists
+    /// so the action region can call `availableActions(for: viewModel.role,
+    /// in: load)` without the calling-site re-extracting `load.status` —
+    /// keeping the gate logic with `RoleLoadPolicy` (no `switch load.status`
+    /// in any Phase 10 view controller per the ROADMAP § Phase 10
+    /// invariant).
+    static func availableActions(for role: Role, in load: Load) -> [LoadAction] {
+        actions(for: role, status: load.status)
+    }
+}
