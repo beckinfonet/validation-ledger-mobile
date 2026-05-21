@@ -143,6 +143,19 @@ public final class LoadDetailBodyView: UIView {
     /// `configure(load:)` from the load's `stateHistory`.
     private let statusTimeline = StatusTimelineView()
 
+    /// Phase 10 Plan 04 — action region container (D-01). The VC owns the
+    /// hosted `LoadActionsView` instance and mounts it inside this
+    /// container; the body view stays structurally agnostic to the action
+    /// region's render contract. The container preserves the locked
+    /// `load-detail.body.actions-section` accessibility identifier as the
+    /// addressable target for XCUITest.
+    let actionsContainer: UIView = {
+        let v = UIView()
+        v.translatesAutoresizingMaskIntoConstraints = false
+        v.accessibilityIdentifier = "load-detail.body.actions-section"
+        return v
+    }()
+
     let freightDetailsContainer: UIView = {
         let v = UIView()
         v.translatesAutoresizingMaskIntoConstraints = false
@@ -209,13 +222,16 @@ public final class LoadDetailBodyView: UIView {
                 equalTo: pinnedSummaryHeader.bottomAnchor, constant: -DS.Spacing.sm),
         ])
 
-        // Assemble the vertical stack — 5 sections per UI-SPEC § Section order.
+        // Assemble the vertical stack — 6 sections per UI-SPEC § Section
+        // order (Phase 10 D-01 grows the body's child arrangement from 5 to
+        // 6 with `actionsContainer` at index 2 between timeline and freight).
         // Each placeholder is left empty for downstream plans to populate.
-        contentStack.addArrangedSubview(pinnedSummaryHeader)
-        contentStack.addArrangedSubview(timelineContainer)
-        contentStack.addArrangedSubview(freightDetailsContainer)
-        contentStack.addArrangedSubview(partiesContainer)
-        contentStack.addArrangedSubview(verdictBlockContainer)
+        contentStack.addArrangedSubview(pinnedSummaryHeader)       // index 0
+        contentStack.addArrangedSubview(timelineContainer)         // index 1
+        contentStack.addArrangedSubview(actionsContainer)          // index 2 (Phase 10 NEW)
+        contentStack.addArrangedSubview(freightDetailsContainer)   // index 3
+        contentStack.addArrangedSubview(partiesContainer)          // index 4
+        contentStack.addArrangedSubview(verdictBlockContainer)     // index 5
 
         // Plan 05 — mount the status timeline inside its container,
         // pinned edge-to-edge. The container survives across configure
