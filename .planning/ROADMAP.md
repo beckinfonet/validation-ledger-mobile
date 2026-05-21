@@ -150,7 +150,7 @@ Plans:
 **Goal:** On iPhone, replace the Phase 9 2D TrustGraphView with a top-anchored EveryoneOnLoadStripView + ChainOfVouchesView (vertical attribution tree card with folded chain-integrity footer pill) that renders all 9 fixture role-count variants at chip-readable typography without the multi-broker slot-collision and chip-overcrowding defects device-UAT 2026-05-20 exposed. Preserves Phase 9 TrustGraphView UNCHANGED on iPad regular size class. Strengthens TRUST-02 by extracting the verification color ramp into a shared DS.Colors.Verification helper consumed by both the existing VerificationBadgeView and a new RoleAvatarView primitive (R12 negative-grep gate).
 **Requirements**: R1, R2, R3, R4, R5, R6, R7, R8, R9, R10, R11, R12
 **Depends on:** Phase 9
-**Plans:** 2/5 plans executed
+**Plans:** 4/5 plans executed
 
 Plans:
 **Wave 1**
@@ -163,8 +163,8 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 — parallel)*
 
-- [ ] 09.1-03-PLAN.md — EveryoneOnLoadStripView (dynamic horizontal chip strip; de-dup multi-node roles to single chip with most-suspicious-wins state; onRoleTap closure + leaf-element a11y; trailing "All watching live · tap for details" caption) + unit + snapshot tests for 5 representative fixtures (R2, R6)
-- [ ] 09.1-04-PLAN.md — ChainOfVouchesView (vertical attribution tree card with role-hierarchy "VIA X" suffixes; per-row dashed Y-fork CAShapeLayer connectors; D-15 supersedure on iPhone; folded 3-tier footer pill including new green .clean tint) + tree-builder + a11y + snapshot tests + clean-fixture chainIntegrity.reason text-only re-author for affirmative cadence (R3, R4, R7, R9, R11)
+- [x] 09.1-03-PLAN.md — EveryoneOnLoadStripView (dynamic horizontal chip strip; de-dup multi-node roles to single chip with most-suspicious-wins state; onRoleTap closure + leaf-element a11y; trailing "All watching live · tap for details" caption) + unit + snapshot tests for 5 representative fixtures (R2, R6)
+- [x] 09.1-04-PLAN.md — ChainOfVouchesView (vertical attribution tree card with role-hierarchy "VIA X" suffixes; per-row dashed Y-fork CAShapeLayer connectors; D-15 supersedure on iPhone; folded 3-tier footer pill including new green .clean tint) + tree-builder + a11y + snapshot tests + clean-fixture chainIntegrity.reason text-only re-author for affirmative cadence (R3, R4, R7, R9, R11)
 
 **Wave 4** *(blocked on Wave 3 — Plans 03 + 04)*
 
@@ -203,7 +203,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 9.1 → 10
 | 7. Load Domain Model & Mock Contract | v1.1 | 6/6 | Complete    | 2026-05-20 |
 | 8. Role-Filtered Load List | v1.1 | 4/4 | Complete   | 2026-05-20 |
 | 9. Load Detail & Chain-of-Trust Graph | v1.1 | 10/10 | Complete   | 2026-05-20 |
-| 9.1. Chain-of-Vouches Redesign (INSERTED — device UAT) | v1.1 | 2/5 | In Progress|  |
+| 9.1. Chain-of-Vouches Redesign (INSERTED — device UAT) | v1.1 | 4/5 | In Progress|  |
 | 10. Per-Role Tender / Accept / Reject | v1.1 | 0/TBD | Not started | - |
 
 ---
