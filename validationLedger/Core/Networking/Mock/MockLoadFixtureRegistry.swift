@@ -246,6 +246,15 @@ enum MockLoadFixtureRegistry {
         // cancel, status) on any VL-prefixed loadID. The default DEBUG tap-
         // through always succeeds; failure outcomes are exercised by Plan 04's
         // forced-failure path in PER-TEST setup, not here.
+        //
+        // CR-02 — the response body's `load.id` is rewritten to match the
+        // REQUESTED loadID so the VM's post-action `.loaded(response.load,
+        // response.chainOfTrust)` reflects the same load the user acted on.
+        // Previously every action on every VL-#### loadID returned the
+        // hardcoded VL-1004 fixture, which (in DEBUG / TestFlight demo
+        // builds) silently swapped the screen to a different load right
+        // after the user took action — corrupting the very fraud-archetype
+        // signal the platform exists to highlight.
         MockURLProtocol.register { request in
             guard request.httpMethod == "POST" else { return nil }
             guard let path = request.url?.path, path.hasPrefix("/loads/") else { return nil }
@@ -257,7 +266,10 @@ enum MockLoadFixtureRegistry {
             let actionSegment = String(parts[1])
             guard loadID.hasPrefix("VL-") else { return nil }
             guard actionPathSegments.contains(actionSegment) else { return nil }
-            return make200(body: actionSuccessPayload, url: request.url)
+            return make200(
+                body: actionSuccessPayload(forLoadID: loadID),
+                url: request.url
+            )
         }
 
         // (4) Phase 10 D-07 (Plan 05) — Carrier directory handler.
@@ -4733,6 +4745,41 @@ enum MockLoadFixtureRegistry {
 
     // MARK: - Action-success payload (AUTHORITATIVE COPY of test fixture)
 
+    /// Returns the action-success JSON body for `loadID`. The canonical
+    /// payload in `actionSuccessPayloadTemplate` is the VL-1004 post-accept
+    /// response (status advanced to `accepted`, `state_history` appended
+    /// with the new event, `chain_of_trust.integrity` reason rewritten to
+    /// reflect the verified carrier handoff). Per CR-02, the response's
+    /// `load.id` is rewritten to the REQUESTED loadID so the VM's
+    /// post-action `.loaded(response.load, …)` shows the same load the
+    /// user actioned — not a hardcoded different one.
+    ///
+    /// The substitution is a single literal replacement of the canonical
+    /// `"id": "VL-1004"` field with `"id": "<loadID>"`. The other VL-1004
+    /// references (reference_number, edge_id slugs) are left in place —
+    /// they're demo metadata of the canonical post-accept fixture; only
+    /// `load.id` is read by `LoadDetailViewModel.performAction(...)` to
+    /// drive the post-action `.loaded` state (D-14). This is a mock-only
+    /// DEBUG concern; production responses carry a coherent load.
+    static func actionSuccessPayload(forLoadID loadID: String) -> Data {
+        // The canonical template starts with `"id": "VL-1004"` exactly
+        // once at the load-envelope level. Replace only the first
+        // occurrence so deeper references (edge_id "edge-VL-1004-…",
+        // reference_number "REF-1004-DD") stay intact as harmless demo
+        // metadata. If loadID == "VL-1004" the substitution is a no-op.
+        guard loadID != "VL-1004" else { return actionSuccessPayloadTemplate }
+        guard let template = String(data: actionSuccessPayloadTemplate, encoding: .utf8) else {
+            return actionSuccessPayloadTemplate
+        }
+        let needle = "\"id\": \"VL-1004\""
+        let replacement = "\"id\": \"\(loadID)\""
+        guard let range = template.range(of: needle) else {
+            return actionSuccessPayloadTemplate
+        }
+        let synthesized = template.replacingCharacters(in: range, with: replacement)
+        return Data(synthesized.utf8)
+    }
+
     /// JSON returned by the action-success handler for every successful POST
     /// to `/loads/{loadID}/{action}`. Shipped at
     /// `validationLedgerTests/Networking/Fixtures/load-action-success.json`,
@@ -4740,7 +4787,9 @@ enum MockLoadFixtureRegistry {
     /// advanced to `accepted`, `state_history` appended with the new event,
     /// `chain_of_trust.integrity` reason rewritten to reflect the verified
     /// carrier handoff) — a single canonical success body for every action.
-    private static let actionSuccessPayload: Data = Data(#"""
+    /// Callers MUST go through `actionSuccessPayload(forLoadID:)` so the
+    /// response's `load.id` matches the request (CR-02).
+    private static let actionSuccessPayloadTemplate: Data = Data(#"""
 {
   "load": {
     "id": "VL-1004",

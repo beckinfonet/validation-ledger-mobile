@@ -122,6 +122,36 @@ final class MockLoadFixtureRegistryActionToggleTests: XCTestCase {
         }
         XCTAssertNotNil(obj["load"], "success body should carry a `load` key")
         XCTAssertNotNil(obj["chain_of_trust"], "success body should carry a `chain_of_trust` key")
+        // CR-02 regression — load.id MUST match the requested loadID, NOT
+        // the canonical VL-1004 template. The action-success handler used
+        // to hardcode VL-1004 for every load; this assertion guards against
+        // that regression.
+        guard let load = obj["load"] as? [String: Any] else {
+            XCTFail("`load` key must be a JSON object")
+            return
+        }
+        XCTAssertEqual(load["id"] as? String, "VL-001",
+                       "CR-02: success body's load.id MUST mirror the request's loadID (VL-001 per actionPath) — not the hardcoded VL-1004 template.")
+    }
+
+    func test_actionSuccessPayload_synthesizedFromRequestedLoadID_CR02() async throws {
+        // CR-02 sweep — exercise three other VL-#### loadIDs and assert
+        // each response's load.id mirrors the request. This is the
+        // demo-flow scenario: tendering on VL-1003 must NOT swap the
+        // screen to VL-1004 mid-tap (or any other ID).
+        for loadID in ["VL-1003", "VL-1008", "VL-1009"] {
+            var req = URLRequest(url: URL(string: "https://mock.local/loads/\(loadID)/tender")!)
+            req.httpMethod = "POST"
+            let (data, status) = try await dispatch(req)
+            XCTAssertEqual(status, 200, "CR-02: action POST on \(loadID) should return 200")
+            guard let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let load = obj["load"] as? [String: Any] else {
+                XCTFail("CR-02: success body should be JSON object with `load` key for \(loadID)")
+                return
+            }
+            XCTAssertEqual(load["id"] as? String, loadID,
+                           "CR-02: response.load.id MUST mirror the request loadID '\(loadID)' — the action handler used to hardcode VL-1004 for every action against every load, corrupting the post-action .loaded(response.load,…) state in the VM.")
+        }
     }
 
     func test_conflict409Flag_actionRequest_returns409Body() async throws {
