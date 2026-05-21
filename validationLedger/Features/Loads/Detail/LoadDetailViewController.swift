@@ -1539,19 +1539,61 @@ public final class LoadDetailViewController: UIViewController {
             ]
         }
         // iPhone vertical-tree path — strip top → card bottom.
-        let topAnchor = (everyoneOnLoadStripView.superview != nil)
-            ? everyoneOnLoadStripView.topAnchor
-            : bodyContainer.topAnchor
-        let bottomAnchor = (chainOfVouchesView.superview != nil)
-            ? chainOfVouchesView.bottomAnchor
-            : bodyContainer.bottomAnchor
-        let leadingSource: UIView = (chainOfVouchesView.superview != nil) ? chainOfVouchesView : bodyContainer
-        let trailingSource: UIView = (chainOfVouchesView.superview != nil) ? chainOfVouchesView : bodyContainer
+        //
+        // WR-07 — stale-anchor mitigation. The vertical-tree composition
+        // is rebuilt synchronously from applyBodyRender's strip+card
+        // tear-down. There IS a window where one of strip/card is mounted
+        // and the other is mid-detach; in that case the prior fallback to
+        // `bodyContainer.topAnchor` / `bodyContainer.bottomAnchor` over-
+        // spans the chain region (covers the actions + freight rows
+        // sitting INSIDE bodyView below the chain). Pin both anchors to
+        // the SAME source (strip+card together, or NEITHER as a fallback)
+        // so the overlay can NEVER straddle the chain-region boundary.
+        // When both are detached (e.g. a transient mid-rebuild moment),
+        // fall back to bodyView.topAnchor (i.e. cover NOTHING above the
+        // body — better to under-cover briefly than to slap a scrim over
+        // the action buttons).
+        let stripMounted = (everyoneOnLoadStripView.superview != nil)
+        let cardMounted = (chainOfVouchesView.superview != nil)
+        if stripMounted && cardMounted {
+            return [
+                overlay.topAnchor.constraint(equalTo: everyoneOnLoadStripView.topAnchor),
+                overlay.bottomAnchor.constraint(equalTo: chainOfVouchesView.bottomAnchor),
+                overlay.leadingAnchor.constraint(equalTo: chainOfVouchesView.leadingAnchor),
+                overlay.trailingAnchor.constraint(equalTo: chainOfVouchesView.trailingAnchor),
+            ]
+        }
+        // Either strip OR card is mid-detach. Pin to whichever IS mounted
+        // and use its own bottom (or top) as the matching anchor — the
+        // overlay is briefly smaller than ideal, but it CANNOT extend
+        // past the chain region into bodyView's actions/freight rows.
+        if stripMounted {
+            return [
+                overlay.topAnchor.constraint(equalTo: everyoneOnLoadStripView.topAnchor),
+                overlay.bottomAnchor.constraint(equalTo: everyoneOnLoadStripView.bottomAnchor),
+                overlay.leadingAnchor.constraint(equalTo: everyoneOnLoadStripView.leadingAnchor),
+                overlay.trailingAnchor.constraint(equalTo: everyoneOnLoadStripView.trailingAnchor),
+            ]
+        }
+        if cardMounted {
+            return [
+                overlay.topAnchor.constraint(equalTo: chainOfVouchesView.topAnchor),
+                overlay.bottomAnchor.constraint(equalTo: chainOfVouchesView.bottomAnchor),
+                overlay.leadingAnchor.constraint(equalTo: chainOfVouchesView.leadingAnchor),
+                overlay.trailingAnchor.constraint(equalTo: chainOfVouchesView.trailingAnchor),
+            ]
+        }
+        // Neither mounted (transient mid-rebuild). Pin the overlay to
+        // bodyView.topAnchor + a zero-height position so it occupies no
+        // space; the next `.actionInFlight` render after the rebuild
+        // settles will replace these constraints with a properly-pinned
+        // overlay. Better to under-cover briefly than to scrim the
+        // actions or freight rows.
         return [
-            overlay.topAnchor.constraint(equalTo: topAnchor),
-            overlay.bottomAnchor.constraint(equalTo: bottomAnchor),
-            overlay.leadingAnchor.constraint(equalTo: leadingSource.leadingAnchor),
-            overlay.trailingAnchor.constraint(equalTo: trailingSource.trailingAnchor),
+            overlay.topAnchor.constraint(equalTo: bodyView.topAnchor),
+            overlay.bottomAnchor.constraint(equalTo: bodyView.topAnchor),
+            overlay.leadingAnchor.constraint(equalTo: bodyContainer.leadingAnchor),
+            overlay.trailingAnchor.constraint(equalTo: bodyContainer.trailingAnchor),
         ]
     }
 
