@@ -167,14 +167,29 @@ struct AppContainerLoadEndpointsConfigSwapTests {
     /// failure handlers (via `resetFailureHandlers()`) — the two are stored
     /// in independent arrays under separate locks per Plan 07-04's design.
     ///
+    /// It ALSO clears the `MockLoadFixtureRegistry` process-lifetime guard via
+    /// `resetForTestOnly()`. That guard (`hasRegisteredAppDefaults`, the WR-01
+    /// fix — `MockLoadFixtureRegistry.swift` lines 84-111) is a process-wide
+    /// idempotency latch: the first `AppContainer.init` in the process flips it
+    /// to `true`, and every subsequent `registerAppDefaults()` then no-ops. If
+    /// this helper cleared only the MockURLProtocol handler arrays, a later test
+    /// constructing a fresh `AppContainer` would find the guard already `true`,
+    /// skip re-registration, and 404 every Load request. Clearing the guard here
+    /// lets the NEXT test's `AppContainer.init` re-run `registerAppDefaults()`
+    /// and re-install the Load handlers. The seam is `resetForTestOnly()`
+    /// (`MockLoadFixtureRegistry.swift` lines 113-125, `#if DEBUG`-gated).
+    ///
     /// CRITICAL — does NOT call `MockLoadFixtureRegistry.registerAppDefaults()`.
     /// The whole point of SC #5 is to prove `AppContainer.init`'s DEBUG block
     /// is the thing wiring up the Load handlers. Pre-registering them here
     /// would shadow the AppContainer call and produce a false-positive test
     /// that passes even with `AppContainer.swift` line 455 commented out.
+    /// This helper therefore clears the guard but deliberately leaves the actual
+    /// registration to the fresh `AppContainer.init` inside each test body.
     private func resetMockURLProtocol() {
         MockURLProtocol.reset()
         MockURLProtocol.resetFailureHandlers()
+        MockLoadFixtureRegistry.resetForTestOnly()
     }
 
     // MARK: - Test 1 — .mock-config end-to-end swap
