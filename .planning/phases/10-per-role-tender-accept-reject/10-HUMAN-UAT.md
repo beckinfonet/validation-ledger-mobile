@@ -29,7 +29,7 @@ result: [pending]
 
 ### 4. DEBUG launch-arg failure toggles exercised on a real device
 expected: With `-MockActionServerError500 -MockActionLatencySlow`: optimistic predict state is visible during the ~1.5s latency window, then rollback fires and toast banner slides in. With `-MockActionConflict409` and `-MockActionValidation422`: same rollback + toast behavior.
-why_human: `-MockActionLatencySlow` injects a 1.5s `Thread.sleep` on the mock URLSession handler — the in-flight optimistic state is only perceptible to a human watching real hardware. Simulator is too fast and lacks haptic feedback.
+why_human: `-MockActionLatencySlow` injects a 1.5s delay on the mock URLSession handler (DispatchSemaphore-based since WR-02) — the in-flight optimistic state is only perceptible to a human watching real hardware. Simulator is too fast and lacks haptic feedback.
 result: [pending]
 
 ### 5. End-to-end broker tender → carrier accept pop-back on device
