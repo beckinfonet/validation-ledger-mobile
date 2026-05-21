@@ -227,6 +227,15 @@ enum MockLoadFixtureRegistry {
         // OR one of 3a/3b/3c if combined). Per RESEARCH §Pattern 4 latency
         // variant — makes the optimistic-predict + chain-overlay rollback
         // visible to the human eye during device UAT.
+        //
+        // WR-02 — uses a DispatchSemaphore signalled from the GLOBAL queue
+        // instead of Thread.sleep on the URLSession-internal queue. The
+        // current request still pauses (the URLSession handler MUST return
+        // synchronously to defer to the next match), but the wake-up is
+        // scheduled on a separate queue so parallel /loads/* requests on
+        // sibling URLSession workers are NOT stalled by this one's nap.
+        // Thread.sleep was a kernel block of the calling worker — it
+        // starved parallel requests sharing the same queue.
         MockURLProtocol.register { request in
             guard DebugActionFailureOverride.latencySlowActive() else { return nil }
             guard request.httpMethod == "POST" else { return nil }
@@ -236,7 +245,15 @@ enum MockLoadFixtureRegistry {
             guard parts.count == 2 else { return nil }
             guard String(parts[0]).hasPrefix("VL-") else { return nil }
             guard actionPathSegments.contains(String(parts[1])) else { return nil }
-            Thread.sleep(forTimeInterval: DebugActionFailureOverride.latencySlowInterval)
+            let semaphore = DispatchSemaphore(value: 0)
+            DispatchQueue.global().asyncAfter(
+                deadline: .now() + DebugActionFailureOverride.latencySlowInterval
+            ) {
+                semaphore.signal()
+            }
+            // Blocks THIS request's URLSession worker. The wake-up runs on
+            // a separate global-queue thread so sibling requests proceed.
+            semaphore.wait()
             return nil   // DEFERS — falls through to (3a/3b/3c) if combined, else (3) action-success.
         }
         #endif
