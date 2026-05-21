@@ -270,6 +270,49 @@ public final class LoadDetailBodyView: UIView {
         }
     }
 
+    // MARK: - Plan 09.1 — nested-scroll support for iPhone vertical-tree composition
+
+    /// When `true`, the embedded `scrollView` does not scroll on its own —
+    /// the body's contentStack drives the view's intrinsic height so the
+    /// VC's outer iPhone-vertical-tree scroll view owns scrolling for the
+    /// whole composition (strip + card + body sections scroll as one).
+    /// When `false` (default — preserves the Phase 9 standalone iPad +
+    /// DEBUG-legacy posture), the body's scrollView scrolls internally.
+    ///
+    /// Setting `true` ALSO activates a height constraint pinning the body
+    /// view's height to the contentStack's height so the body grows
+    /// vertically with its content (instead of clipping to the parent's
+    /// frame). The constraint is deactivated when the flag flips back.
+    ///
+    /// Plan 09.1 R8: the iPhone vertical-tree composition wraps
+    /// `[EveryoneOnLoadStripView, ChainOfVouchesView, LoadDetailBodyView]`
+    /// in the VC's outer `iPhoneVerticalTreeScrollView`. With this flag
+    /// set, scrolling lives entirely on the outer scroll view — no nested
+    /// `UIScrollView` rubber-band fight.
+    public var isInternalScrollEnabled: Bool = true {
+        didSet {
+            guard isInternalScrollEnabled != oldValue else { return }
+            scrollView.isScrollEnabled = isInternalScrollEnabled
+            updateIntrinsicHeightPin()
+        }
+    }
+
+    /// Active when `isInternalScrollEnabled == false`. Pins the body view's
+    /// height to the contentStack's height so the body grows vertically
+    /// with its content (the outer VC scroll view scrolls the whole stack).
+    private var intrinsicHeightPin: NSLayoutConstraint?
+
+    private func updateIntrinsicHeightPin() {
+        intrinsicHeightPin?.isActive = false
+        intrinsicHeightPin = nil
+        if !isInternalScrollEnabled {
+            let pin = heightAnchor.constraint(equalTo: contentStack.heightAnchor)
+            pin.priority = .required
+            pin.isActive = true
+            intrinsicHeightPin = pin
+        }
+    }
+
     // MARK: - Public API — populate the pinned summary header from a Load
 
     /// Populate the pinned summary header content from the Decodable Load.
