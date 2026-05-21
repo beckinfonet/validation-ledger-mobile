@@ -131,13 +131,13 @@ The v1.1 milestone audit closed `tech_debt`. These items were acknowledged and d
 | tech_debt | LOAD-05/LOAD-06 absent from 09-03/09-05 SUMMARY frontmatter (both verified implemented) | open — doc fix | 2026-05-21 |
 | tech_debt | 6 advisory Phase 9.1 code-review warnings (a11y suffix, dark-mode contrast, duplicate haptic, etc.) | open — non-blocking | 2026-05-21 |
 
-The 2 red test-isolation tests the v1.1 audit flagged were fixed before close (quick task `260521-l9p`, commit `d8df71c`). The ≈20 device-UAT scenarios across Phases 8/9/9.1/10 are real-hardware observation tasks against verified code. Full detail in `milestones/v1.1-MILESTONE-AUDIT.md`.
+The 2 red test-isolation tests the v1.1 audit flagged were fixed before close (quick task `260521-l9p`, commit `d8df71c`). The ≈20 device-UAT scenarios across Phases 8/9/9.1/10 are real-hardware observation tasks against verified code. Full detail in `milestones/v1.1-MILESTONE-AUDIT.md`. The v1.1 phase directories holding the `VERIFICATION.md` / `HUMAN-UAT.md` / `MANUAL-TESTS.md` artifacts were archived under `.planning/milestones/v1.1-phases/`.
 
 ## Session Continuity
 
-Last session: 2026-05-21T11:58:17.839Z
-Stopped at: Phase 10 UI-SPEC approved
-Resume file: .planning/phases/10-per-role-tender-accept-reject/10-UI-SPEC.md
+Last session: 2026-05-21 — v1.1 "Load Flows" milestone completed and archived.
+Stopped at: Milestone close — no work in progress.
+Resume file: — (start the next milestone with `/gsd-new-milestone`)
 
 ## Operator Next Steps
 
