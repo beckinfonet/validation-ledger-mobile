@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-05-19)
 Phase: 10
 Plan: Not started
 Status: Milestone complete
-Last activity: 2026-05-21
+Last activity: 2026-05-21 - Completed quick task 260521-l9p: Fix test isolation defect: MockLoadFixtureRegistry static guard not reset between tests
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -81,6 +81,12 @@ None yet for v1.1.
 - **Nyquist validation gaps** — Phase 1 `01-VALIDATION.md` is an unfilled draft; Phase 2 has no `VALIDATION.md`. Carried v1.0 tech debt; not a v1.1 blocker.
 - **`OTPViewModel.retryRegister()` consumed-OTP recovery path** — re-issues `POST /auth/otp/verify` with an already-consumed code. Robustness fix before live-backend integration; not a v1.1 blocker.
 - **Phase 9 design spike** — the chain-of-trust graph needs a half-day design spike at Phase 9 plan time (visual language, gesture arbitration, VoiceOver, iPad layout). Not a blocker; surfaced in the roadmap phase notes.
+
+### Quick Tasks Completed
+
+| # | Description | Date | Commit | Directory |
+|---|-------------|------|--------|-----------|
+| 260521-l9p | Fix test isolation defect: MockLoadFixtureRegistry static guard not reset between tests | 2026-05-21 | d8df71c | [260521-l9p-fix-test-isolation-defect-mockloadfixtur](./quick/260521-l9p-fix-test-isolation-defect-mockloadfixtur/) |
 
 ## Deferred Items
 
