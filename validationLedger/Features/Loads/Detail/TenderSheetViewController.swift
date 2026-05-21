@@ -553,26 +553,49 @@ final class TenderSheetViewController: UIViewController, UITableViewDataSource, 
     @objc private func handleSendTap() {
         guard let idx = selectedCarrierIndex, idx >= 0, idx < directory.count else { return }
         let carrier = directory[idx]
+        // CR-01 (T-10-04 defense-in-depth) — re-validate the carrier's
+        // verificationState at the actual fire site, NOT just at the surface
+        // gates (row's isUserInteractionEnabled, didSelectRowAt guard, and
+        // sendButton.isEnabled). If any upstream gate has a bug or a future
+        // programmatic seam bypasses the cell-level disable, the platform's
+        // CRITICAL T-10-04 invariant ("tender only to verified parties")
+        // MUST still hold here. Sync UI back to its computed truth and bail.
+        guard carrier.verificationState == .verified else {
+            updateSendButton()
+            return
+        }
+        // Same defense for the deadline gate: never POST a past-deadline
+        // tender (matches computeSendButtonState's past_deadline branch).
+        guard resolvedDeadlineDate > Date() else {
+            updateSendButton()
+            return
+        }
         let deadline = resolvedDeadlineDate
 
         // In-flight visual: disable Send + show spinner. Sheet stays visible
         // (UI-SPEC line 454); parent dismisses on 200 from .loaded render arm.
         sendButton.isEnabled = false
-        var cfg = sendButton.configuration
-        cfg?.showsActivityIndicator = true
-        sendButton.configuration = cfg
+        if var cfg = sendButton.configuration {
+            cfg.showsActivityIndicator = true
+            sendButton.configuration = cfg
+        }
 
+        // WR-04 — handleSendTap is @MainActor (the entire VC class is
+        // @MainActor under SWIFT_DEFAULT_ACTOR_ISOLATION=MainActor), so the
+        // outer Task already runs on the main actor — the inner
+        // `MainActor.run` hop was redundant and produced a 1-frame flicker
+        // by racing with updateSendButton's re-application of configuration.
+        // Let updateSendButton own the visual contract after the await
+        // returns; the explicit spinner-off keeps the in-flight visual
+        // clean in case computeSendButtonState re-enables Send.
         Task { [weak self] in
             await self?.onSend(carrier.partyID, deadline)
-            // If still attached, restore Send button (parent may have
-            // dismissed by now on success).
-            await MainActor.run {
-                guard let self else { return }
-                var cfg = self.sendButton.configuration
-                cfg?.showsActivityIndicator = false
+            guard let self else { return }
+            if var cfg = self.sendButton.configuration {
+                cfg.showsActivityIndicator = false
                 self.sendButton.configuration = cfg
-                self.updateSendButton()
             }
+            self.updateSendButton()
         }
     }
 
@@ -621,5 +644,16 @@ final class TenderSheetViewController: UIViewController, UITableViewDataSource, 
     /// Tap the Cancel button (test seam).
     internal func tapCancelForTesting() {
         handleCancelTap()
+    }
+
+    /// CR-01 defense-in-depth test seam — directly assigns
+    /// `selectedCarrierIndex` WITHOUT routing through the delegate guard.
+    /// This intentionally bypasses the per-row tap-rejection so a test can
+    /// drive the model into the "programmatic selection of a non-verified
+    /// carrier" state and assert handleSendTap STILL refuses to fire onSend.
+    /// NEVER call this from production code; it exists solely to exercise
+    /// the defense-in-depth guard in handleSendTap (T-10-04).
+    internal func forceSelectedCarrierIndexForTesting(_ index: Int?) {
+        selectedCarrierIndex = index
     }
 }

@@ -449,4 +449,38 @@ final class TenderSheetViewControllerTests: XCTestCase {
                            "Send MUST stay disabled when only unverified/flagged/pending carriers exist (carrier-level ACTION-04 gate) — failed at index \(index)")
         }
     }
+
+    // MARK: - Test 16 — CR-01 defense-in-depth — handleSendTap refuses to
+    // fire onSend for a non-verified carrier even if `selectedCarrierIndex`
+    // is forced into a non-verified row via a programmatic seam that
+    // bypasses the row-level and delegate-level gates.
+
+    @MainActor
+    func test_handleSendTap_refusesNonVerifiedCarrier_defenseInDepth() async throws {
+        // The standard directory's index 5 is Chameleon (.flagged); index 4
+        // is Anonymous (.unverified); index 2/3 are Cascadia/Summit
+        // (.pending). NONE of these may produce an onSend call from
+        // handleSendTap regardless of selectedCarrierIndex's value.
+        var onSendCalled = false
+        let vc = makeSheet(onSend: { _, _ in
+            onSendCalled = true
+        })
+
+        // Force the model into the dangerous state: selectedCarrierIndex
+        // points at a non-verified row. Real user UI cannot reach this
+        // state (cell isUserInteractionEnabled = false; delegate guards),
+        // but a future bug, voice-control edge, or programmatic test path
+        // could. The defense-in-depth guard in handleSendTap MUST hold.
+        for (index, label) in [(2, "pending"), (3, "pending"),
+                               (4, "unverified"), (5, "flagged")] {
+            vc.forceSelectedCarrierIndexForTesting(index)
+            vc.tapSendForTesting()
+            // Give any (incorrectly-fired) async onSend a chance to run.
+            try? await Task.sleep(nanoseconds: 50_000_000)
+            XCTAssertFalse(onSendCalled,
+                           "T-10-04 CRITICAL: handleSendTap MUST NOT fire onSend for a \(label) carrier (index \(index)) even when selectedCarrierIndex is forced past the surface gates — defense-in-depth.")
+            XCTAssertFalse(vc.sendButtonForTesting.isEnabled,
+                           "Send button MUST be re-disabled after the defense-in-depth guard rejects the tap at index \(index).")
+        }
+    }
 }
