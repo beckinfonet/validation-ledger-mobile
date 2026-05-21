@@ -97,6 +97,13 @@ final class TenderSheetViewController: UIViewController, UITableViewDataSource, 
     /// userInteractionEnabled=false prevents that path).
     private var selectedCarrierIndex: Int?
 
+    /// WR-03 — the table-view's content-height constraint, held so it can be
+    /// recomputed when the user changes Dynamic Type. Without this, the
+    /// table is locked at the contentSize computed at the initial font
+    /// size — increasing Dynamic Type would clip cells, decreasing it would
+    /// leave a tall grey gap below the table.
+    private var tableViewContentHeightConstraint: NSLayoutConstraint?
+
     /// The currently-active deadline preset (or .custom carrying a Date).
     private enum SelectedDeadline {
         case preset(TimeInterval)    // 1h / 4h / 24h / 48h (offsets from now)
@@ -276,6 +283,20 @@ final class TenderSheetViewController: UIViewController, UITableViewDataSource, 
         updateSendButton()
     }
 
+    /// WR-03 — react to Dynamic Type / preferred-content-size-category
+    /// changes by recomputing the table-view's height constraint. The
+    /// per-row cells observe Dynamic Type via adjustsFontForContentSizeCategory
+    /// in TenderSheetCarrierRowView; the table's intrinsic content size
+    /// changes accordingly, but the cached constant on
+    /// tableViewContentHeightConstraint would otherwise stay at the
+    /// initial-Dynamic-Type value.
+    override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {
+        super.traitCollectionDidChange(previousTraitCollection)
+        guard traitCollection.preferredContentSizeCategory
+                != previousTraitCollection?.preferredContentSizeCategory else { return }
+        recomputeTableContentHeightConstraint()
+    }
+
     private func installNavigationItem() {
         navigationItem.title = NSLocalizedString(
             "loads.detail.tender.sheet.title",
@@ -356,12 +377,31 @@ final class TenderSheetViewController: UIViewController, UITableViewDataSource, 
         // Layout the table so all rows materialize for in-test introspection.
         tableView.reloadData()
         tableView.layoutIfNeeded()
-        // Re-size table to fit its content rather than scrolling internally —
-        // the outer scrollView is the scroller.
-        let contentH = tableView.contentSize.height
-        if contentH > 0 {
-            tableView.heightAnchor.constraint(equalToConstant: contentH).isActive = true
+        // WR-03 — hold the height constraint so it can be recomputed when
+        // Dynamic Type changes. Deactivate any prior instance first (defensive
+        // against a future re-init that would otherwise stack constraints).
+        recomputeTableContentHeightConstraint()
+    }
+
+    /// WR-03 — single source of truth for the table-view's content-height
+    /// constraint. Deactivates any existing instance, re-measures
+    /// `tableView.contentSize.height`, and installs a fresh constant
+    /// constraint. Called from `configureTableView` and
+    /// `traitCollectionDidChange` so the table always fits its current-font
+    /// content. When the directory is empty, contentSize.height is 0 — no
+    /// constraint is installed; the `>= 64` minimum from installLayout
+    /// keeps the table from collapsing to zero.
+    private func recomputeTableContentHeightConstraint() {
+        if let existing = tableViewContentHeightConstraint {
+            existing.isActive = false
+            tableViewContentHeightConstraint = nil
         }
+        tableView.layoutIfNeeded()
+        let contentH = tableView.contentSize.height
+        guard contentH > 0 else { return }
+        let constraint = tableView.heightAnchor.constraint(equalToConstant: contentH)
+        constraint.isActive = true
+        tableViewContentHeightConstraint = constraint
     }
 
     private func buildChipRow() {
