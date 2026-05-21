@@ -751,27 +751,27 @@ Every claim in this RESEARCH.md was verified against the source tree (read line-
 
 **All claims verified.** No user confirmation needed on infrastructure claims. The planner can build directly from this research. The ONE area where the planner has unbounded discretion (and the user has explicitly delegated it — see "Claude's Discretion" above) is the per-action carrier-directory fixture's exact carrier list, the predictor's specific `Load.with(status:respondByAt:)` helper shape, the toggle-precedence order, the latency interval, and the VM state-enum case shape's exact field names. The planner should pick and document, not re-ask.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Does `Load` have a synthesized memberwise initializer accessible to the predictor's `with(...)` helper?**
    - What we know: `Load` is declared `public struct Load: Decodable, Sendable` (`Load.swift:101`). All properties are `public let`. Swift synthesizes a memberwise `init(...)` for structs with stored properties — but only with `internal` access by default. A `public` synthesized memberwise init requires explicit declaration.
    - What's unclear: Whether the predictor's `Load.with(status:)` helper can construct a new `Load` from outside the module (the predictor is in the same module, so `internal` is fine — verify this).
-   - Recommendation: The predictor lives in `validationLedger/Core/Load/LoadActionPredictor.swift` — same module as `Load.swift`. The synthesized internal memberwise init is accessible. If the planner places the predictor elsewhere or wants to expose `Load.with(...)` for tests, an explicit `public init` is added to `Load.swift` (additive — Phase 7 contract isn't broken). **Probability:** the same-module path is the natural choice; no action needed.
+   - **RESOLVED:** Recommendation: The predictor lives in `validationLedger/Core/Load/LoadActionPredictor.swift` — same module as `Load.swift`. The synthesized internal memberwise init is accessible. If the planner places the predictor elsewhere or wants to expose `Load.with(...)` for tests, an explicit `public init` is added to `Load.swift` (additive — Phase 7 contract isn't broken). **Probability:** the same-module path is the natural choice; no action needed.
 
 2. **Does `LoadStatus.localizedDisplayName` (or equivalent) already exist?**
    - What we know: UI-SPEC line 307 asserts "already established for the timeline component; planner re-uses." `StatusTimelineView.swift` exists at `Features/Loads/Detail/StatusTimelineView.swift` (confirmed by `ls`).
    - What's unclear: Whether the helper is `LoadStatus.localizedDisplayName` (a domain-side extension) or `StatusTimelineView`-internal (a view-side helper). UI-SPEC implies the former; the codebase may have the latter.
-   - Recommendation: Before writing the empty-state caption code, the planner verifies the helper's location with a grep for "localizedDisplayName" against `validationLedger/Core/Load/` and `validationLedger/Features/Loads/Detail/`. If only view-side, lift to a `LoadStatus` extension in `Core/Load/` (additive, low-risk).
+   - **RESOLVED:** Recommendation: Before writing the empty-state caption code, the planner verifies the helper's location with a grep for "localizedDisplayName" against `validationLedger/Core/Load/` and `validationLedger/Features/Loads/Detail/`. If only view-side, lift to a `LoadStatus` extension in `Core/Load/` (additive, low-risk).
 
 3. **What is the exact respond-by countdown rendering for the carrier/dispatch view of a `.tendered` load?**
    - What we know: UI-SPEC line 317-335 LOCKS the static rendering (not live counter) and the date-format mapping. The data source is `Load.respondByAt` (Phase 7 contract).
    - What's unclear: WHERE in the action region the respond-by label renders — above the `[.accept, .reject]` buttons, below them, or as a separate label INSIDE `LoadActionsView`. UI-SPEC line 323 says "planner picks position."
-   - Recommendation: Planner picks "below the action buttons, leading-anchored, `DS.Spacing.xs` (4pt) gap" — visually a clear "context for the buttons above." Adopt without re-asking the user (Claude's Discretion).
+   - **RESOLVED:** Recommendation: Planner picks "below the action buttons, leading-anchored, `DS.Spacing.xs` (4pt) gap" — visually a clear "context for the buttons above." Adopt without re-asking the user (Claude's Discretion).
 
 4. **How does the tender sheet learn that the parent VC's action submission succeeded (so it can auto-dismiss)?**
    - What we know: UI-SPEC line 455 — "On 200 success: the sheet auto-dismisses with `dismiss(animated: true)`." But the SHEET doesn't observe the parent VM's state; it just calls back to the parent on Send.
    - What's unclear: The exact callback shape — does the parent VC dismiss the sheet imperatively after `viewModel.submit(...)` resolves, or does the sheet observe its own `state` independently?
-   - Recommendation: The sheet's `onSend: (RequestBody) async -> Void` closure RETURNS when the action settles (success or failure). The sheet awaits the closure, then: if successful (the parent VC dismissed because the VM transitioned to `.loaded`), the sheet is already gone; if failure (the parent VC kept the screen and slid in the toast), the sheet recovers Send-button state and stays visible. This makes the sheet's lifecycle deterministic. Alternative: an explicit `Result<Void, Error>` from the closure. Planner picks; both are clean.
+   - **RESOLVED:** Recommendation: The sheet's `onSend: (RequestBody) async -> Void` closure RETURNS when the action settles (success or failure). The sheet awaits the closure, then: if successful (the parent VC dismissed because the VM transitioned to `.loaded`), the sheet is already gone; if failure (the parent VC kept the screen and slid in the toast), the sheet recovers Send-button state and stays visible. This makes the sheet's lifecycle deterministic. Alternative: an explicit `Result<Void, Error>` from the closure. Planner picks; both are clean.
 
 ## Environment Availability
 
