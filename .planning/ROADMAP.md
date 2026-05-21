@@ -237,7 +237,7 @@ Phases execute in numeric order: 7 → 8 → 9 → 9.1 → 10
 | 8. Role-Filtered Load List | v1.1 | 4/4 | Complete   | 2026-05-20 |
 | 9. Load Detail & Chain-of-Trust Graph | v1.1 | 10/10 | Complete   | 2026-05-20 |
 | 9.1. Chain-of-Vouches Redesign (INSERTED — device UAT) | v1.1 | 5/5 | Complete   | 2026-05-21 |
-| 10. Per-Role Tender / Accept / Reject | v1.1 | 10/10 | Complete   | 2026-05-21 |
+| 10. Per-Role Tender / Accept / Reject | v1.1 | 10/10 | Complete    | 2026-05-21 |
 
 ---
 *Milestone v1.0 "M1 Foundation" shipped 2026-05-18 — see `.planning/MILESTONES.md`. Roadmap created 2026-04-20. v1.1 "Load Flows" phases 7-10 added 2026-05-19. Phase 09.1 inserted 2026-05-20 from device-UAT; planned 2026-05-21.*

@@ -37,15 +37,15 @@ Requirements for the v1.1 "Load Flows" milestone. Each maps to a roadmap phase
 
 ### Per-Role Actions
 
-- [ ] **ACTION-01**: Broker/Shipper can tender a load to a specific carrier; an active tender displays its respond-by deadline
-- [ ] **ACTION-02**: Broker/Shipper can retender a load after a reject or an expired tender
-- [ ] **ACTION-03**: Carrier/Dispatch can accept a tendered load
-- [ ] **ACTION-04**: Carrier/Dispatch can reject a tendered load — the load returns to posted
-- [ ] **ACTION-05**: Carrier/Dispatch can advance a load's status one step at a time — dispatched → in-transit → delivered
-- [ ] **ACTION-06**: Shipper/Broker can post a draft load to the board and cancel a pre-delivery load (state actions on fixture loads; no multi-field load-creation form)
-- [ ] **ACTION-07**: Broker/Shipper cannot tender to an unverified counterparty — the tender action is hard-disabled with an inline reason
-- [ ] **ACTION-08**: Load actions use optimistic UI with a rollback path — the screen reverts to its pre-action state and shows an error when a (mocked) action fails
-- [ ] **ACTION-09**: A load's available actions are determined per-role by a single `RoleLoadPolicy` table — each role sees only its legal actions for the load's current state; Factoring sees none
+- [x] **ACTION-01**: Broker/Shipper can tender a load to a specific carrier; an active tender displays its respond-by deadline
+- [x] **ACTION-02**: Broker/Shipper can retender a load after a reject or an expired tender
+- [x] **ACTION-03**: Carrier/Dispatch can accept a tendered load
+- [x] **ACTION-04**: Carrier/Dispatch can reject a tendered load — the load returns to posted
+- [x] **ACTION-05**: Carrier/Dispatch can advance a load's status one step at a time — dispatched → in-transit → delivered
+- [x] **ACTION-06**: Shipper/Broker can post a draft load to the board and cancel a pre-delivery load (state actions on fixture loads; no multi-field load-creation form)
+- [x] **ACTION-07**: Broker/Shipper cannot tender to an unverified counterparty — the tender action is hard-disabled with an inline reason
+- [x] **ACTION-08**: Load actions use optimistic UI with a rollback path — the screen reverts to its pre-action state and shows an error when a (mocked) action fails
+- [x] **ACTION-09**: A load's available actions are determined per-role by a single `RoleLoadPolicy` table — each role sees only its legal actions for the load's current state; Factoring sees none
 
 ## Future Requirements
 
@@ -102,15 +102,15 @@ Which phases cover which requirements. Populated during roadmap creation.
 | TRUST-03 | Phase 9 | Pending |
 | TRUST-04 | Phase 9 | Pending |
 | TRUST-05 | Phase 9 | Pending |
-| ACTION-01 | Phase 10 | Pending |
-| ACTION-02 | Phase 10 | Pending |
-| ACTION-03 | Phase 10 | Pending |
-| ACTION-04 | Phase 10 | Pending |
-| ACTION-05 | Phase 10 | Pending |
-| ACTION-06 | Phase 10 | Pending |
-| ACTION-07 | Phase 10 | Pending |
-| ACTION-08 | Phase 10 | Pending |
-| ACTION-09 | Phase 10 | Pending |
+| ACTION-01 | Phase 10 | Complete |
+| ACTION-02 | Phase 10 | Complete |
+| ACTION-03 | Phase 10 | Complete |
+| ACTION-04 | Phase 10 | Complete |
+| ACTION-05 | Phase 10 | Complete |
+| ACTION-06 | Phase 10 | Complete |
+| ACTION-07 | Phase 10 | Complete |
+| ACTION-08 | Phase 10 | Complete |
+| ACTION-09 | Phase 10 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 22 total
