@@ -416,6 +416,14 @@ final class LoadActionsViewTests: XCTestCase {
     // MARK: - Test 15 — Dynamic Type accessibilityLarge -> vertical axis
 
     func test_configure_DynamicTypeAccessibilityCategory_buttonRowAxis_flipsToVertical() {
+        // Embed in a window so traitOverrides actually propagates into the
+        // view's traitCollection (off-window views don't always pick up
+        // traitOverrides changes — iOS 17 `registerForTraitChanges` requires
+        // the view be in a window hierarchy to fire).
+        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 320, height: 480))
+        window.addSubview(view)
+        window.makeKeyAndVisible()
+
         view.configure(
             actions: [.tender, .cancel],
             role: .broker,
@@ -426,8 +434,11 @@ final class LoadActionsViewTests: XCTestCase {
             onTap: { _ in }
         )
 
-        // Apply accessibility-large trait via traitOverrides
+        // Apply accessibility-large trait via traitOverrides on both the view
+        // and the window for correct propagation.
         view.traitOverrides.preferredContentSizeCategory = .accessibilityLarge
+        window.traitOverrides.preferredContentSizeCategory = .accessibilityLarge
+
         // Trigger trait change handling
         view.setNeedsLayout()
         view.layoutIfNeeded()
