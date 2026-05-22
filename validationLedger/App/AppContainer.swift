@@ -198,6 +198,120 @@ final class AppContainer {
         return viewController
     }
 
+    // Phase 8 LOAD-03 — D-01..D-04. The per-role Loads-tab factory consumed by
+    // the 5 `*TabBarController`s through the `loadListScreenFactory: (Role) ->
+    // UIViewController` closure threaded by
+    // `AppCoordinator.roleCoordinator(for:container:)`. Closure-factory pattern +
+    // `Role` parameter mirrors the Phase 5 `kycStatusScreenFactory` precedent
+    // (`makeKYCStatusScreen()` immediately above). The Loads screen is
+    // constructed lazily — `makeLoadListScreen(role:)` is invoked only when the
+    // tab bar's closure fires; no eager VM allocation.
+    //
+    // Logging subsystem reuse: this factory builds an `OSLogLoggerImpl(subsystem:
+    // LoggingSubsystem.app, category: "feature.loads")`. The closed
+    // `LoggingSubsystem` enum is NOT extended with a `.loads` case in Phase 8 —
+    // that's a deferred decision (PATTERNS.md §6 line 489). Reusing `.app` keeps
+    // the scope tight; a future plan can add a `.loads` subsystem purely
+    // additively without touching this call site (only the literal string here
+    // changes).
+    @MainActor
+    func makeLoadListScreen(role: Role) -> UIViewController {
+        let featureLogger = OSLogLoggerImpl(
+            subsystem: LoggingSubsystem.app,
+            category: "feature.loads"
+        )
+        let viewModel = LoadListViewModel(
+            role: role,
+            apiClient: apiClient,
+            logger: featureLogger
+        )
+        // BL-02 — role → in-screen nav-bar title mapping. Centralized here in
+        // the composition root next to the existing T-08-12 plumbing so the
+        // Factoring path's "Invoices" lock is end-to-end (tab bar label AND
+        // nav bar title). Every other role keeps "Loads". `NSLocalizedString`
+        // is honored for both branches so the v2 i18n pass can localize them
+        // independently (Factoring "Invoices" may need a different translator
+        // gloss than "Loads" in other locales).
+        let navTitle: String = (role == .factoring)
+            ? NSLocalizedString(
+                "loads.list.nav_title.factoring",
+                value: "Invoices",
+                comment: "Phase 8 LoadListViewController — Factoring-role nav-bar title (matches T-08-12 tab-bar lock)"
+            )
+            : NSLocalizedString(
+                "loads.list.nav_title",
+                value: "Loads",
+                comment: "Phase 8 LoadListViewController — default nav-bar title for all non-Factoring roles"
+            )
+        // Phase 9 LOAD-05 — thread the load-detail factory closure so row
+        // taps inside the list VC can push the detail VC WITHOUT the list
+        // VC importing AppContainer (ARCH-05 separation: features depend on
+        // protocols and closures, never on the composition root). `[weak
+        // self]` keeps the closure cycle-safe even though AppContainer is
+        // application-scoped — the safer default. The fallback empty
+        // UIViewController is logically unreachable (AppContainer outlives
+        // every LoadListViewController it constructs) but guards against a
+        // future refactor that detaches scene lifetimes from the container.
+        //
+        // Phase 10 Plan 03 — D-22: the outer `role` parameter is captured
+        // (implicit capture; `role` is in scope from this function's
+        // signature) and forwarded into the new
+        // `makeLoadDetailScreen(loadID:role:)` so the per-screen VM has the
+        // session role available for the policy-gate lookup that the action
+        // region (Plan 04) performs. D-23: the role is fixed for the detail
+        // screen's lifetime (a user switching roles requires logout +
+        // re-login — mirrors v1.0 SHELL-04 lock).
+        let detailFactory: (String) -> UIViewController = { [weak self] loadID in
+            guard let self else { return UIViewController() }
+            return self.makeLoadDetailScreen(loadID: loadID, role: role)
+        }
+        return LoadListViewController(
+            viewModel: viewModel,
+            navTitle: navTitle,
+            detailScreenFactory: detailFactory
+        )
+    }
+
+    // Phase 9 LOAD-05 — composition-root factory for the load-detail screen.
+    // Mirrors `makeLoadListScreen(role:)` line-for-line (PATTERNS E12):
+    //   - REUSES `LoggingSubsystem.app` + category `feature.loads` (same
+    //     subsystem as the list — no new `LoggingSubsystem` case added; per
+    //     Phase 8 doctrine, additive subsystem expansion is a deferred
+    //     decision that does not block Phase 9).
+    //   - Constructs `LoadDetailViewModel(loadID:role:apiClient:logger:)`
+    //     (Phase 10 Plan 03 — D-22 role plumb).
+    //   - Returns `LoadDetailViewController(viewModel:)`.
+    //
+    // Phase 10 Plan 03 — D-22 / D-23: the `role` parameter is the session
+    // role captured by the calling `makeLoadListScreen(role:)` closure (line
+    // 255-258 area) — fixed for the detail screen's lifetime; a user
+    // switching roles requires logout + re-login (mirrors v1.0 SHELL-04
+    // lock). The VM stores it as `public let role: Role`; the VC reads
+    // `viewModel.role` for the action-region policy lookup
+    // (`RoleLoadPolicy.availableActions(for: viewModel.role, in: load)`).
+    //
+    // The factory is invoked by `LoadListViewController.collectionView(_:
+    // didSelectItemAt:)` via the closure threaded above in
+    // `makeLoadListScreen(role:)`. No coordinator is introduced — per
+    // CONTEXT line 111 "factory closure is acceptable in lieu of a new
+    // LoadDetailCoordinator" (the single push has no coordinator state to
+    // retain across navigations; mirrors the `kycStatusScreenFactory`
+    // precedent established in `makeKYCStatusScreen()` above).
+    @MainActor
+    func makeLoadDetailScreen(loadID: String, role: Role) -> UIViewController {
+        let featureLogger = OSLogLoggerImpl(
+            subsystem: LoggingSubsystem.app,
+            category: "feature.loads"
+        )
+        let viewModel = LoadDetailViewModel(
+            loadID: loadID,
+            role: role,
+            apiClient: apiClient,
+            logger: featureLogger
+        )
+        return LoadDetailViewController(viewModel: viewModel)
+    }
+
     /// Primary initializer.
     ///
     /// - Parameters:
@@ -452,6 +566,7 @@ final class AppContainer {
         let isUITestRolePath = ProcessInfo.processInfo.arguments.contains("-MockOTPRoleForUITest")
         if case .mock = resolvedConfig, !isUITestRolePath {
             MockDefaultFixtures.registerAppDefaults()
+            MockLoadFixtureRegistry.registerAppDefaults()   // Phase 7 LOAD-01 — D-17
         }
         #endif
 
@@ -608,6 +723,26 @@ final class AppContainer {
                     event: .init("kyc_uitest_seed_failed"),
                     fields: [:]
                 )
+                // WR-02 — surface UI-test seed errors LOUDLY. Pre-WR-02 the
+                // catch emitted a stringless `kyc_uitest_seed_failed` log and
+                // proceeded; the test then landed on phone-entry (instead of
+                // the role shell / KYC gate) and failed downstream with an
+                // unrelated assertion ("expected 'Loads' tab but got
+                // 'phone-entry-field'"). Diagnostic gap closed: fatalError
+                // here aborts the launch with the actual Keychain error so
+                // the CI log shows the seed root cause, not a misleading
+                // downstream UI-tree assertion.
+                //
+                // Safety: the entire block is `#if DEBUG`-gated AND only runs
+                // when `AppContainer.kycTestSeed` is non-nil (set by
+                // `SceneDelegate` parsing the `-KYCTestSeedForUITest` launch
+                // arg). A Release build compiles this block to zero bytes; a
+                // DEBUG build without the launch arg never reaches this
+                // catch. The `error` interpolation is safe because the
+                // KeychainStore errors are synthetic OSStatus values, not
+                // user PII (T-05-11-02 / T-05-11-03 — seed credentials are
+                // fixed placeholders).
+                fatalError("KYC UI-test seed failed: \(error) — UI test cannot proceed without seeded Keychain state (WR-02)")
             }
         }
         #endif

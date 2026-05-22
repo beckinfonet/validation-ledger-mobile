@@ -1,0 +1,259 @@
+{
+  "load": {
+    "id": "VL-1004",
+    "reference_number": "REF-1004-DD",
+    "origin": {
+      "city": "Phoenix",
+      "state": "AZ",
+      "postal_code": "85003",
+      "country": "US"
+    },
+    "destination": {
+      "city": "Denver",
+      "state": "CO",
+      "postal_code": "80202",
+      "country": "US"
+    },
+    "equipment": "dry_van",
+    "weight": 41200,
+    "rate": 2450.0,
+    "pickup_at": "2026-04-22T09:00:00Z",
+    "deliver_at": "2026-04-23T16:00:00Z",
+    "status": "tendered",
+    "state_history": [
+      {
+        "status": "draft",
+        "timestamp": "2026-04-19T11:00:00Z",
+        "actor": {
+          "party_id": "party-shipper-pacificgoods",
+          "role": "shipper",
+          "display_name": "Pacific Goods LLC"
+        }
+      },
+      {
+        "status": "posted",
+        "timestamp": "2026-04-19T11:25:00Z",
+        "actor": {
+          "party_id": "party-broker-sunbelt",
+          "role": "broker",
+          "display_name": "Sunbelt Logistics"
+        }
+      },
+      {
+        "status": "tendered",
+        "timestamp": "2026-04-20T14:00:00Z",
+        "actor": {
+          "party_id": "party-broker-sunbelt",
+          "role": "broker",
+          "display_name": "Sunbelt Logistics"
+        }
+      }
+    ],
+    "respond_by_at": "2026-04-20T16:00:00Z",
+    "tender_eligibility": {
+      "can_tender": true,
+      "disabled_reason": null
+    }
+  },
+  "chain_of_trust": {
+    "nodes": [
+      {
+        "party_id": "party-shipper-pacificgoods",
+        "role": "shipper",
+        "display_name": "Pacific Goods LLC",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-11-04T15:20:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationships": [
+          {
+            "load_id": "VL-1018",
+            "occurred_at": "2026-01-12T10:30:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Keystone Freight Group"
+          },
+          {
+            "load_id": "VL-1019",
+            "occurred_at": "2026-02-04T14:15:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "FreightWise Brokerage"
+          },
+          {
+            "load_id": "VL-1020",
+            "occurred_at": "2026-02-23T08:45:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Sunbelt Logistics"
+          },
+          {
+            "load_id": "VL-1021",
+            "occurred_at": "2026-03-15T12:00:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Keystone Freight Group"
+          },
+          {
+            "load_id": "VL-1022",
+            "occurred_at": "2026-04-08T09:20:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "Red Rock Carriers"
+          }
+        ]
+      },
+      {
+        "party_id": "party-broker-sunbelt",
+        "role": "broker",
+        "display_name": "Sunbelt Logistics",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-09-08T11:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationships": [
+          {
+            "load_id": "VL-1015",
+            "occurred_at": "2026-01-12T10:30:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "National Link Carriers"
+          },
+          {
+            "load_id": "VL-1016",
+            "occurred_at": "2026-02-04T14:15:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "PhantomLine Logistics"
+          },
+          {
+            "load_id": "VL-1017",
+            "occurred_at": "2026-02-23T08:45:00Z",
+            "counterparty_role": "shipper",
+            "counterparty_display_name": "Global Exports Co."
+          },
+          {
+            "load_id": "VL-1018",
+            "occurred_at": "2026-03-15T12:00:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "Red Rock Carriers"
+          },
+          {
+            "load_id": "VL-1019",
+            "occurred_at": "2026-04-08T09:20:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "National Link Carriers"
+          }
+        ]
+      },
+      {
+        "party_id": "party-carrier-acme",
+        "role": "carrier",
+        "display_name": "Acme Trucking Inc.",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-09-22T13:05:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": "0123456",
+        "usdot_authority_status": "active",
+        "prior_relationships": [
+          {
+            "load_id": "VL-1014",
+            "occurred_at": "2026-01-12T10:30:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Sunbelt Logistics"
+          },
+          {
+            "load_id": "VL-1015",
+            "occurred_at": "2026-02-04T14:15:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Keystone Freight Group"
+          },
+          {
+            "load_id": "VL-1016",
+            "occurred_at": "2026-02-23T08:45:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "FreightWise Brokerage"
+          },
+          {
+            "load_id": "VL-1017",
+            "occurred_at": "2026-03-15T12:00:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Sunbelt Logistics"
+          },
+          {
+            "load_id": "VL-1018",
+            "occurred_at": "2026-04-08T09:20:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Keystone Freight Group"
+          }
+        ]
+      },
+      {
+        "party_id": "party-dispatch-overland",
+        "role": "dispatch",
+        "display_name": "Overland Dispatch",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-10-01T10:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": "0987654",
+        "usdot_authority_status": "active",
+        "prior_relationships": [
+          {
+            "load_id": "VL-1018",
+            "occurred_at": "2026-01-12T10:30:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "Red Rock Carriers"
+          },
+          {
+            "load_id": "VL-1019",
+            "occurred_at": "2026-02-04T14:15:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "National Link Carriers"
+          },
+          {
+            "load_id": "VL-1020",
+            "occurred_at": "2026-02-23T08:45:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "PhantomLine Logistics"
+          },
+          {
+            "load_id": "VL-1021",
+            "occurred_at": "2026-03-15T12:00:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "Acme Trucking Inc."
+          },
+          {
+            "load_id": "VL-1022",
+            "occurred_at": "2026-04-08T09:20:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "Red Rock Carriers"
+          }
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "edge-VL-1004-shipper-broker",
+        "from_party_id": "party-shipper-pacificgoods",
+        "to_party_id": "party-broker-sunbelt",
+        "relationship_state": "verified",
+        "tender_ref": null
+      },
+      {
+        "edge_id": "edge-VL-1004-broker-carrier",
+        "from_party_id": "party-broker-sunbelt",
+        "to_party_id": "party-carrier-acme",
+        "relationship_state": "pending",
+        "tender_ref": "TNDR-1004-A"
+      },
+      {
+        "edge_id": "edge-VL-1004-carrier-dispatch",
+        "from_party_id": "party-carrier-acme",
+        "to_party_id": "party-dispatch-overland",
+        "relationship_state": "verified",
+        "tender_ref": null
+      }
+    ],
+    "integrity": {
+      "verdict": "clean",
+      "reason": "Active tender; all parties verified; awaiting carrier response.",
+      "implicated_node_ids": [],
+      "implicated_edge_ids": []
+    }
+  }
+}

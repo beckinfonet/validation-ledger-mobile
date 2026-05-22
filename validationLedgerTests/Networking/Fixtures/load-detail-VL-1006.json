@@ -1,0 +1,131 @@
+{
+  "load": {
+    "id": "VL-1006",
+    "reference_number": "REF-1006-FF",
+    "origin": {
+      "city": "Stockton",
+      "state": "CA",
+      "postal_code": "95202",
+      "country": "US"
+    },
+    "destination": {
+      "city": "Portland",
+      "state": "OR",
+      "postal_code": "97204",
+      "country": "US"
+    },
+    "equipment": "dry_van",
+    "weight": 41750,
+    "rate": 2675.0,
+    "pickup_at": "2026-04-26T07:00:00Z",
+    "deliver_at": "2026-04-27T18:00:00Z",
+    "status": "draft",
+    "state_history": [
+      {
+        "status": "draft",
+        "timestamp": "2026-04-20T16:00:00Z",
+        "actor": null
+      }
+    ],
+    "respond_by_at": null,
+    "tender_eligibility": {
+      "can_tender": true,
+      "disabled_reason": null
+    }
+  },
+  "chain_of_trust": {
+    "nodes": [
+      {
+        "party_id": "party-shipper-pacificgoods",
+        "role": "shipper",
+        "display_name": "Pacific Goods LLC",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-11-04T15:20:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationships": [
+          {
+            "load_id": "VL-1018",
+            "occurred_at": "2026-01-12T10:30:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Keystone Freight Group"
+          },
+          {
+            "load_id": "VL-1019",
+            "occurred_at": "2026-02-04T14:15:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "FreightWise Brokerage"
+          },
+          {
+            "load_id": "VL-1020",
+            "occurred_at": "2026-02-23T08:45:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Sunbelt Logistics"
+          },
+          {
+            "load_id": "VL-1021",
+            "occurred_at": "2026-03-15T12:00:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Keystone Freight Group"
+          },
+          {
+            "load_id": "VL-1022",
+            "occurred_at": "2026-04-08T09:20:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "Red Rock Carriers"
+          }
+        ]
+      },
+      {
+        "party_id": "party-broker-freightwise",
+        "role": "broker",
+        "display_name": "FreightWise Brokerage",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-08-12T09:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationships": [
+          {
+            "load_id": "VL-1015",
+            "occurred_at": "2026-01-12T10:30:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "National Link Carriers"
+          },
+          {
+            "load_id": "VL-1016",
+            "occurred_at": "2026-02-04T14:15:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "PhantomLine Logistics"
+          },
+          {
+            "load_id": "VL-1017",
+            "occurred_at": "2026-02-23T08:45:00Z",
+            "counterparty_role": "shipper",
+            "counterparty_display_name": "Global Exports Co."
+          },
+          {
+            "load_id": "VL-1018",
+            "occurred_at": "2026-03-15T12:00:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "Red Rock Carriers"
+          },
+          {
+            "load_id": "VL-1019",
+            "occurred_at": "2026-04-08T09:20:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "National Link Carriers"
+          }
+        ]
+      }
+    ],
+    "edges": [],
+    "integrity": {
+      "verdict": "clean",
+      "reason": "Draft load; no counterparties tendered yet.",
+      "implicated_node_ids": [],
+      "implicated_edge_ids": []
+    }
+  }
+}

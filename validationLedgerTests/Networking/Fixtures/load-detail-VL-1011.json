@@ -1,0 +1,311 @@
+{
+  "load": {
+    "id": "VL-1011",
+    "reference_number": "REF-1011-KK",
+    "origin": {
+      "city": "Atlanta",
+      "state": "GA",
+      "postal_code": "30303",
+      "country": "US"
+    },
+    "destination": {
+      "city": "Birmingham",
+      "state": "AL",
+      "postal_code": "35203",
+      "country": "US"
+    },
+    "equipment": "dry_van",
+    "weight": 40850,
+    "rate": 1245.0,
+    "pickup_at": "2026-04-12T07:00:00Z",
+    "deliver_at": "2026-04-12T15:00:00Z",
+    "status": "invoiced",
+    "state_history": [
+      {
+        "status": "draft",
+        "timestamp": "2026-04-08T10:00:00Z",
+        "actor": {
+          "party_id": "party-shipper-easternfoods",
+          "role": "shipper",
+          "display_name": "Eastern Foods Distributing"
+        }
+      },
+      {
+        "status": "posted",
+        "timestamp": "2026-04-08T10:30:00Z",
+        "actor": {
+          "party_id": "party-broker-freightwise",
+          "role": "broker",
+          "display_name": "FreightWise Brokerage"
+        }
+      },
+      {
+        "status": "tendered",
+        "timestamp": "2026-04-09T11:00:00Z",
+        "actor": {
+          "party_id": "party-broker-freightwise",
+          "role": "broker",
+          "display_name": "FreightWise Brokerage"
+        }
+      },
+      {
+        "status": "accepted",
+        "timestamp": "2026-04-09T13:00:00Z",
+        "actor": {
+          "party_id": "party-broker-keystone",
+          "role": "broker",
+          "display_name": "Keystone Freight Group"
+        }
+      },
+      {
+        "status": "dispatched",
+        "timestamp": "2026-04-12T06:30:00Z",
+        "actor": {
+          "party_id": "party-dispatch-cornerstone",
+          "role": "dispatch",
+          "display_name": "Cornerstone Dispatch"
+        }
+      },
+      {
+        "status": "in_transit",
+        "timestamp": "2026-04-12T07:25:00Z",
+        "actor": {
+          "party_id": "party-carrier-redrock",
+          "role": "carrier",
+          "display_name": "Red Rock Carriers"
+        }
+      },
+      {
+        "status": "delivered",
+        "timestamp": "2026-04-12T14:50:00Z",
+        "actor": {
+          "party_id": "party-carrier-redrock",
+          "role": "carrier",
+          "display_name": "Red Rock Carriers"
+        }
+      },
+      {
+        "status": "pod_captured",
+        "timestamp": "2026-04-12T15:05:00Z",
+        "actor": {
+          "party_id": "party-carrier-redrock",
+          "role": "carrier",
+          "display_name": "Red Rock Carriers"
+        }
+      },
+      {
+        "status": "invoiced",
+        "timestamp": "2026-04-13T09:42:00Z",
+        "actor": {
+          "party_id": "party-factoring-stagepay",
+          "role": "factoring",
+          "display_name": "StagePay Funding"
+        }
+      }
+    ],
+    "respond_by_at": null,
+    "tender_eligibility": null
+  },
+  "chain_of_trust": {
+    "nodes": [
+      {
+        "party_id": "party-shipper-easternfoods",
+        "role": "shipper",
+        "display_name": "Eastern Foods Distributing",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-12-01T09:30:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationships": [
+          {
+            "load_id": "VL-1017",
+            "occurred_at": "2026-01-12T10:30:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Sunbelt Logistics"
+          },
+          {
+            "load_id": "VL-1018",
+            "occurred_at": "2026-02-04T14:15:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Keystone Freight Group"
+          },
+          {
+            "load_id": "VL-1019",
+            "occurred_at": "2026-02-23T08:45:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "FreightWise Brokerage"
+          },
+          {
+            "load_id": "VL-1020",
+            "occurred_at": "2026-03-15T12:00:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Sunbelt Logistics"
+          },
+          {
+            "load_id": "VL-1021",
+            "occurred_at": "2026-04-08T09:20:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "Acme Trucking Inc."
+          }
+        ]
+      },
+      {
+        "party_id": "party-broker-freightwise",
+        "role": "broker",
+        "display_name": "FreightWise Brokerage",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-08-12T09:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationships": [
+          {
+            "load_id": "VL-1015",
+            "occurred_at": "2026-01-12T10:30:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "National Link Carriers"
+          },
+          {
+            "load_id": "VL-1016",
+            "occurred_at": "2026-02-04T14:15:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "PhantomLine Logistics"
+          },
+          {
+            "load_id": "VL-1017",
+            "occurred_at": "2026-02-23T08:45:00Z",
+            "counterparty_role": "shipper",
+            "counterparty_display_name": "Global Exports Co."
+          },
+          {
+            "load_id": "VL-1018",
+            "occurred_at": "2026-03-15T12:00:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "Red Rock Carriers"
+          },
+          {
+            "load_id": "VL-1019",
+            "occurred_at": "2026-04-08T09:20:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "National Link Carriers"
+          }
+        ]
+      },
+      {
+        "party_id": "party-broker-keystone",
+        "role": "broker",
+        "display_name": "Keystone Freight Group",
+        "verification_state": "flagged",
+        "kyc_completed_at": "2025-07-04T08:00:00Z",
+        "device_binding_status": "mismatched",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationships": [
+          {
+            "load_id": "VL-1013",
+            "occurred_at": "2026-01-12T10:30:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "Acme Trucking Inc."
+          }
+        ]
+      },
+      {
+        "party_id": "party-carrier-redrock",
+        "role": "carrier",
+        "display_name": "Red Rock Carriers",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-10-18T08:30:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": "0445582",
+        "usdot_authority_status": "active",
+        "prior_relationships": [
+          {
+            "load_id": "VL-1018",
+            "occurred_at": "2026-01-12T10:30:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Keystone Freight Group"
+          },
+          {
+            "load_id": "VL-1019",
+            "occurred_at": "2026-02-04T14:15:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "FreightWise Brokerage"
+          },
+          {
+            "load_id": "VL-1020",
+            "occurred_at": "2026-02-23T08:45:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Sunbelt Logistics"
+          },
+          {
+            "load_id": "VL-1021",
+            "occurred_at": "2026-03-15T12:00:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Keystone Freight Group"
+          },
+          {
+            "load_id": "VL-1022",
+            "occurred_at": "2026-04-08T09:20:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "FreightWise Brokerage"
+          }
+        ]
+      },
+      {
+        "party_id": "party-factoring-stagepay",
+        "role": "factoring",
+        "display_name": "StagePay Funding",
+        "verification_state": "flagged",
+        "kyc_completed_at": "2026-04-01T12:00:00Z",
+        "device_binding_status": "mismatched",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationships": []
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "edge-VL-1011-shipper-broker",
+        "from_party_id": "party-shipper-easternfoods",
+        "to_party_id": "party-broker-freightwise",
+        "relationship_state": "verified",
+        "tender_ref": null
+      },
+      {
+        "edge_id": "edge-VL-1011-broker-broker",
+        "from_party_id": "party-broker-freightwise",
+        "to_party_id": "party-broker-keystone",
+        "relationship_state": "flagged",
+        "tender_ref": "TNDR-1011-A"
+      },
+      {
+        "edge_id": "edge-VL-1011-broker-carrier",
+        "from_party_id": "party-broker-keystone",
+        "to_party_id": "party-carrier-redrock",
+        "relationship_state": "flagged",
+        "tender_ref": "TNDR-1011-B"
+      },
+      {
+        "edge_id": "edge-VL-1011-carrier-factoring",
+        "from_party_id": "party-carrier-redrock",
+        "to_party_id": "party-factoring-stagepay",
+        "relationship_state": "flagged",
+        "tender_ref": "INV-1011-X"
+      }
+    ],
+    "integrity": {
+      "verdict": "compromised",
+      "reason": "Factoring company filed invoice on a double-brokered shipment; invoice routed to a factoring identity without an established relationship — clawback risk. Freeze funding and investigate factoring identity.",
+      "implicated_node_ids": [
+        "party-broker-keystone",
+        "party-factoring-stagepay"
+      ],
+      "implicated_edge_ids": [
+        "edge-VL-1011-broker-broker",
+        "edge-VL-1011-broker-carrier",
+        "edge-VL-1011-carrier-factoring"
+      ]
+    }
+  }
+}

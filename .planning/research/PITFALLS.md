@@ -1,648 +1,309 @@
-# Pitfalls Research — Validation Ledger iOS Client
+# Pitfalls Research — v1.1 "Load Flows"
 
-**Domain:** Identity-verified freight iOS client (security-sensitive, five-role, offline-tolerant, 24-week v1)
-**Researched:** 2026-04-20
-**Confidence:** HIGH on Secure Enclave / Keychain / cert pinning / Privacy Manifest / CoreLocation API shapes (current Apple docs + WWDC23/24). MEDIUM on App Store review specifics (behavior changes quarterly) and Critical Alerts entitlement acceptance bar. LOW on specific false-reject rates for Vision-only liveness (deferred Open Q1).
+**Domain:** Adding a load domain (role-filtered list, load detail, interactive UIKit chain-of-trust graph, per-role tender/accept/reject) to an existing shipped UIKit / MVVM-C iOS app, built entirely against `MockURLProtocol` fixtures with no backend.
+**Researched:** 2026-05-19
+**Confidence:** HIGH on UIKit gesture/diffable-data-source/Core Animation API behavior (current Apple docs + verified community post-mortems). HIGH on the mock-to-live and trust/security pitfalls (they derive directly from the project's documented v1.0 contract-first pattern and zero-PII constraint). MEDIUM on the exact graph-layout approach (no graph library is pre-approved; recommendation is to hand-roll, see Pitfall 1).
 
-**Reading order for the roadmap author:** Critical pitfalls are ordered by milestone cost-to-fix. M1-relevant pitfalls (Secure Enclave, Keychain, cert pinning, PII, MVVM-C, KYC capture, uploads) appear first and are the most load-bearing for the 4-week Foundation milestone. M2-M5 pitfalls follow. Each pitfall lists warning signs + prevention + phase ownership + whether TechStack.md already covers it.
+**Scope note for the roadmap author:** This file covers ONLY pitfalls introduced by the v1.1 load features. Foundation pitfalls (Secure Enclave, Keychain-survives-uninstall, cert pinning, PII scrubber existence, MVVM-C retain cycles, App Attest) are already shipped and verified in v1.0 — see `.planning/research/v1.0/PITFALLS.md`. They are referenced here only where a v1.1 feature *re-triggers* or *depends on* them (e.g., the trust graph must use the existing PII scrubber; tender actions must reuse the v1.0 idempotency-key interceptor). v1.1 is iOS-only against fixtures; no real-time, no push, no backend — pitfalls assume that constraint.
 
-**Legend for "TechStack.md coverage":**
-- **Covered** = spec explicitly addresses the pitfall
-- **Partial** = spec names the risk but prevention is underspecified
-- **Not covered** = spec is silent; roadmap must add it
-
----
-
-## Critical Pitfalls (M1 Foundation — Weeks 1-4)
-
-### Pitfall 1: Secure Enclave key tied to `.biometryCurrentSet` silently bricks session on biometric re-enrollment
-
-**What goes wrong:**
-TechStack.md §8 specifies `.biometryCurrentSet` for the device key "so biometric re-enrollment invalidates the key and forces re-binding." Correct as a security posture, but if the app does not detect the `errSecItemNotFound` / `errSecAuthFailed` code path and surface a recovery flow, the user sees a cryptic login failure. They cannot re-bind without going through re-KYC (per FR-iOS-DEV one-active-device policy). They call support. Support has no playbook.
-
-A second failure mode: the key generated with `.biometryCurrentSet` cannot be retrieved without user-present biometric, which means ANY attempt to sign a request fails silently when Face ID is disabled in Settings → Face ID & Passcode → App Usage. iOS does not emit a clear error; you get `errSecAuthFailed` (-25293).
-
-**Why it happens:**
-Documentation of `SecAccessControlCreateFlags` is scattered. Developers pick `.biometryCurrentSet` as the "most secure" option without wiring the invalidation path. Simulator tests pass (simulator biometrics behave differently). Real-device failure appears at beta when the first user changes a Face ID scan.
-
-**How to avoid:**
-1. In Phase 1, write a `DeviceKeyService` that explicitly handles three outcomes on every signing attempt: (a) success, (b) `errSecItemNotFound` → trigger re-enrollment flow, (c) `errSecAuthFailed` → show "Face ID required; re-enable in Settings" with deep link to `UIApplication.openSettingsURLString`.
-2. Test biometric-invalidation on a physical device by: enroll Face ID → login → settings → remove Face ID → re-enroll → try signed action → must fail cleanly → must offer "re-bind this device" path.
-3. Design the **re-bind flow copy before M1 ends** — do not ship the Secure Enclave path without a decision on whether re-bind = re-KYC or a faster recovery. TechStack.md §12 Open Q5 flags this for SIM swap; it applies equally to biometric re-enrollment.
-4. Consider using `LAContext.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics)` as a pre-flight gate before attempting to fetch the key, so you can show the right message instead of decoding `OSStatus`.
-
-**Warning signs:**
-- Internal testing where engineers don't re-enroll Face ID between builds (99% of testing).
-- Zero handling of `errSecAuthFailed` in `DeviceKeyService` code.
-- No "switch to this device" flow in design.
-- Tests pass only on simulator (see Pitfall 15).
-
-**Phase to address:** Phase 1 of M1 (Foundation). Re-bind flow can be a stub dialog + support-link in Phase 1, but the error-code surface must be wired from day one or it becomes invisible tech debt.
-
-**TechStack.md coverage:** **Partial.** §8 picks `.biometryCurrentSet` but does not describe the invalidation UX or `errSecAuthFailed` path. The roadmap must add this.
+**Phase labels** below (Phase A–D) are suggested v1.1 phase groupings, not committed roadmap phases:
+- **Phase A — Load domain model + mock endpoints/fixtures** (the contract)
+- **Phase B — Role-filtered load list**
+- **Phase C — Load detail + interactive chain-of-trust graph**
+- **Phase D — Per-role tender/accept/reject actions**
 
 ---
 
-### Pitfall 2: Keychain items surviving app delete leaks prior user identity on reinstall
+## Critical Pitfalls
+
+### Pitfall 1: Reaching for a third-party graph library — or SwiftUI Canvas — for the chain-of-trust graph
 
 **What goes wrong:**
-iOS Keychain is deliberately persistent across app delete+reinstall. When user A logs out implicitly by deleting the app, then user B reinstalls it on the same device, B gets A's Keychain tokens on first launch — zero-auth access to A's account until the token expires. For an identity-verification product, this is a showstopper: the product's entire premise is that the identity on the device is demonstrably real.
+The interactive chain-of-trust graph (shipper → broker → carrier → dispatch → factoring, tappable nodes with per-party verification state) reads like a "graph visualization" problem, so the instinct is to pull in a force-directed graph SPM package, or to build the node-graph in SwiftUI because declarative layout is faster. Both violate hard project constraints. The dependency shortlist is closed (URLSession wrapper, KeychainAccess, Nuke/SDWebImage, CoreImage, AVFoundation, Vision) — a graph library is not on it and needs explicit approval. SwiftUI is permitted only for "non-critical surfaces like Settings/static lists"; the trust graph is the single most trust-load-bearing surface in the milestone, so it must be UIKit. Either choice gets caught at review and forces a rewrite mid-milestone.
 
-A related leak: even if the token has expired, Keychain-held refresh tokens, device key identifiers, or cached KYC-complete flags can "resurrect" stale identity state.
+A second failure mode: even if a graph library *were* approved, generic force-directed/physics layout is wrong for this data. The chain of trust is a fixed-topology linear DAG of exactly 5 known party types in a known order. A physics simulation produces a different layout every render, breaks VoiceOver ordering, and makes the graph look unstable/untrustworthy — the opposite of the product message.
 
 **Why it happens:**
-Default Keychain behavior. Apple tried to change it in iOS 10.3 beta, reverted it because it broke existing apps. The behavior "data survives uninstall" is a side-effect of the implementation, not a feature, but developers reasonably assume the OS cleans up when the app is deleted.
+"Interactive node-graph" pattern-matches to GraphViz/D3/force-directed libraries. SwiftUI's `Canvas` and `Path` look like the fastest way to draw nodes and edges. Neither the dependency constraint nor the "UIKit for critical surfaces" rule is top-of-mind when scoping a visualization task.
 
 **How to avoid:**
-1. On first launch, check a `UserDefaults` boolean `didCompleteFirstLaunch`. `UserDefaults` IS cleared on uninstall. If absent, wipe all Keychain items under the app's access group before any auth work, then set the flag.
-2. Scope the Keychain access group deliberately — `$(AppIdentifierPrefix)com.maldin.validationLedger` — and enumerate-then-delete everything under it at first-run wipe. Do not rely on deleting known keys; iterate with `SecItemCopyMatching` + `kSecMatchLimitAll`.
-3. Add an explicit "sign out everywhere on this device" Settings action that wipes Keychain + Secure Enclave key handles regardless of server state.
-4. On Secure Enclave: the private key reference (`SecKey`) is not recoverable after app delete (the Keychain reference entry is stored with the app's access group, and while the Secure Enclave has the key material, the reference handle is gone), so device-binding naturally re-provisions — but the TOKEN is not auto-cleaned. The token is what leaks.
+1. Treat the trust graph as a **deterministic, fixed-layout UIKit custom view**, not a graph-algorithm problem. The topology is always the same 5 ordered roles; positions are computed, not simulated. Hand-roll it: a `UIScrollView` (or plain `UIView`) host containing `CALayer`/`UIView` node subviews plus `CAShapeLayer` edges. No SPM dependency required — this keeps the closed shortlist intact.
+2. Lay out nodes with deterministic math (a horizontal/vertical chain on iPhone, a wider native layout on iPad — see Pitfall 5). Same input → same pixels, every time. This is also what makes it testable.
+3. If a node-graph library is genuinely wanted, it requires **explicit approval before Phase C starts** — raise it during roadmap creation, not mid-build. Default assumption: hand-rolled, no dependency.
+4. Keep it UIKit — the graph is a "critical surface" by the spec's own wording. SwiftUI is not an option here.
 
 **Warning signs:**
-- No `didCompleteFirstLaunch` logic at app launch.
-- `KeychainAccess` wrapper initialized with default accessibility and no access group.
-- Manual test: delete the app, reinstall, launch — are you still logged in? If yes, fix before M1 closes.
+- A new entry in `Package.swift` / `Package.resolved` for a graph/chart/visualization package.
+- `import SwiftUI` appearing in `Features/Loads/`.
+- Node positions that differ between two renders of the same load.
+- Phrases like "force-directed" or "physics" in the graph plan.
 
-**Phase to address:** Phase 1 of M1, before Keychain-backed token storage is merged. This is cheap in Phase 1 and extremely expensive later (every session created from M1 → M5 pre-fix inherits the bug).
-
-**TechStack.md coverage:** **Not covered.** §5.1 and §8 reference Keychain with `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` but do not address the uninstall-persistence gotcha. Critical gap; roadmap must add.
+**Phase to address:** Phase C. The graph rendering approach (hand-rolled UIKit, deterministic layout, no dependency) must be a ratified decision in the Phase C plan before any graph code is written.
 
 ---
 
-### Pitfall 3: Certificate pinning with no rotation plan self-locks out users when cert rotates
+### Pitfall 2: Gesture conflicts on the trust graph — node taps swallowed by scroll/pan, or pan stolen from an enclosing scroll view
 
 **What goes wrong:**
-Pinning the leaf certificate's SPKI hash, per FR-iOS-SEC. Backend rotates the TLS cert (routine — Let's Encrypt is 90-day renewal, many CDNs auto-rotate every 60 days). Every installed app copy is now bricked. Users cannot reach the backend to download an update. TestFlight is fine (auto-update), App Store beta is fine (most users on auto-update), production beta 6 months in is catastrophic.
+The graph needs at least three gestures: tap a node (open that party's verification basis), pan/scroll to see the whole chain (5 nodes won't fit one iPhone screen), and possibly pinch-to-zoom. When the graph view is itself inside a scrolling load-detail screen (`UIScrollView` or `UITableView`/`UICollectionView`), the gestures fight:
+- A tap on a node is interpreted as the start of a scroll and never fires `touchUpInside` — the user taps a party and nothing happens.
+- A pan inside the graph scrolls the *outer* load-detail screen instead of panning the graph, or vice versa — the graph and the page scroll-jack each other.
+- Pinch-to-zoom on the graph triggers nothing because the gesture is consumed by an ancestor, or zooming the graph also drags the page.
 
-A recent real-world case: Let's Encrypt retired the R3 intermediate in 2024 and auto-renewals switched to R10/R11, bricking every app pinned to R3. Apps pinning the root (ISRG X1) were fine. Apps pinning leaves with no backup pin were dead.
-
-A second failure mode: pinning breaks in staging (different cert) but works in production, so QA signs off on something that will fail on rotation, OR pinning works in production but breaks in staging, so staging is shut off and drift creeps in.
+The result is a flagship feature that feels broken on the first demo and reads as "untrustworthy" on a trust product.
 
 **Why it happens:**
-Pinning is easy to implement naively (one `URLSessionDelegate` method, one hash). Rotation plan is not part of "making it work." The first rotation in 6-24 months is when the pain hits.
+UIKit's default gesture arbitration delivers a touch to the deepest hit-tested view, and `UIScrollView`'s pan recognizer aggressively claims drags. Nested scroll views and tap targets inside scroll views are a known-hard UIKit problem. Developers test on the simulator with a trackpad where the distinction between "tap" and "tiny drag" is cleaner than on a real finger, so conflicts surface late.
 
 **How to avoid:**
-1. Pin **two** SPKI hashes from day one: the current leaf public key AND a pre-provisioned backup public key that's generated but unused on the server. This is RFC 7469 convention.
-2. Prefer pinning an **intermediate or root** (ISRG Root X1 for Let's Encrypt, DigiCert Global Root, whatever) over the leaf for longer rotation windows. Trade-off: wider trust surface, but survives leaf rotation automatically.
-3. Build a **remote-kill-switch for pinning**: a signed config endpoint (served from a different CA) that can disable pinning in an emergency. Controversial (pinning without kill switch is safer against MITM, with kill switch is recoverable from bricking) — pick a side explicitly and document.
-4. Ship pinning in M1 but put it behind a debug-build-only flag first. Enable pinning on release builds no earlier than M2 when backend cert lifecycle is documented.
-5. Write a **cert rotation runbook** before M5: "30 days before production cert expires, deploy new cert with both old+new SPKI pinned in next iOS build, wait for 99% TestFlight update propagation, rotate server cert, remove old pin in next-next build." Document. Test on staging.
-6. Pin on `URLSessionDelegate.urlSession(_:didReceive:completionHandler:)` → validate against `SecTrustEvaluateWithError` first, then check SPKI hash of `SecTrustCopyKey(trust).map { SecKeyCopyExternalRepresentation($0) }`.
+1. Decide the interaction model explicitly and write it into the Phase C plan: is the graph a self-contained zoom/pan `UIScrollView`, or a fixed-size view inside the page scroll? Recommended: graph is a **fixed-aspect view sized to its content**, the *page* scrolls; the graph itself only handles node taps (and optional pinch). This removes the pan-vs-scroll conflict entirely.
+2. If the graph must independently pan/zoom, embed it in its own `UIScrollView` and use `gestureRecognizer(_:shouldRecognizeSimultaneouslyWith:)` and `UIGestureRecognizerDelegate` to define precedence deliberately. Use `UIScrollView`'s `panGestureRecognizer.require(toFail:)` relationships rather than hoping arbitration does the right thing.
+3. Make node tap targets generous — minimum 44×44pt hit area per Apple HIG, even if the rendered node glyph is smaller. A node that is visually 28pt with a 44pt hit region tolerates imprecise dock-glove taps.
+4. Implement `point(inside:with:)` / `hitTest(_:with:)` on the graph container so taps that land on edges-between-nodes or empty canvas do not register as node taps (and do not get mis-routed).
+5. Test on a physical device with a finger, not the simulator with a trackpad — the existing v1.0 device CI lane is the place to add a graph interaction smoke test.
 
 **Warning signs:**
-- Single hash in the pinning code.
-- No mention of "backup pin" in PRs.
-- Staging uses Let's Encrypt, production uses something else — pinning will silently pass QA.
-- No reference to rotation in TechStack.md §5.5.
+- Taps on nodes that "sometimes" work.
+- The load-detail page scrolling when the user meant to pan the graph.
+- No `UIGestureRecognizerDelegate` on the graph despite nested scrolling.
+- Graph interaction only ever tested on the simulator.
+- Node hit areas equal to the rendered glyph size.
 
-**Phase to address:** M1 Foundation (build the pinning code with dual-pin support from the start). M5 Beta hardening (write and test the rotation runbook).
-
-**TechStack.md coverage:** **Partial.** §5.5 says "with rotation plan documented" but doesn't specify dual-pin, backup hash, or kill-switch. Roadmap must expand.
+**Phase to address:** Phase C. Gesture arbitration must be designed up front; retrofitting it after the graph renders is a partial rewrite.
 
 ---
 
-### Pitfall 4: PII leakage through crash logs, analytics events, and URL query params
+### Pitfall 3: The trust graph shows "verified" the client cannot actually attest — security-critical for a fraud-prevention product
 
 **What goes wrong:**
-Default crash reporter (Sentry, Crashlytics) captures view controller titles, debug descriptions, last user actions, and occasionally `UIAlertController` text. KYC screens with titles like `"Upload DL for +1 415 555 0129"` leak phone numbers. Analytics events named `"kyc_upload_success"` are fine; event payloads with `{ "phone": "...", "dl_last4": "..." }` are disqualifying. URL requests with `?phone=...` show up in every HTTP proxy log, server access log, and crash stack frame. Deep-link payloads (`validationledger://load/LOAD_ID?assignee=phone-number`) leak via Shortcuts, Spotlight, and clipboard auto-suggest.
+The chain-of-trust graph renders each party with a verification state (verified / pending / unverified). The tempting client implementation derives that state locally — checks whether a field is present, whether an MC number "looks valid," whether a counterparty has a KYC-complete flag in the fixture, and paints a green checkmark. For a product whose entire premise is "identity that cannot be spoofed and a chain-of-trust that cannot be faked," a client that *computes* trust is a fraud vector: a tampered response, a stale cache, or a mock fixture quietly becomes an authoritative-looking "verified" badge. The user trusts the green check; the green check trusts unverified data.
 
-The product's entire premise is trust. One screenshot of a crash report with a phone number in a bug-tracking tool on a shared Slack channel ends the trust.
+This is the v1.1 re-trigger of the v1.0 "client never validates claims; backend is sole authority" security rule (v1.0 Security Mistakes table) — but now it has a *visual surface*, which is far more dangerous because a green checkmark is a stronger trust signal than any JSON field.
+
+A related failure: the graph caches the last-fetched chain and re-displays it offline or on a stale screen, showing a chain-of-trust that *looks* current but isn't — v1.0 explicitly bans "offline chain-of-trust."
 
 **Why it happens:**
-Developers log liberally during M1 because errors are frequent; they forget to redact before ship. Analytics/crash SDKs capture more than you realize by default. View controller naming is a habit. URL construction uses query params because POST bodies require more boilerplate. Deep links are typed manually with IDs that happen to be PII.
+Against mocks there is no backend to be the authority, so "verification state" has to come from *somewhere* — and the path of least resistance is to compute it on the client from fixture fields. Once that code exists, the live swap (Pitfall 9) doesn't remove it; it just keeps running alongside the real signal.
 
 **How to avoid:**
-1. **In M1, build `Core/Logging/` with a PII scrubber from day one.** TechStack.md active item already calls for this. Make it the ONLY log API available — no direct `os_log`, no `print`. Enforce via SwiftLint custom rule or a `@available(*, unavailable)` on top-level `print`.
-2. PII scrubber approach: regex pre-emit to redact E.164 phone numbers, SSNs, DL patterns per state, lat/long coordinate pairs, email addresses. Allowlist-based logging for event names, denylist for payload keys (`phone`, `dl`, `lat`, `lng`, `email`, `name`, `address`).
-3. Never put PII in URL query strings. All sensitive ids go in POST body or in `Authorization` / `X-Device-Signature` / custom headers.
-4. Deep links use opaque load IDs (UUIDs), never PII. Design the deep-link URL format in Phase 1 so the habit sticks.
-5. View controller titles do NOT contain PII — use generic titles ("Upload License") and put any identifying context in non-breadcrumb state.
-6. When picking a crash vendor in M2 (§12 Open Q7), configure `beforeSend` hook to run through the same scrubber before upload. Test by intentionally crashing with `phone = "+14155550129"` in a local variable — confirm redaction in the dashboard.
-7. Analytics events: implement a typed `AnalyticsEvent` enum with compile-time-bounded payload keys. No `[String: Any]` event payloads.
-8. Audit EVERY log statement before M5. Grep for `log.info.*phone`, `log.*lat`, `log.*dl`, etc.
+1. **Verification state is a server-supplied, opaque enum on every party in the load contract** — `verificationState: "verified" | "pending" | "unverified" | "revoked" | "unknown"` plus a server-supplied human-readable `verificationBasis`. The client *renders* it; the client never *derives* it. Design this into the load-domain contract in Phase A.
+2. The client must have **no code path that upgrades a party's displayed trust** based on local logic. No "if MC number present → verified." Lint/review for any conditional that maps a non-state field to a verification visual.
+3. Default to the *least*-trusted rendering when state is absent, malformed, or unknown — never default a missing field to "verified." Treat `unknown` as visually distinct and non-reassuring.
+4. **No offline / cached chain-of-trust.** The graph is only valid for a freshly fetched load. If the load fetch is stale or failed, show an explicit "trust chain unavailable" state, not the last-known graph.
+5. Make the mock fixtures *honest* about this (Pitfall 8): fixtures must include parties in `pending`, `unverified`, and `revoked` states so the UI is built and tested against the un-reassuring cases, not just the all-green happy path.
+6. The tappable "verification basis" detail must show the *server's* stated basis, verbatim — never client-composed reassurance copy.
 
 **Warning signs:**
-- `print()` or `NSLog()` anywhere in the codebase.
-- `[String: Any]` payloads to analytics.
-- Query params on KYC/auth endpoints.
-- Crash vendor chosen without scrubber configuration.
-- Screen titles with dynamic user data.
+- Any client-side function returning a verification verdict.
+- A missing/unknown verification field rendering as green/verified.
+- The graph displaying after a failed or stale load fetch.
+- Fixtures where every party is `verified`.
+- Client code constructing the "why this party is verified" explanation text.
 
-**Phase to address:** M1 Phase 1 (scrubber + logging abstraction) is cheap and load-bearing. M2 (crash vendor integration with scrubber). M5 (full PII audit before App Store submission).
-
-**TechStack.md coverage:** **Partial.** §8 says "no PII in analytics or crash logs" and mentions scrubber middleware. But URL query params, deep link PII, and VC titles aren't called out. Roadmap must expand.
+**Phase to address:** Phase A (contract: verification state is server-supplied and opaque) and Phase C (rendering: render-only, fail-closed to least-trusted).
 
 ---
 
-### Pitfall 5: MVVM-C + Combine retain cycles leak ViewModels, Coordinators, and Cancellables
+### Pitfall 4: Optimistic tender/accept/reject UI against mocks that always succeed — building a UI that has never seen a failure
 
 **What goes wrong:**
-Four distinct leak patterns appear in every MVVM-C + Combine codebase. If not gated early, they compound and the app leaks memory monotonically.
+Tender/accept/reject actions feel best with optimistic UI: tap "Accept," the load immediately moves to the accepted state, the action set updates, no spinner. Against `MockURLProtocol` fixtures that return `200` instantly, this looks perfect — and that is the trap. The optimistic path is the *only* path that ever gets exercised. The rollback path (server rejects the action, returns `409 Conflict` because another party already accepted, returns `422` because the load moved state, times out, returns `401`) is never written, or is written and never run. When the live backend lands (post-v1.1), the first real `409` leaves the UI showing "accepted" for a load that is actually still tendered — a correctness failure on a fraud product where load state *is* the chain of custody.
 
-1. **ViewModel → Coordinator strong ref.** ViewModel holds `coordinator` strongly; coordinator holds child coordinators and view controllers that own the ViewModel. Cycle.
-2. **`sink` closures capturing self strongly** while `cancellables` is stored on `self`. The cancellable keeps the sink alive; the sink keeps self alive; self owns cancellables. Cycle.
-3. **`assign(to:on:)` has no weak variant.** `publisher.assign(to: \.foo, on: self)` captures self strongly. The `AnyCancellable` returned is stored in `self.cancellables`. Cycle.
-4. **`@Published` update storms on the main thread**, where changes from background fire `objectWillChange` on whatever queue the assignment happened on, creating `Publishing changes from background threads is not allowed` purple warnings or simply dropped updates.
-
-The app works fine for the first 100 navigations. Then memory creeps, CPU spikes, the kernel starts warning, and users complain about "lag."
+A subtler version: the optimistic update mutates the in-memory load object, the action "succeeds" against the mock, but nothing reconciles the optimistic local state with the authoritative server representation — so the displayed load drifts from truth with every action.
 
 **Why it happens:**
-Combine's ergonomics reward concise closures that implicitly capture self. The retain-cycle trap is not a compile error. Developers use `assign(to:on:)` because it reads cleanly. Threading issues hide in dev builds because `@Published` silently allows background-thread writes until iOS decides to complain.
+Mocks that only model the happy path make optimistic UI look free. There's no server to say no, so "what happens when the server says no" never gets built. Optimistic UI is genuinely the right UX — the mistake is shipping it without its rollback half.
 
 **How to avoid:**
-1. **House rule: every `sink` closure starts with `[weak self] ... guard let self else { return }`.** Enforce via code review and SwiftLint.
-2. **Never use `publisher.assign(to: \.foo, on: self)`.** Write a `assignWeak(to:on:)` extension once, require it everywhere. Or use `sink { [weak self] in self?.foo = $0 }` (more explicit).
-3. **Coordinators hold ViewModels; ViewModels hold `weak var coordinator: CoordinatorProtocol?`.** Not the other way. Document in an ADR at the end of Phase 1.
-4. **All ViewModels receive their `Scheduler` via DI, and all `@Published` mutations go through `.receive(on: scheduler.mainQueue)` if they come from network calls.** No `DispatchQueue.main.async { self.foo = ... }` — it's a smell.
-5. **Every `cancellables: Set<AnyCancellable>` in a ViewModel is cleared in `deinit` via assertion.** Add `assert(cancellables.isEmpty || Thread.isCurrentThread)` or at minimum `#if DEBUG; print("ViewModel deinit"); #endif` so leaks are visible in console during dev.
-6. **Use Instruments (Leaks + Allocations) once per phase** — push a screen, dismiss, check that the VM is deallocated. Ten-minute check; saves weeks later.
-7. **Prefer async/await for one-shot network work; Combine for UI state only.** Mixing GCD + Combine + async/await is where leaks multiply. TechStack.md §3.4 already says this; enforce.
+1. For every optimistic action, build the **rollback path in the same plan as the forward path** — they are one unit of work, not two. Tap → apply optimistic state → on failure, revert to the pre-action state *and* surface a non-modal error ("Couldn't accept — this load was already accepted by another party").
+2. Capture the pre-action snapshot before mutating, so rollback is exact. Don't reconstruct the prior state — store it.
+3. **Mock fixtures must include the rejection cases** (see Pitfall 8): a fixture set where accept returns `409` (already-accepted race), `422` (load no longer in a tenderable state), `401` (session expired mid-action), and a delayed/timeout response. The optimistic UI is not "done" until it has been demoed against each.
+4. After a successful action, the server response is the new source of truth for that load — reconcile the optimistic state against the returned representation rather than trusting the local mutation. Against mocks, make the success fixture return the *full updated load*, so this reconciliation code exists and runs from day one.
+5. For destructive/irreversible-feeling actions (reject), consider a confirm step rather than pure optimism — a mis-tapped reject on a load is expensive.
+6. Reuse the v1.0 idempotency-key interceptor on every tender/accept/reject request so a retry after an ambiguous failure can't double-apply (see Pitfall 6).
 
 **Warning signs:**
-- `.assign(to: \..., on: self)` anywhere.
-- `sink` closures without `[weak self]`.
-- `cancellables` declared but never inspected in `deinit`.
-- Memory warnings during basic navigation testing.
-- Engineers say "it feels slow after a while."
+- Action handlers with a success branch and no failure branch.
+- No fixture returns a non-2xx for a load action.
+- The pre-action state isn't captured before the optimistic mutation.
+- Optimistic UI demoed only against instant-200 mocks.
+- The success fixture returns `{}` or `204` instead of the updated load.
 
-**Phase to address:** M1 Phase 1. The MVVM-C + Combine conventions must be codified before the module proliferation starts. Every feature that ships in M2+ assumes these conventions are in place.
-
-**TechStack.md coverage:** **Not covered.** §3.1 specifies the pattern; §3.4 the concurrency model. Memory-management rules are absent. Roadmap must add.
+**Phase to address:** Phase D (actions), with the failure/latency fixtures created in Phase A.
 
 ---
 
-### Pitfall 6: KYC camera pipeline silently strips GPS metadata via `UIImage` conversion
+### Pitfall 5: iPad gets a scaled-up iPhone trust graph instead of a native layout
 
 **What goes wrong:**
-FR-iOS-KYC requires GPS metadata attached at capture time. Engineer captures a frame from `AVCapturePhotoOutput` → converts to `UIImage` for on-screen preview → saves with `UIImageJPEGRepresentation`. GPS EXIF is gone. The upload succeeds, backend verification accepts the DL photo but cannot correlate location with the verified identity because the location tag was stripped client-side. Fraud detection has a blind spot and nobody notices until an adversary exploits it six months in.
+The constraint is explicit: "iPad must render natively (not just scale)" because dispatch and factoring users frequently work on iPad. The load list and especially the chain-of-trust graph are easy to build iPhone-first — a single-column list, a vertically-stacked 5-node chain — and then let iPad just stretch it. On a 12.9" iPad that produces a comically tall thin chain in a sea of whitespace, or a one-column list that wastes two-thirds of the screen. It "works" so it ships, and the iPad experience silently degrades the product for two of its five roles.
 
-Related failure: engineer adds GPS manually via `CLLocationManager` but the capture happens on a different thread than the location read, and the location is stale by 60+ seconds, or worse, is the wrong location (previous capture's location). Or: the photo is captured while the app is backgrounded waiting for location permission prompt, and the location is never read.
+The trust graph is the worst offender: a vertical chain that's fine on iPhone looks broken on iPad, and a layout that adapts node spacing but not *arrangement* still isn't "native."
 
 **Why it happens:**
-`UIImage` is the obvious abstraction for a view-facing image. Developers don't know that `UIImage` does not carry EXIF. `UIImageJPEGRepresentation` produces clean JPEG with no metadata. Stack Overflow answers conflate "save image with location" with "use `UIImageWriteToSavedPhotosAlbum`" which does preserve EXIF only because the Photos app adds it back, not because `UIImage` retained it.
+iPhone-first is the default development posture; iPad is tested last or only via the simulator's "scale" affordance. Auto Layout will happily stretch a single-column layout to any width without complaint, so there is no error to catch it. v1.0 shipped placeholder role shells, so this is the first milestone where real iPad layout decisions actually bite.
 
 **How to avoid:**
-1. **Capture path: `AVCapturePhotoOutput` → `AVCapturePhoto.fileDataRepresentation()` → `Data`.** Never go through `UIImage` before upload. Render a separate `UIImage` for preview, but upload the raw `Data`.
-2. Attach GPS using `CGImageSource` / `CGImageDestination` / `CGImageMetadata`:
-   - Read EXIF from raw data, inject `kCGImagePropertyGPSDictionary` with `latitude`, `longitude`, `timestamp`, `horizontalAccuracy`, finalize.
-   - Verify server-side expects this structure before shipping.
-3. **Cache a fresh `CLLocation` in a `GeoContext` actor** updated by `CLLocationManager` at the start of the KYC flow. The capture step reads from that actor synchronously. Reject the photo if the cached location is older than 30s or accuracy is worse than 100m.
-4. **Server-side schema validation must check that EXIF GPS is present** — reject uploads without it. Build this into the mock backend in M1 so the bug is caught in dev, not in prod.
-5. Alternative path: upload location as a separate signed field in the multipart body (`X-Capture-Location: lat,lng,timestamp,accuracy` with a device signature). Less coupled to EXIF; easier to validate; preferred for tamper-evidence anyway. But TechStack.md explicitly says EXIF, so do both.
-6. Add a unit test that encodes a known image with a known GPS value, runs through the pipeline, decodes EXIF, asserts the value round-trips.
+1. Design **two layouts up front** for the load list and the graph: a compact-width layout (iPhone, multitasking-narrow iPad) and a regular-width layout (iPad full-screen). Drive the choice off `UITraitCollection.horizontalSizeClass`, not device idiom — this also handles iPad Split View and Slide Over correctly.
+2. Load list on regular width: consider a multi-column `UICollectionViewCompositionalLayout`, or a list + detail split (`UISplitViewController`) so iPad shows list and load detail side by side. Compact width: single column.
+3. Trust graph on regular width: a wider, more horizontal arrangement that uses the available width; compact width: the chain folds. The graph's deterministic layout (Pitfall 1) should take available size as an input and arrange accordingly.
+4. The graph view must respond to `traitCollectionDidChange` and to bounds changes — iPad multitasking resizes the window live; a graph laid out once at load time will be wrong after a Split View drag.
+5. Add iPad (regular-width) checks to the existing v1.0 per-role render smoke tests — one pass per role on an iPad size class.
 
 **Warning signs:**
-- `UIImage(data: photoData)` before upload.
-- `UIImageJPEGRepresentation(...)` or `jpegData(compressionQuality:)` on a `UIImage` before upload.
-- No `CGImageMetadataRef` manipulation anywhere.
-- Server-side mock does not assert EXIF.
-- No staleness check on `CLLocation` before attaching.
+- Layout code that branches on `UIDevice.current.userInterfaceIdiom` instead of size class.
+- The graph or list never tested in iPad Split View / Slide Over.
+- A single column layout on a 12.9" iPad.
+- The graph laid out once and never re-laid-out on bounds change.
 
-**Phase to address:** M1 Foundation (subsequent phase — KYC capture). The capture-to-upload pipeline is the entire product's trust boundary; get this right once.
-
-**TechStack.md coverage:** **Partial.** §5.2 requires GPS metadata at capture time. It doesn't warn about `UIImage` stripping it. Roadmap must add.
+**Phase to address:** Phase B (list) and Phase C (graph). Native iPad layout is a first-class acceptance criterion for both, not a polish-phase afterthought.
 
 ---
 
-### Pitfall 7: Resumable upload that isn't actually resumable + exponential backoff that DDOSes your own backend
+### Pitfall 6: Tender/accept/reject without idempotency or invalid-transition guards — double-apply and impossible state
 
 **What goes wrong:**
-"Resumable upload" gets implemented as "POST the whole thing, retry on failure." Under typical dev conditions (WiFi, 2MB images) that works. In the field (dock cell coverage, 10MB raw DL + vehicle photos), a 40% upload that fails at the connection drop restarts from zero. The user tries six times, gets frustrated, gives up. KYC never completes. Funnel collapses.
-
-The backoff-DDOSes-yourself pattern: N phones come back online simultaneously after a regional carrier blip. They all retry with the same backoff schedule (e.g., exponent starts at 1s with 2x multiplier, no jitter). 10,000 phones hit the backend in a synchronized wave at t=1s, t=3s, t=7s, t=15s. Backend is fine for baseline load but gets swamped by the synchronized retry.
-
-Progress bars that lie: the upload stream reports bytes written to a buffer, not bytes acknowledged by the server. User sees 100%, it hangs for 30s while the server processes, then errors. Feels broken.
-
-Background task extension: `beginBackgroundTask` gives you ~30s of continued execution. If the user backgrounds the app mid-upload, iOS kills it before the upload completes. The upload appears to have succeeded (progress bar said so) but the server never got the final bytes.
+Two related correctness failures on the load action set:
+- **Double-apply:** the user taps "Accept," the request is slow (or fails ambiguously — request sent, response lost), they tap again. Without an idempotency key reused across the retry, that's two accept requests. Against a mock it's harmless; against a real backend it can double-tender a load or create two acceptances. On a fraud product the load action history *is* the chain of custody — a duplicated action corrupts it.
+- **Invalid transition:** the action set offered to the user isn't gated by the load's current state. A load already `delivered` still shows "Reject"; a `cancelled` load still shows "Accept." The client lets the user attempt a transition the load can't make, and either the UI lies (optimistically applies it) or the user gets an opaque error.
 
 **Why it happens:**
-Real resumable upload is hard. `URLSession` background uploads are NOT resumable by default for uploads (downloads are). You have to implement chunking + tracking. Exponential backoff without jitter is the textbook example. Progress reporting from URLSession gives you byte-level, not request-level. `beginBackgroundTask` is the documented pattern but it's time-limited.
+v1.0 already shipped an idempotency-key interceptor (NET-04) — but it was built for the KYC/auth endpoints. It's easy to add the new load-action endpoints *without* wiring them through that interceptor, because nothing forces it. And against mocks, double-submits and invalid transitions both silently "succeed," so neither is visible in development.
 
 **How to avoid:**
-1. **Chunk the upload into ≤1MB chunks** each with an `Idempotency-Key` header. Store chunk state (index, hash, uploaded-bool) in CoreData/SQLite. On resume, query what's uploaded, re-send what isn't. Backend exposes a `PUT /upload/:id/chunks/:index` endpoint that's safe to retry.
-2. **Use `URLSessionConfiguration.background(withIdentifier:)`** so iOS manages resumption across app suspend/relaunch. iOS will relaunch the app in the background when the upload completes and fire `URLSessionDelegate.urlSessionDidFinishEvents(forBackgroundURLSession:)`. TechStack.md's "never lose an in-progress KYC to a network blip" requires this.
-3. **Backoff with jitter**: `delay = min(cap, base * 2^attempt) * randomDouble(0.5, 1.5)`. Cap at 5 minutes. Reset on successful response. Randomization prevents synchronized retry storms.
-4. **Idempotency-Key header on every chunk request and every create-KYC-submission request.** Generate UUID client-side; backend stores the key. Retries with same key get cached response, never create a duplicate.
-5. **Progress from server ack, not client buffer.** Report upload progress as `chunksAcked / totalChunks`, not `bytesWritten / totalBytes`. Only bump the progress bar when the server confirms.
-6. **Don't use `beginBackgroundTask` for uploads.** Use background URLSession as primary. `beginBackgroundTask` is acceptable only as a flush-and-finish on app termination.
-7. **Server-side: log `Idempotency-Key` collisions and alert on repeat rates > baseline** — if you see surge patterns, the client backoff is wrong.
+1. **Every tender/accept/reject request goes through the existing v1.0 idempotency-key interceptor.** Generate the key when the user initiates the action (not per-retry), so all retries of *that* action share one key. Verify in Phase D that the new endpoints are registered with the interceptor — make it a review checklist item.
+2. Disable the action control the instant it's tapped (in-flight), so a second tap is physically impossible while the first is pending. Optimistic UI (Pitfall 4) helps here — the control updates immediately — but also explicitly guard the in-flight state.
+3. **Available actions are a pure function of (load state, viewer role)** — compute the offered action set from the load's current state and never offer an action the state can't accept. See Pitfall 7 for where that logic lives.
+4. The backend is still the authority on whether a transition is allowed (it is post-v1.1, and the mock should emulate it now): even with client-side gating, a `409`/`422` from a stale-state action must be handled (Pitfall 4).
 
 **Warning signs:**
-- Upload implemented as a single `URLSessionUploadTask` with the whole file.
-- No `Idempotency-Key` header in any request.
-- `base * 2^attempt` with no jitter.
-- Progress from `didSendBodyData` delegate alone.
-- `beginBackgroundTask` as the primary background strategy.
+- New `Features/Loads` action endpoints not listed in the idempotency interceptor's registration.
+- An action button that can be tapped twice before the first request resolves.
+- The action set rendered statically instead of computed from load state.
+- A new idempotency key generated on each retry instead of per-action.
 
-**Phase to address:** M1 Foundation (subsequent phase — upload pipeline). The upload spec is explicitly a MUST in §5.2; the chunking architecture must be decided in M1 because it shapes the backend contract.
-
-**TechStack.md coverage:** **Partial.** §5.2 says "resumable, retry with exponential backoff, progress visible." Doesn't say chunked, jittered, idempotency-keyed, background-session. Roadmap must add these specifics as acceptance criteria.
+**Phase to address:** Phase D, with the idempotency-interceptor wiring verified explicitly because it's a v1.0 component the new endpoints must opt into.
 
 ---
 
-### Pitfall 8: Secure Enclave unavailable in simulator; developer testing falsely green
+### Pitfall 7: Load state machine + role-action gating leaking into view controllers
 
 **What goes wrong:**
-`SecKeyCreateRandomKey` with `kSecAttrTokenIDSecureEnclave` fails on simulator (Secure Enclave is hardware-only). Engineer adds a `#if targetEnvironment(simulator)` fallback to a keychain-only RSA key. Fallback code is written quickly, barely tested. It diverges from real-device behavior. Bug reports only appear on device. Tests that pass in CI (iOS Simulator) don't catch real regressions.
+The load domain has a state machine (e.g., `draft → tendered → accepted → in_transit → delivered → closed`, plus `rejected`/`cancelled`) and a role-permission matrix (which of the 5 roles may tender, accept, reject, in which states). The natural-but-wrong place to put this is the view layer: the load-detail view controller has a `switch load.status` deciding which buttons to show, the list cell has its own copy of "can this role act on this load," and each of the 5 role tab shells re-implements the gating slightly differently. The business rules end up smeared across views, duplicated, and inconsistent — and because views are the hardest layer to unit-test, the rules are effectively untested. A wrong gate on a fraud product means a role performing an action it should not be able to (e.g., a carrier accepting a load tendered to a different carrier).
 
-Worse: engineer adds the fallback globally (not just dev) "to keep things working" and the production build uses software keys on some devices, silently undermining the device-binding security premise.
+This is the v1.1-specific shape of the v1.0 "Massive ViewModel" pitfall — except here the logic doesn't even reach the ViewModel, it stops in the VC.
 
 **Why it happens:**
-Xcode's default test target is simulator. CI typically runs simulator tests. Physical-device CI is expensive. The path of least resistance is simulator-always.
+A `switch` on status inside `cellForItemAt` or `viewDidLoad` is the shortest path to "show the right buttons." With 5 roles each having a tab shell, copy-paste across roles is faster than a shared abstraction. There's no compiler pressure to centralize.
 
 **How to avoid:**
-1. **Declare simulator as second-class for security code.** `DeviceKeyService` throws `SecureEnclaveUnavailable` on simulator; dev builds skip the signing requirement via a `#if DEBUG` capability flag, NEVER in release.
-2. **Enforce `FR-iOS-DEV` MUST: "refuse production login if Secure Enclave unavailable."** This means production builds crash-on-launch if `SecureEnclave.isAvailable` returns false on simulator (and the simulator refuses to run release builds — acceptable).
-3. **CI runs two pipelines**: (a) unit tests on simulator (fast, excludes security code), (b) smoke tests on real-device farm (BrowserStack App Automate, AWS Device Farm, or a Mac mini + attached iPhone) gating PR merge for any change touching `Core/Auth/`, `Core/Security/`, `Core/Identity/`.
-4. **Don't even attempt a fallback keypair on simulator.** Use a hardcoded "developer session" shim on simulator — no signing, the mock backend accepts unsigned dev requests.
-5. **XCTest-skip annotation:** `throw XCTSkip("Requires Secure Enclave")` for tests that need the real thing. Makes gaps visible.
+1. Model the load state machine **once, as a value type in the load domain layer** (Phase A): an explicit `LoadState` enum and a single `allowedActions(for role: Role, in state: LoadState) -> [LoadAction]` function (or a transition table). This is pure, deterministic, and trivially unit-testable — and *one* place defines the rules for all 5 roles.
+2. ViewModels call that function and hand the view a ready-made list of actions to render. **Views render the action list; views contain zero `switch load.status`.** The 5 role shells share this — they do not each re-derive gating.
+3. Represent illegal states as unrepresentable where practical — e.g., a load action carries the state it's valid from, so an action can't be constructed for a wrong state.
+4. Unit-test the transition table directly: every (role, state) pair → expected action set. This is cheap, exhaustive, and the v1.0 ≥70% Core/ coverage gate should cover the load-domain module.
+5. The client state machine mirrors the server's, but the **server remains the authority** — client gating is a UX affordance (don't offer impossible actions), not the enforcement boundary (Pitfall 4, Pitfall 6).
 
 **Warning signs:**
-- `#if targetEnvironment(simulator)` branching inside `Core/Auth/` or `Core/Security/`.
-- Passing tests on simulator, missing tests on device.
-- No "real device required" CI job.
-- Engineers don't know which tests ran on device vs. simulator.
+- `switch load.status` or `if load.state ==` inside a `UIViewController` or cell.
+- Role-permission logic duplicated across `Roles/Shipper`, `Roles/Broker`, etc.
+- No standalone unit test for "which actions can role X take on a load in state Y."
+- The action-gating logic only exists where it's rendered.
 
-**Phase to address:** M1 Phase 1. The simulator-vs-device split must be declared in the testing strategy before security code is written.
-
-**TechStack.md coverage:** **Partial.** §5.3 says refuse production login if Secure Enclave unavailable. Doesn't specify dev/sim/CI split. Roadmap must add.
+**Phase to address:** Phase A (the state machine + permission matrix as a tested value-type module) before any role action UI is built in Phase D.
 
 ---
 
-### Pitfall 9: MVVM-C projects that silently become "Massive ViewModel"
+### Pitfall 8: Mock fixtures that only model the happy path — no errors, no latency, no empty/large datasets
 
 **What goes wrong:**
-MVVM starts clean: small ViewModels, clear Coordinators, dumb Views. By M3, the Load Detail ViewModel is 800 lines with eight Combine publishers, three `@Published` properties that depend on six inputs, a nested switch on load status, an embedded eBOL fetch, and a local subscription to real-time updates. Tests are hard to write. Bugs compound. Engineers start dreading the file. Adding a new role-specific action takes a day because the ViewModel is too tangled.
+v1.0's `MockURLProtocol` returns a fixture instantly with a fixed status code. If the v1.1 load fixtures follow that pattern naively, every load list loads instantly, every load has a full 5-party chain, every action returns `200`. The UI gets built and demoed against a world that has no slow networks, no empty states, no partial data, no errors. Then:
+- There's no loading state because the mock never made the user wait → first real slow fetch shows a frozen blank screen.
+- There's no empty state because every fixture has loads → a role with zero relevant loads shows a blank list that looks broken.
+- There's no error state because every fixture is `200` → a real `500`/timeout shows nothing or crashes.
+- There's no large-list behavior because the fixture has 6 loads → cell reuse / scroll perf (Pitfall 11) is never exercised.
+- The trust graph is only ever all-green because no fixture has a `pending`/`revoked` party (Pitfall 3).
 
 **Why it happens:**
-MVVM has no teeth. Nothing stops a ViewModel from growing. The Coordinator boundary only governs navigation. Without sub-domain abstractions (repositories, use cases, services), the ViewModel becomes the dumping ground for everything. With 1-2 engineers, nobody refactors until it's too late.
+Fixtures are written to make the feature *demo*, and a demo wants the happy path. The v1.0 `MockURLProtocol` has no built-in notion of latency or failure injection, so adding those is extra work that's easy to skip.
 
 **How to avoid:**
-1. **Draw a hard line: ViewModels do not do I/O.** All network, disk, keychain, location calls go through injected services (`AuthService`, `LoadRepository`, `GeoService`). ViewModels orchestrate services and transform outputs for views. Services are tested independently.
-2. **Per-screen budget: ViewModel < 300 lines.** Enforce via SwiftLint `file_length`. When exceeded, the ViewModel either splits (extract a sub-VM for a sub-section) or extracts to a service.
-3. **Use Swift Concurrency for one-shot async work**, Combine only for reactive UI streams. Mixing them in every VM doubles complexity.
-4. **Repository pattern for all data access**, with an interface + mock + live implementation. TechStack.md §3.2 already calls for "repository interfaces" in each feature module — enforce at PR review.
-5. **Coordinators are dumb too.** Just navigation. If a Coordinator accumulates business logic, split it.
-6. **Weekly architectural review in M1-M3** — review one VM per week, score on lines/responsibilities/testability. This is cheap and catches rot early.
+1. For the load domain, build a **fixture matrix, not a fixture** — for each endpoint: happy path, empty result, large result (50–100+ loads), partial/degraded data (a load with an incomplete chain, missing optional fields), and each error class (`401`, `409`, `422`, `500`, timeout).
+2. Extend `MockURLProtocol` (or the fixture registration helper) to support **injectable latency and failure** — a fixture can be registered with a delay and/or a forced error. v1.0's `MockURLProtocol` is synchronous and instant; adding a delay capability now is what makes loading-state and timeout code real. This is a Phase A deliverable.
+3. Make it trivial to flip the active fixture set at runtime in DEBUG (the existing `App/DevMenu` is the place) so QA and the engineer can drive empty/error/large states without recompiling.
+4. **Acceptance criterion for every load screen:** it has been demoed against the empty, error, and slow fixture — not just the happy fixture. Add this to the "looks done but isn't" checklist.
+5. The fixture *shapes* must match the eventual backend contract, not be convenient JSON (Pitfall 9).
 
 **Warning signs:**
-- Any ViewModel > 400 lines.
-- ViewModels that directly call `URLSession` or `Keychain` APIs.
-- No mock services for testing (ViewModels tested by mocking `URLSession`).
-- PR diffs where a "small feature" touches a 500-line ViewModel.
+- One fixture per endpoint, all `200`.
+- No latency anywhere in the mock layer.
+- No empty-state or error-state UI in the load screens.
+- The load list fixture has <10 items.
+- Every party in every chain fixture is `verified`.
 
-**Phase to address:** M1 Phase 1 (repository pattern + service boundaries). M2 (first real features — re-evaluate). M3 (mid-project review to prune).
-
-**TechStack.md coverage:** **Partial.** §3.1 + §3.2 describe MVVM-C and module layout. Doesn't enforce VM size, service boundaries, or review cadence. Roadmap must add.
+**Phase to address:** Phase A — the fixture matrix and the latency/failure-injection capability are foundational; every subsequent phase consumes them.
 
 ---
 
-### Pitfall 10: Session persistence across cold boot silently reveals session without biometric
+### Pitfall 9: Over-fitting load features to fixture shapes — the mock-to-live swap forces a client refactor
 
 **What goes wrong:**
-TechStack.md: "Session persistence across cold boot + clean logout + >5min background → biometric re-prompt." Typical implementation: `AppCoordinator` at launch checks Keychain for token → if present, routes to home. User who got the phone stolen has the attacker open the app — token is there — attacker sees the chain-of-trust, the KYC status, the loads, the eBOL. No biometric prompt because the app thinks it's a routine cold boot.
+The whole point of v1.1's mock-only scope is that v1.0 proved contract-first dev needs no server, and the live backend swap is "one line" (NET-02). That promise only holds if the load features are built against a *contract*, not against the *fixtures*. The over-fitting failure modes:
+- The load list isn't paginated because the fixture is one flat array — the live backend returns pages, and the list, ViewModel, and diffable snapshot logic all need rework.
+- Decoding is loose: the JSON decoder tolerates the exact fixture shape, optional-vs-required is guessed, date formats match whatever the fixture author typed. The live backend's slightly different (but valid) JSON throws decode errors.
+- IDs are hardcoded: a screen navigates to "load `LOAD-001`" because that's the fixture ID, or a test asserts against a literal fixture ID embedded in product code.
+- The graph assumes exactly 5 parties always present because every fixture has 5 — the live backend returns a load with a chain still being assembled (3 parties) and the graph crashes or renders wrong.
+- Error handling keys off fixture-specific error bodies instead of HTTP status + a typed error contract.
 
-The implementation misses that "cold boot" and "backgrounded > 5 min" both imply the same security state: un-authenticated session. The `>5 min` check happens in `applicationWillEnterForeground`, which doesn't fire on cold launch.
+When the live backend lands post-v1.1, "swap the base URL" turns into a multi-week refactor — defeating the entire scoping rationale.
 
 **Why it happens:**
-Two separate code paths (`didFinishLaunching` and `willEnterForeground`) each implement "maybe show biometric prompt" in isolation. The shared invariant ("show biometric if last successful biometric >5min ago OR cold boot") is never declared in one place.
+The fixture is concrete and in front of you; the contract is abstract. It's faster to decode exactly what the fixture contains. Pagination, partial chains, and strict decoding feel like premature work when there's no server to demand them.
 
 **How to avoid:**
-1. **Single source of truth**: `SessionLockService.shouldRequireBiometric` reads a `lastBiometricSuccessTimestamp` from Keychain, compares to wall clock. Called unconditionally on every app activation, whether cold or warm.
-2. **Guard the root UI**: root `UINavigationController` starts with an opaque lock screen that blocks all content until biometric succeeds. On cold launch: show lock screen, then evaluate `SessionLockService`. If biometric passes, reveal content. If not, route to re-login.
-3. **Test matrix**: cold launch with valid token (must prompt), background 10 minutes then foreground (must prompt), background 2 minutes then foreground (must not prompt), unlock phone fresh after > 1 hour (must prompt).
-4. **Clipboard/screenshot hygiene during lock**: while the lock screen is displayed, sensitive surfaces below are not rendered. Use the lock screen also as the "app switcher preview" placeholder (set `window.isHidden = true` or install a privacy screen view on `willResignActive`).
+1. **Write the load-domain API contract first, as the source of truth** (Phase A): typed request/response models, pagination shape (cursor or page+limit — pick one and build the list against it *now*, even though the mock returns it all at once), the verification-state enum (Pitfall 3), the error contract (typed errors off HTTP status). Fixtures are generated *to satisfy the contract*, not the other way around.
+2. **Build the list with pagination from day one** — the ViewModel requests pages, the diffable data source appends pages, infinite-scroll/"load more" exists — even though the Phase A mock can return everything in page 1. This is the single highest-value anti-over-fitting move.
+3. **Strict decoding:** model required fields as non-optional, optional fields as optional, deliberately — not "whatever made the fixture decode." Decode dates with an explicit strategy. A decode failure must be a typed, surfaced error, not a silent `nil`.
+4. **No hardcoded load/party IDs in product code.** IDs are opaque, server-supplied, treated as `String`/UUID. Tests may use fixture IDs, but product code never branches on a literal ID.
+5. The graph must handle a **variable-length / partial chain** — fewer than 5 parties, parties out of order, a party absent. Never index the chain assuming `[0...4]`.
+6. Keep the one-line mock/live swap honest: the only difference between mock and live is the `URLProtocol` / base URL — no feature code branches on "are we mocked."
 
 **Warning signs:**
-- Separate code paths in `AppDelegate.didFinishLaunching` and `SceneDelegate.sceneWillEnterForeground` implementing biometric prompts.
-- No `SessionLockService` abstraction.
-- No privacy-screen overlay on app switcher.
-- QA does not test cold-boot re-auth.
+- The load list has no pagination concept.
+- Decoding uses `try?` and all-optional models.
+- A literal load ID in a non-test source file.
+- Graph code that assumes exactly 5 parties.
+- `if isMocked` anywhere in feature code.
+- The fixture was written before the contract.
 
-**Phase to address:** M1 Phase 1 (session lifecycle is core to the role-switched tab shell).
-
-**TechStack.md coverage:** **Partial.** §5.1 lists the requirements but doesn't call out the single-source-of-truth invariant. Roadmap must add.
+**Phase to address:** Phase A (contract + pagination shape + strict models) is the load-bearing one; Phase B and C must honor it (paginated list, variable-length graph).
 
 ---
 
-## Critical Pitfalls (M2-M5)
-
-### Pitfall 11: iOS 17 vs iOS 18 CoreLocation API divergence — `CLServiceSession` / `CLLocationUpdate.liveUpdates`
+### Pitfall 10: VoiceOver and Dynamic Type on the trust graph treated as a custom-drawn black box
 
 **What goes wrong:**
-iOS 17 introduced `CLLocationUpdate.liveUpdates` (async sequence of updates). iOS 18 introduced `CLServiceSession` (explicit session object you must hold to keep background updates alive). Different semantics. On iOS 17 with "when in use," iterating `liveUpdates` mostly works. On iOS 18, iterating `liveUpdates` without a `CLServiceSession(authorization: .always)` for background or the app goes to background and updates silently stop.
+The chain-of-trust graph, if drawn with `CALayer`/`CAShapeLayer` or `draw(_:)`, is invisible to assistive tech by default — it's just pixels. A VoiceOver user swipes across the graph and hears nothing, or hears "image." For a fraud-prevention product, the verification state of each counterparty is *the* critical information — making it inaccessible isn't a polish gap, it excludes users from the core safety feature. Likewise, node labels drawn at a fixed point size ignore Dynamic Type entirely — a user with large text sees a graph with unreadable party names and verification labels.
 
-A second gotcha: on iOS 17, `liveUpdates` returns nothing when `fullAccuracy` is denied. On iOS 18, it returns reduced-accuracy updates. So a user with "precise location off" gets no updates at all on iOS 17, breaking carrier background tracking for a known minority of users.
-
-The classic pre-iOS-17 API (`CLLocationManager.startUpdatingLocation` + delegate) still works but is deprecated in the new docs; mixing paradigms creates subtle bugs.
+The v1.0 "looks done but isn't" checklist already requires Dynamic Type + VoiceOver on the KYC flow; v1.1 must extend that discipline to the graph, and a custom-drawn graph is exactly the kind of surface where it silently doesn't happen.
 
 **Why it happens:**
-TechStack.md targets iOS 17+. Both iOS 17 and iOS 18 are in scope. The APIs differ. Training data and Stack Overflow lean heavily on the old delegate API.
+Custom-drawn UIKit content has no automatic accessibility — unlike standard `UILabel`/`UIButton` which are accessible for free. Drawing into a layer is the fastest way to *render* the graph, and accessibility is a separate, explicit, easily-deferred step. Dynamic Type requires using `UIFont.preferredFont`/text styles and re-laying-out on `UIContentSizeCategory` changes — extra work a custom view doesn't get automatically.
 
 **How to avoid:**
-1. **Pick one API path**: either classic delegate API (well-documented, works on all iOS 17+) or new async-sequence API (iOS 17.4+ for full behavior). Don't mix within the same feature.
-2. **Recommend: classic `CLLocationManager` + delegate for M3 carrier background tracking.** The new API matures in iOS 18. Target iOS 17 correctly, upgrade in v1.1.
-3. **iOS 17 specific: handle `fullAccuracy` denied explicitly.** If denied, show a "need precise location on while on trip" prompt deep-linking to Settings.
-4. **Test on both iOS 17.x and iOS 18.x physical devices** for background location flows specifically.
-5. **Background modes:** enable `location` UIBackgroundModes; set `allowsBackgroundLocationUpdates = true` ONLY after `.always` is granted; set `showsBackgroundLocationIndicator = true` (the blue bar). Hiding the blue bar is an App Store rejection.
+1. Prefer **real `UIView` subviews for nodes** over pure `CALayer` drawing where feasible — a node built from a `UIView` + `UILabel` + image is far easier to make accessible and Dynamic-Type-aware than a drawn layer. Use `CAShapeLayer` for the *edges* (lines), `UIView`s for the *nodes* (the interactive, labeled, trust-bearing parts).
+2. Expose each node as an **accessibility element** with a meaningful `accessibilityLabel` (party role + name) and `accessibilityValue` (verification state — "verified", "pending", "not verified"), and an `accessibilityHint` ("double-tap for verification details"). If the graph is one drawn view, implement `accessibilityElements` returning a synthetic element per node, ordered shipper→factoring so VoiceOver traversal matches the chain.
+3. Order matters: VoiceOver must traverse the chain in chain order. A deterministic layout (Pitfall 1) makes this straightforward; a physics layout makes it impossible.
+4. Node labels use `UIFont.preferredFont(forTextStyle:)` and the view observes `UIContentSizeCategory.didChangeNotification` (or `traitCollectionDidChange`) to re-lay-out when text size changes. At the largest accessibility sizes, the graph may need to reflow (e.g., labels below nodes, or the chain folds) — plan that, don't clip.
+5. Add a graph VoiceOver + Dynamic Type pass to the v1.1 "looks done but isn't" checklist; verify with the largest Dynamic Type size and a full VoiceOver swipe-through.
 
 **Warning signs:**
-- Code that uses `CLLocationUpdate.liveUpdates` without `CLServiceSession`.
-- Background location tested only on iOS 18 simulator.
-- No handling for reduced-accuracy path.
-- Missing `location` in `UIBackgroundModes`.
-
-**Phase to address:** M3 Dock & BOL (when background location for carriers on active load ships). Pre-select API strategy in M2 planning.
-
-**TechStack.md coverage:** **Partial.** §5.4 calls out background location as SHOULD. API choice is implicit. Roadmap must specify.
-
----
-
-### Pitfall 12: `isSecureTextEntry` screenshot trick is fragile; doesn't cover AirPlay/mirroring; bypassed by Accessibility Inspector
-
-**What goes wrong:**
-The `UITextField.isSecureTextEntry` layer trick is used to prevent sensitive content from appearing in screenshots. Works on iOS 16; works on iOS 17 with adjusted implementation (secure field must be the last sublayer, not the first). Ergonomically brittle — any view hierarchy change breaks it. On iPadOS with external display (Stage Manager, mirrored display), the protection may not propagate to the external display. On AirPlay/mirroring, the underlying content stream bypasses the on-device capture layer and the external receiver gets clean content.
-
-Accessibility Inspector (enabled on-device in developer settings) can read content out of any view, secure or not. Not usable by a typical attacker but is a real leak vector for insider threats.
-
-Screen-recording detection (`UIScreen.main.isCaptured`) fires when recording starts but not on AirPlay (AirPlay sets `UIScreen.screens.count > 1` instead). Two different signals, frequently confused.
-
-**Why it happens:**
-The `isSecureTextEntry` trick is unsupported/undocumented. Apple can and does change internal layer handling between iOS versions. TechStack.md picks this approach as a MUST, implicitly accepting the fragility.
-
-**How to avoid:**
-1. **Layer the defenses**: (a) `isSecureTextEntry` trick for baseline screenshot blocking, (b) `UIScreen.capturedDidChangeNotification` handler to blank the view during recording, (c) detect `UIScreen.screens.count > 1` for mirroring/AirPlay and blank sensitive screens, (d) `UIApplication.didChangeStatusBarOrientationNotification` / `UIScreen.didConnectNotification` / `didDisconnectNotification` for late-attach of external displays.
-2. **Declare "sensitive screens" explicitly** in a `SecuritySensitiveScreen` protocol. Each sensitive VC overlays a black "content hidden" view when `isCaptured` or `mirrored` state is active.
-3. **Test on iPadOS 17 and 18** with Stage Manager + external display. Test with AirPlay mirroring to an Apple TV. Test with QuickTime screen recording via Lightning cable.
-4. **Accept reality: you cannot fully block screen capture.** The goal is to raise the bar and detect. Communicate this to product: "screenshot blocking is best-effort, not a hard guarantee."
-5. **Screenshot detection, not just blocking**: listen for `UIApplication.userDidTakeScreenshotNotification` on sensitive screens, log a security event to the backend. If a user is repeatedly screenshotting the eBOL, that's a fraud signal.
-6. **On iOS 17+, consider Sensitive Content Analysis framework** — different use case but sibling concept for content filtering; reference Apple docs for latest.
-
-**Warning signs:**
-- Only the `isSecureTextEntry` trick is in the codebase; no multi-signal defense.
-- No testing on external display or AirPlay.
-- `UIScreen.main.isCaptured` conflated with "any capture event."
-- No screenshot-taken telemetry to backend.
-
-**Phase to address:** M3 Dock & BOL (screenshot blocking is a M3 deliverable per TechStack.md §10).
-
-**TechStack.md coverage:** **Partial.** §5.5 lists MUST screenshot + recording blocking. Doesn't address AirPlay, external display, Stage Manager. Roadmap must add.
-
----
-
-### Pitfall 13: App Attest rate limits, assertion replay, and simulator-unfriendliness
-
-**What goes wrong:**
-App Attest key generation is rate-limited per Apple ID per day. Users who reinstall frequently (internal testers + TestFlight churn during M1-M2) hit the limit, get `DCErrorInvalidKey` on every login attempt, think the app is broken. Apple doesn't document the exact rate.
-
-Assertion replay: if the server doesn't enforce the `counter` (monotonic increment stored in each assertion) strictly, an attacker can replay a valid assertion for a later request. Mis-implementing the challenge-response (server generates random challenge, client signs, server verifies) by skipping the nonce or using a predictable challenge enables replay.
-
-Simulator: `DCAppAttestService.isSupported` returns false on simulator. Any testing of the attestation path must be on device.
-
-Apple DeviceCheck revocation: if Apple revokes a device (rare, happens on mass-reinstall or abuse patterns), users get permanently stuck with no path to recover. The flow is a re-KYC.
-
-**Why it happens:**
-App Attest is a newer API (2020) with incomplete documentation. Rate limits are implied by "don't thrash." Server-side implementation requires careful challenge/response/counter design. Training data on App Attest is thin.
-
-**How to avoid:**
-1. **Generate App Attest key once, persist the key identifier to Keychain tied to device-not-biometric**, reuse for all assertions. Only regenerate if `DCErrorInvalidKey`. Document the regeneration trigger clearly.
-2. **Server-generated challenge, embedded into every assertion request**: client never reuses. Challenge TTL ~60 seconds. Assertion signed = server-generated challenge + request-body hash.
-3. **Server tracks per-key counter**; rejects any assertion with counter ≤ last-seen.
-4. **Simulator fallback**: `#if DEBUG && targetEnvironment(simulator)`, send a well-known debug attestation token that the mock backend accepts. Real backend rejects this token. Production builds skip attestation if not supported but only after telemetry proves this is a tiny user cohort; prefer "attestation required."
-5. **Rate-limit telemetry**: log `DCErrorInvalidKey` occurrences. If they exceed 0.1% of logins, rethink the regeneration logic.
-6. **Document revocation UX**: if attestation fails with `DCError.serverUnavailable` vs `DCError.invalidKey` vs revocation, show different messages. Revocation = "contact support, re-verify identity."
-7. **Don't attest every request; attest at login and sensitive actions.** TechStack.md §5.3 says "include attestation in login payload" — follow, don't expand.
-
-**Warning signs:**
-- App Attest key generated on every launch.
-- Server-side code has no counter check.
-- Challenge is client-generated or reused.
-- No `#if targetEnvironment(simulator)` bypass in the attestation client.
-
-**Phase to address:** M1 Foundation (subsequent phase — App Attest is part of FR-iOS-DEV). Server-side challenge/counter logic defined during the API contract work.
-
-**TechStack.md coverage:** **Partial.** §5.3 mentions DeviceCheck / App Attest with attestation in login payload. Doesn't specify counter/challenge design or rate limit posture. Roadmap must add.
-
----
-
-### Pitfall 14: Privacy Manifest omissions — required-reason API usage not declared — submission rejection
-
-**What goes wrong:**
-`PrivacyInfo.xcprivacy` is required for apps using "required reason APIs" (as of iOS 17 + May 2024 enforcement). This includes: user defaults, file timestamp, disk space, system boot time, active keyboards. The validation ledger app uses ALL of these (Keychain via iOS security APIs, disk space via URLSession background config reserving space, file timestamp via offline queue, active keyboards for input method logging). Xcode does NOT add `PrivacyInfo.xcprivacy` to the bundle by default — you must add it to "Copy Bundle Resources" manually.
-
-First App Store submission fails at build validation or App Review within 24 hours with a cryptic error about required-reason APIs. Team scrambles. Loses a day.
-
-Separately: third-party SDKs (Sentry, Crashlytics, image loaders) must themselves provide privacy manifests starting Feb 2025. An older SDK version without a manifest blocks submission.
-
-**Why it happens:**
-It's new-ish (2024). Documentation is scattered. Xcode's integration is half-baked (file must be manually added). SDKs were slow to comply.
-
-**How to avoid:**
-1. **Add `PrivacyInfo.xcprivacy` in M1 Phase 1**, not M5. Include a comprehensive declaration of: data types collected (see NSPrivacyCollectedDataTypes enum), linked reasons, tracking domains (none), API usage rationales. Apple publishes the required-reason list; map every use in the app.
-2. **Automate required-reason API detection** in CI: a script that greps for `UserDefaults`, `NSData.creationDate`, `FileManager.attributesOfItem`, etc., and asserts each is declared in the manifest.
-3. **SDK audit**: every third-party SDK in SwiftPM must have a privacy manifest at the version pinned. Check `KeychainAccess`, `Sentry`, `Nuke`/`SDWebImage`, etc. Upgrade any without a manifest before M5.
-4. **Add `PrivacyInfo.xcprivacy` to "Copy Bundle Resources"** in Xcode project settings — not just in the file system. Verify the `.ipa` contains it (extract, inspect).
-5. **Test submission via TestFlight early** (M3 or M4) with internal testers. TestFlight validation runs the same required-reason check as App Store. Catch rejections before M5.
-6. **Keep App Store privacy labels in sync** — they're a separate product, separately rejectable. Update checklist part of release runbook.
-
-**Warning signs:**
-- No `PrivacyInfo.xcprivacy` in `Resources/` by end of M1.
-- SDK versions in SwiftPM are >1 year old.
-- Never submitted to TestFlight before M5.
-- No privacy manifest CI check.
-
-**Phase to address:** M1 Foundation (establish manifest skeleton). M4 Intelligence & polish (final audit). M5 Beta hardening (TestFlight validation dry run).
-
-**TechStack.md coverage:** **Partial.** §8 mentions `PrivacyInfo.xcprivacy` but doesn't describe Copy Bundle Resources gotcha, SDK audit, or required-reason API enumeration. Roadmap must add.
-
----
-
-### Pitfall 15: Jailbreak-detection code causing App Store rejection
-
-**What goes wrong:**
-TechStack.md §5.3 specifies jailbreak detection as SHOULD. Common implementations: test `/Applications/Cydia.app` existence, test write to `/private/`, try to `fork()`, check `dyld` image list for known unsigned libraries. App Reviewers have rejected apps that explicitly reference "jailbreak" in code or that use aggressive detection (appears as anti-user behavior). Some reviewers are fine with quiet detection → backend reporting.
-
-The broader trap: client-side jailbreak detection is trivially bypassable (Frida, objc_msgSend hooks). Apps that BLOCK based on client-only jailbreak signals lock out users with legitimate reasons (jailbroken for accessibility, research, OEM QA) while not stopping real attackers who bypass the check in seconds. TechStack.md §5.3 is right to say "Report to backend; backend decides policy. Do not block based on client-only signal."
-
-**Why it happens:**
-Mobile security vendors sell jailbreak detection as a product. Developers Copy-paste detection code from Stack Overflow without reading Apple's review guidelines on anti-user behavior.
-
-**How to avoid:**
-1. **Strings matter**: do not put user-visible "jailbreak" strings in code or resources. Use a generic "device integrity signal" abstraction.
-2. **Collect the signal, don't act on it client-side.** Ship signal to backend; backend correlates with other risk signals; backend decides whether to limit functionality.
-3. **Avoid `/private/jailbreak_test` style write probes** — some reviewers flag these as suspicious file I/O.
-4. **Prefer App Attest + DeviceCheck as the primary integrity signal.** Jailbreak heuristics supplement, not replace.
-5. **Review App Review guidelines §2.5.4 and §4.0** for relevant language on "attempting to detect or obscure jailbreaking."
-6. **If rejected on review, appeal citing security-sensitive product.** Banking apps ship with jailbreak detection; so can Validation Ledger. The reviewer's call is often negotiable.
-
-**Warning signs:**
-- `isJailbroken()` as a user-facing function name.
-- Alert dialogs saying "jailbreak detected."
-- Client code hard-refuses to run based on the signal.
-- Reviewer rejection cites anti-user behavior.
-
-**Phase to address:** M1 Foundation (subsequent phase — device integrity). M5 Beta hardening (review submission audit).
-
-**TechStack.md coverage:** **Covered.** §5.3 already specifies "report to backend; backend decides policy." Enforce in code review.
-
----
-
-### Pitfall 16: "Always" location authorization silently reverted by iOS without user action
-
-**What goes wrong:**
-iOS periodically prompts users "You haven't used [App] in a while. Do you want to change 'Always Allow' to 'While Using the App'?" — sometimes users tap yes reflexively. Carrier's background location tracking silently stops mid-trip. App thinks it's still getting updates. Shipment visibility goes dark. No error, no callback, just absence of data. Next app-open, the app discovers it's now on "when in use" but has no trip-level reconciliation of lost hours.
-
-**Why it happens:**
-iOS behaves this way to protect battery. `CLLocationManager.authorizationStatus` changes to `.authorizedWhenInUse`. If the app doesn't listen for `locationManagerDidChangeAuthorization(_:)`, the change is invisible.
-
-**How to avoid:**
-1. **Observe `locationManagerDidChangeAuthorization(_:)` always**, not only during onboarding.
-2. **If a carrier is on an active load and authorization drops to `.authorizedWhenInUse`**, generate a local alert (notification, in-app banner) explaining the impact and deep link to Settings.
-3. **Backend should receive "location tracking degraded" events** and surface to dispatchers.
-4. **On app launch while an active load is tracked**, re-check authorization. If degraded, pause-resume tracking loop cleanly.
-5. **Document the trade-off to users explicitly during initial permission flow**: "We need 'Always' while on an active load. iOS may prompt you to change this — please keep it 'Always' during active loads."
-6. **Significant location change (SLC) fallback**: if `startUpdatingLocation` stops working, fall back to `startMonitoringSignificantLocationChanges` which works with wider permissions and wakes terminated apps (within constraints).
-
-**Warning signs:**
-- No `locationManagerDidChangeAuthorization(_:)` implementation.
-- Tracking code assumes authorization never changes.
-- No in-app state for "location tracking degraded."
-
-**Phase to address:** M3 Dock & BOL (background location lands). M4 (beta telemetry on location-lost events).
-
-**TechStack.md coverage:** **Not covered.** §5.4 requires background location but doesn't address revocation mid-trip. Roadmap must add.
-
----
-
-### Pitfall 17: Critical Alerts entitlement rejection and permission confusion
-
-**What goes wrong:**
-TechStack.md §5.10 MUST: "Critical alerts for auth anomalies require user to be able to receive them; guide through permission setup." Critical Alerts require (a) an Apple-approved entitlement that must be requested via a special form and justified based on public safety / medical use, (b) user explicitly opting in per-app, separate from standard notifications, (c) code that registers for the critical alert category.
-
-Apple has historically granted this entitlement sparingly. A fintech/freight identity product may or may not qualify. Expect 2-8 week response time. Rejection means the auth-anomaly-push UX must fall back to standard alerts, which can be silenced by Do Not Disturb.
-
-**Why it happens:**
-TechStack.md over-promises a feature that's gated by an Apple entitlement decision.
-
-**How to avoid:**
-1. **Request the entitlement at M1 or M2**, not M5. Longest lead time in the project. Include use case: fraud-related auth anomaly where delayed notification creates financial loss / identity compromise.
-2. **Prepare fallback UX**: if entitlement denied, standard push notifications with time-sensitive interruption level (`.timeSensitive` on iOS 15+). Still better than nothing, not as invasive as critical alerts.
-3. **Design the permission UX as a conditional flow**: detect entitlement availability at runtime, show "critical alerts" request only if entitlement present in build.
-4. **Document the non-critical path in requirements** — don't treat critical alerts as table stakes.
-5. **Document the "auth anomaly" types that qualify**: new-device-login-attempt, impossible-travel-detected are plausibly security-relevant; route spam/newsletter pushes through standard APNs.
-
-**Warning signs:**
-- No Apple entitlement request filed by end of M2.
-- Code assumes critical alerts always available.
-- No fallback path to `.timeSensitive`.
-
-**Phase to address:** M2 Core flows (file entitlement request). M3 Dock & BOL (push notification implementation). M5 (fallback behavior verification).
-
-**TechStack.md coverage:** **Partial.** §5.10 lists it as MUST; doesn't flag the entitlement application process. Roadmap should downgrade to SHOULD with fallback, OR accept calendar risk.
-
----
-
-### Pitfall 18: Deep link arrives before app state is ready (cold launch race)
-
-**What goes wrong:**
-Push notification or universal link fires `scene(_:continue:)` or `scene(_:openURLContexts:)` before `applicationDidFinishLaunching` completes its async bootstrap (reading Keychain, restoring session, hydrating `AppContainer`). Deep link handler tries to route to `LoadDetailViewController(loadId: "xxx")` but `LoadRepository` is nil. Crash. User taps notification → crash. Bug looks random because it depends on cold-vs-warm launch.
-
-Related: `openURL` fires twice on some iOS versions when the app is cold-launched via URL, leading to double navigation / duplicate analytics events.
-
-**Why it happens:**
-App launch bootstrapping is async-ish (Keychain reads happen on first access), but deep-link handlers fire synchronously from system frameworks. Two independent control flows with no coordination.
-
-**How to avoid:**
-1. **Central `DeepLinkRouter` with a pending-queue**: if bootstrap is not complete, enqueue the deep link. Drain the queue after bootstrap completes. Every entry point (URL scheme, universal link, push notification, widget) funnels through this router.
-2. **Bootstrap as a deterministic state machine**: `.cold → .authenticating → .authenticated → .ready`. Router only routes in `.ready`. Between states, queue.
-3. **Deduplicate by URL hash + timestamp** to handle the double-`openURL` case on cold launch.
-4. **Testing**: deep link tests include "launch app from killed state via notification" case. XCUITest can do this.
-5. **Instrument with analytics**: log "deep link received in state X" and watch for anomalies.
-
-**Warning signs:**
-- Deep link handler calls into `AppCoordinator.navigate(to:)` directly without state check.
-- No pending-queue in the deep link code.
-- No cold-launch deep-link testing.
-- Crashes reports with "NSInvalidArgumentException" from `nil` repository.
-
-**Phase to address:** M3 Dock & BOL (when push notifications + deep links land).
-
-**TechStack.md coverage:** **Not covered.** §5.10 requires deep link to relevant screen, doesn't address bootstrap race. Roadmap must add.
-
----
-
-### Pitfall 19: Offline queue duplicate submission + idempotency key collision + encrypted-storage-not-surviving-restore
-
-**What goes wrong:**
-Offline queue flushes on connectivity return. Multiple conditions flush simultaneously: `NWPathMonitor` says online, `applicationDidBecomeActive` says active, a user tap triggers a submit. Same action submitted multiple times. Backend creates duplicate "arrived at shipper" records.
-
-Idempotency keys chosen as `hash(userId + actionType + timestamp)` — which yields collisions if two different updates share the same second.
-
-Queue stored with `Data Protection: Complete` (file-level encryption tied to device passcode) — survives iCloud restore but sometimes doesn't decrypt on the new device because device-specific key material is gone. Queued mutations silently lost.
-
-Duplicate submission on backend retry: backend receives `POST /updates` with idempotency key K, processes, 200 OK, response lost in network. Client retries → backend sees key K, returns cached 200 (good). But if client changed the body on retry (bug), backend returns stale response. Out-of-sync state.
-
-**Why it happens:**
-Offline queues look simple ("list of pending requests") but correct implementation requires careful invariants. iCloud device migration edge cases are rarely tested.
-
-**How to avoid:**
-1. **Queue entries have a UUID idempotency key** generated at enqueue time. Never regenerated. Stored with the entry.
-2. **Queue is a SQLite/CoreData table with state machine**: `pending → inflight → synced` / `failed`. State transitions atomic (wrap in transaction).
-3. **Single flush loop**, serialized via an actor or a dispatch queue. `NWPathMonitor` / `applicationDidBecomeActive` / user-tap all request flush from the same actor. Actor ensures only one flush at a time.
-4. **Encrypt queue payloads with a key derived from the Keychain-stored app secret**, not device-level encryption. Survives iCloud restore via Keychain migration (which iCloud restore handles for most Keychain items — but not all; test explicitly).
-5. **Backend enforces idempotency strictly**: key → hash of canonical request body. Retry with different body but same key returns an error. This catches client bugs.
-6. **Test matrix**: kill app mid-enqueue, relaunch, confirm queue intact. Toggle airplane mode during flush, confirm no duplicates. iCloud backup → restore to fresh device, confirm queue state.
-
-**Warning signs:**
-- Multiple code paths calling `flushQueue()` without serialization.
-- Idempotency key derived from non-unique inputs.
-- No state machine on queue entries.
-- Queue never tested with airplane mode.
-
-**Phase to address:** M4 Intelligence & polish (offline mode lands).
-
-**TechStack.md coverage:** **Partial.** §5.11 requires queue persisted to disk, encrypted. Doesn't address serialization, idempotency-key schema, or iCloud restore. Roadmap must add.
-
----
-
-### Pitfall 20: Timeline trap — M1 scope that doubles from "hidden work"
-
-**What goes wrong:**
-M1 scope list looks like "auth shim + Keychain + Secure Enclave + role-switched tab shell + KYC capture + upload pipeline." Reads as 4 weeks for 1-2 engineers. Actual hidden work:
-- Proper error handling on every network call (~30% of time).
-- Logging + PII scrubber + os_log integration (week).
-- First-launch Keychain wipe (half-day).
-- Biometric-invalidation re-bind flow (2-3 days).
-- Certificate pinning dual-pin code (day).
-- `PrivacyInfo.xcprivacy` setup (day).
-- SwiftLint + CI + pre-commit hooks (2 days).
-- Snapshot test baseline (2 days).
-- iPad layout sanity check (2-3 days).
-- Accessibility basic pass (Dynamic Type, VoiceOver) (week).
-- WWDC26 API churn absorbing time every June (uncontrollable, plan for 1 week).
-
-M1 becomes M1+M2-shaped and the roadmap cascades.
-
-**Why it happens:**
-Specs describe features. Features imply plumbing that isn't named. Estimates anchor on feature names.
-
-**How to avoid:**
-1. **Acceptance criteria per M1 deliverable include the plumbing**: "Keychain token storage" expands to "Keychain token storage + first-launch wipe + access-group config + ErrorTaxonomy on all failures + logging scrubber integration + unit + device test."
-2. **Budget 30% of M1 for "infrastructure tax"**: logging, error handling, CI, accessibility, privacy manifest. Call it out explicitly in the roadmap.
-3. **Define M1 "done" crisply**: TestFlight internal build, all 5 roles logged in, KYC photo captured and uploaded end-to-end. Anything beyond is M1.5.
-4. **Re-estimate at week 2**: if week 2 is behind, cut scope — defer App Attest to M2, defer impossible-travel pre-check (already downgraded), defer live face capture (already downgraded re: liveness). Ship the skeleton on time.
-5. **WWDC26 lands in June — if M2-M3 overlaps**, absorb 1-2 weeks of adjustment time. Don't promise WWDC26 features as scope.
-
-**Warning signs:**
-- Estimate of M1 < 4 weeks with no infrastructure tax budget.
-- "Error handling" not in acceptance criteria.
-- Tests deferred to "later phases."
-- No week-2 scope reassessment planned.
-
-**Phase to address:** Roadmap creation itself. And week-2 of M1.
-
-**TechStack.md coverage:** **Not covered.** §10 milestone table is feature-focused. Roadmap must add infrastructure tax.
+- The graph is one `draw(_:)` view with no `accessibilityElements`.
+- Node labels created with `UIFont.systemFont(ofSize:)` (fixed size).
+- VoiceOver on the graph announces nothing or "image."
+- No re-layout on content size category change.
+- Verification state conveyed by color only (also fails color-blind users — pair color with a glyph/label).
+
+**Phase to address:** Phase C — accessibility is built into the graph as it's built, not bolted on. (The full v1 accessibility pass is M4, but the graph is too central to defer entirely.)
 
 ---
 
@@ -652,271 +313,142 @@ Shortcuts that seem reasonable but create long-term problems.
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Using `@Published` without `.receive(on: DispatchQueue.main)` in ViewModels | Cleaner code, one less line | Purple warnings, dropped UI updates on background-originated changes | Never. Explicit `.receive(on:)` or dedicated main-actor isolation from day one. |
-| Skipping PII scrubber "until we have real analytics" | Faster M1 ship | Every log from M1 → M5 leaks PII; audit at M5 is massive | Never. Stub scrubber is cheap; retrofit is not. |
-| `#if targetEnvironment(simulator)` fallback for Secure Enclave | Enables simulator dev | Real-device bugs missed; risk of production fallback leak | Only in `#if DEBUG` branches with compile-time assertion. |
-| Single-hash certificate pinning | Easy to ship | First cert rotation bricks the app; no emergency recovery | Never for production. Dual-pin from day one. |
-| Deep links bypassing a central router | Easier one-off features | Cold-launch crash + double-fire bugs accumulate; every new entry point (widget, Siri intent) re-solves the problem | Only in `#if DEBUG` debug-menu deep links. |
-| Hand-rolled Keychain wrapper | No dependency, control everything | Every code path re-implements access control; audit painful | OK if one person writes it in Phase 1 and treats it as a library (tests, API surface, don't touch after Phase 1). Prefer `KeychainAccess`. |
-| Offline queue that's "an array in UserDefaults" for M1 | Ship faster | Race conditions, no durability, no state machine, rewrite needed at M4 | Acceptable ONLY if clearly marked as stub, replaced before M4. |
-| 70% unit-test coverage as a goal | Sounds rigorous | Coverage metric gamed (testing getters, not logic); real surfaces (KYC pipeline, Keychain) may have 30% coverage despite hitting 70% overall | Reframe: test services and critical paths to high coverage. ViewModels 80%. UI snapshots for key screens. Ignore overall %. |
-| `[String: Any]` analytics payloads | Fast to prototype | PII leaks, no compile-time safety, refactor nightmare | Never in production code. Typed enums. |
-| JPEG compression at capture for bandwidth savings | Smaller uploads | Server-side image validation rejects over-compressed images; DL text OCR fails | Use HEIC with quality 0.85+ for KYC. JPEG only with explicit quality floor. Never pre-compress before location-metadata injection. |
-| Assuming iOS 17 == iOS 18 for CoreLocation | Single code path | Either iOS 17 or iOS 18 users get broken background tracking | Never. Branch on `if #available(iOS 18, *)` for API-divergent paths. |
-| Shipping without `PrivacyInfo.xcprivacy` "because we'll add it at M5" | No Xcode warnings in M1 | App Store rejection at M5 submission; scramble to comply | Never. Add skeleton in M1, fill in progressively. |
-
----
+| Build the load list as a flat non-paginated array because the mock returns everything | Faster Phase B; no "load more" UI | Live backend returns pages → list, ViewModel, diffable snapshot all reworked; breaks the "one-line swap" promise | Never. Build pagination in Phase B against a paginated mock; the mock can still return one page. |
+| Compute verification badge state on the client from fixture fields | Mocks have no backend to be the authority, so this "just works" | A trust signal derived client-side is a fraud vector; survives the live swap as dead-but-running code | Never. Verification state is server-supplied and opaque (Pitfall 3). |
+| `switch load.status` inside the load-detail VC / cells | Shortest path to "show the right buttons" | Business rules smeared across 5 role shells, duplicated, untested, inconsistent | Never. State machine + action gating is one tested value-type module (Pitfall 7). |
+| Optimistic action UI with only a success branch | Demos beautifully against instant-200 mocks | First real `409`/timeout leaves the UI lying about load state | Never. Rollback path ships in the same plan as the forward path (Pitfall 4). |
+| Loose decoding (`try?`, all-optional models) tolerant of the fixture | Fixture decodes on the first try | Live backend's valid-but-different JSON throws or silently drops fields | Never. Strict typed models, explicit optionality, typed decode errors. |
+| Hardcode a fixture load/party ID in product code to navigate or branch | Quick to wire a screen during Phase B/C | Breaks the moment IDs are server-generated; couples product code to test data | Never in product code. Test code may reference fixture IDs. |
+| Hand-roll the graph as one `draw(_:)` layer with no accessibility | Fastest way to get pixels on screen for a demo | VoiceOver users excluded from the core safety feature; expensive accessibility retrofit | Acceptable as a throwaway spike only; the shipped graph uses `UIView` nodes + accessibility elements (Pitfall 10). |
+| `MockURLProtocol` fixtures with only happy-path, instant, all-green data | Fast to write; demo looks great | Loading/empty/error/large-list states never built; surface as bugs post-v1.1 | Never. Fixture matrix + latency/failure injection is a Phase A deliverable (Pitfall 8). |
+| Graph laid out once at load time, no re-layout on bounds change | Simpler layout code | Wrong layout after iPad Split View resize or rotation | Never on a product where iPad is first-class; respond to `traitCollectionDidChange` + bounds (Pitfall 5). |
+| Add new load-action endpoints without registering them with the v1.0 idempotency interceptor | One less wiring step | Double-apply on retry corrupts the load action history (the chain of custody) | Never. Every load action goes through the interceptor (Pitfall 6). |
 
 ## Integration Gotchas
 
+Common mistakes when integrating the new load domain with existing v1.0 systems and the (mocked) network layer.
+
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| Keychain | Items survive uninstall, leaking prior user identity | First-launch wipe gated by `UserDefaults` flag; enumerate-and-delete all items under the app's access group. |
-| Secure Enclave | Using `.biometryCurrentSet` without re-bind recovery | Full `errSecAuthFailed` / `errSecItemNotFound` handling + explicit re-bind flow with product-approved copy. |
-| App Attest / DeviceCheck | Regenerating key on every launch, hitting rate limits | Generate once, persist key identifier, regenerate only on `DCErrorInvalidKey`; simulator bypass in DEBUG only. |
-| Certificate pinning | Single pin, no rotation plan | Dual-pin (current + backup SPKI hashes), documented rotation runbook, optional remote kill switch. |
-| APNs / Push Notifications | Assuming silent push is reliable; assuming critical alerts entitlement is granted | Silent push is best-effort, always have a foreground refresh; file critical alerts entitlement request by M2 with fallback to `.timeSensitive`. |
-| URLSession background uploads | Treating as synchronous; no chunking | Background session with `URLSessionConfiguration.background`; chunks with idempotency keys; server-ack-based progress. |
-| Deep links | Handler fires before app state ready | Central router with bootstrap-aware pending queue; cold-launch testing mandatory. |
-| CoreLocation (iOS 17+18) | Mixing old delegate + new `CLLocationUpdate.liveUpdates` APIs | Pick one path per feature; delegate-API is safer through iOS 17/18; `if #available` for divergence. |
-| Crash reporter (Sentry/Crashlytics) | Default config uploads VC titles + breadcrumbs that contain PII | `beforeSend` hook that runs through PII scrubber; test with intentional crash carrying known PII patterns. |
-| `AVCapturePhoto` | Going through `UIImage` which strips EXIF | Work with `AVCapturePhoto.fileDataRepresentation()`; inject GPS via `CGImageSource` / `CGImageDestination`. |
-| VisionKit liveness | Single blink prompt → high false-reject | Multi-stage prompts (blink → head turn → smile); fallback to commercial SDK if Vision-only FRR >5% per TechStack.md §12 Open Q1. |
-| Analytics vendor (TBD M2) | Vendor-specific PII handling assumed | Wrap vendor SDK in an adapter that enforces the scrubber; swap-friendly. |
-
----
+| `MockURLProtocol` (v1.0, synchronous) | Reusing it as-is — it returns instantly, so loading/timeout states never get built | Extend the fixture layer with injectable latency + forced-failure before building any load screen (Phase A). |
+| v1.0 idempotency-key interceptor (NET-04) | New load-action endpoints not registered with it — only KYC/auth endpoints were | Register every tender/accept/reject endpoint; verify at Phase D review; key generated per-action, shared across retries. |
+| v1.0 PII scrubber / Logger (LOG-01, lint-enforced) | Logging the load fixture / party objects raw during development — counterparty names, MC numbers, addresses are PII | All load-domain logging goes through the existing Logger; never log raw load/party objects; the scrubber's denylist may need party-field keys added. |
+| v1.0 `APIClient` GET-retry backoff (NET-05) | Assuming GET retry is safe for the load list — fine — but reusing it for action POSTs | GET retry is for idempotent reads only; action POSTs rely on the idempotency key, not blind retry. |
+| v1.0 `RoleCoordinator` / 5 tab shells | Each role shell building its own load list/detail/gating — divergent copies | Load list/detail/graph are shared `Features/Loads` components parameterized by role; gating from the shared state-machine module. |
+| v1.0 `URLSession` cache policy | Load + chain-of-trust responses served from URL cache → stale trust shown | Authenticated load endpoints use `.reloadIgnoringLocalCacheData` (v1.0 already flags this for chain-of-trust). |
+| v1.0 401 auto-logout (AUTH-05) | A `401` mid-action (tender/accept) triggering auto-logout without reverting the optimistic UI | The optimistic-state rollback must run before/with the auto-logout teardown, or the user re-logs-in to a load that lies. |
+| v1.0 `DeepLinkRouter` | Adding `validationledger://load/<id>` deep links with the load ID as PII, or not handling cold-launch | Opaque load IDs only; route load deep links through the existing central router (v1.0 cold-launch race handling applies). |
 
 ## Performance Traps
 
+Patterns that work at small scale but fail as the load list grows.
+
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| `@Published` on a background thread creates Purple warnings and dropped updates | UI feels janky; console warnings during testing | `.receive(on: DispatchQueue.main)` before `.assign` / `.sink` in every ViewModel pipeline | As soon as any network response updates state |
-| Combine subscription leak = monotonic memory growth | Memory usage increases with each navigation; not reclaimed on pop | `[weak self]` in every closure; inspect `cancellables` in `deinit`; Instruments pass per phase | After ~100-500 screen navigations or within an hour of stress use |
-| Thermal throttling during continuous KYC capture | Face capture slows, frame rate drops, iPhone warm | Lower capture preset from 4K to 1080p; release capture session immediately on dismissal; don't hold retains on `AVCaptureSession` | Outdoor summer usage on older iPhones (12/13) |
-| Upload thundering herd after network blip | Backend spikes every time a regional outage recovers | Jittered exponential backoff; server-side monitoring of idempotency-key churn | At > 100 concurrent users recovering from same outage |
-| Resumable upload that restarts from 0 on each retry | KYC photos take 3+ attempts to upload; users drop off | Chunked upload with resume; background URLSession | Cell-coverage edge cases (dock, rural, mobile in truck) |
-| Offline queue unbounded growth | App storage grows; launch slows | Cap queue size; fail-hard on cap; send telemetry | User with 2+ week offline period |
-| Image cache (Nuke/SDWebImage) default unbounded | App storage grows | Configure max cache size (50-100MB); TTL on identity documents = 0 (never cache) | After weeks of use with many load photos |
-| Combine `@Published` storm on rapid state changes (e.g., scroll) | CPU spikes during scroll | Debounce with `.throttle(for:scheduler:latest:)` before UI updates | Scrolling a large load list with real-time status |
-| Background location polling too aggressively | Battery drain >3%/hour budget (NFR target) | Distance filter + significant change threshold; stop updates when stationary | On active load for 8+ hours |
-| `URLSession` cached request of signed API responses | Stale chain-of-trust data shown | Disable URL cache on authenticated endpoints (`request.cachePolicy = .reloadIgnoringLocalCacheData`) | As soon as a chain-of-trust changes server-side |
-
----
+| `cellForItemAt` does work that belongs in the model — date formatting, role-gating computation, building the action list per cell | List scroll stutters; CPU spikes while scrolling | Cells are dumb; pre-compute display models (formatted strings, action lists) off the main thread or at decode time; cell config is assignment only | Noticeable at 50+ loads; severe at 200+ |
+| Diffable snapshot rebuilt from scratch and `apply`-ed on every minor change (a single load's state) | Whole-list flicker; scroll position jumps; animation churn | Apply targeted snapshots; use `reconfigureItems` for content changes to existing rows (iOS 15+), not full-list reload | As soon as live-ish updates touch the list (even mock-driven refresh) |
+| Trust graph rebuilds all node `UIView`s / `CAShapeLayer`s on every state change | Graph flickers; janky on redraw; CPU spike | Build node/edge views once; update only the changed node's verification visual; never tear down and rebuild the whole graph | Every time a party's state changes, or on re-fetch |
+| Heavy `CALayer` shadows / `cornerRadius` without `shouldRasterize` / `cornerCurve` on every node and cell | Offscreen-render passes; scroll/redraw jank, worst on older iPads | Avoid unclipped shadows; if needed set `shadowPath`; rasterize static node layers; profile with Core Animation instrument | Graph with 5 shadowed nodes + a list of shadowed cells, on iPad |
+| Load list images (party logos, load photos) decoded on the main thread in `cellForItemAt` | Scroll stutter when cells with images appear | Use the v1.0-approved Nuke for async image loading + downsampling; never `UIImage(data:)` synchronously in a cell | Any list with per-row imagery |
+| No cell-prefetching / the ViewModel fetches the next page only after the user hits the absolute bottom | Visible pause at the end of each page | Prefetch the next page when the user nears the end (`UICollectionViewDataSourcePrefetching` or a threshold in `willDisplay`) | Paginated list, page 2 onward |
+| Recomputing the role-filtered list on the main thread on every snapshot | UI hitch on filter changes | Filtering is a pure function over the loaded set; compute off-main, apply the resulting snapshot on main | Filtering 200+ loads across role criteria |
 
 ## Security Mistakes
 
-Beyond OWASP MASVS basics — domain-specific issues for verified-identity freight.
+Domain-specific issues for the load features on a fraud-prevention product. (Foundation security — Keychain, Secure Enclave, cert pinning, PII scrubber existence — is v1.0-shipped; these are v1.1-new.)
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| Validating JWT / session claims client-side instead of treating the backend as authority | Attacker mints a JWT and the client "trusts" it because client-side check passes | Client never validates claims. Only stores and sends. Backend is sole authority per FR-iOS-LOAD and FR-iOS-SCAN. |
-| Hardcoding the API base URL or device-secret in the app bundle | Strings extractable via `strings` on the `.ipa`; allows targeted attacks | Use build configurations, `.xcconfig` files. Obfuscate (splits + XOR) only for the release base URL. Accept that obfuscation is speed bump, not security. No secrets in the app. |
-| Generating the live QR payload client-side | Attacker generates valid QRs without backend verification → fraud | Client only displays backend-signed QR with TTL. Client never computes QR content. TechStack.md §5.7 already specifies; enforce at code review. |
-| Caching identity documents on device after upload | Stolen/lost phone leaks DL, face, vehicle photos | Upload then delete local copy. Keychain has no business storing KYC photos. `FileManager` temp dir with explicit cleanup in `defer`. TechStack.md §8 already specifies. |
-| Using `UserDefaults` for auth state, "remember me," or role | Not encrypted, readable via backup extraction | Keychain for tokens, Secure Enclave for keys, no sensitive state in `UserDefaults`. TechStack.md §8 specifies. |
-| Debug menu visible in release build | Bypass routes to any screen; internal API exposed | `#if DEBUG` gate + assertion on `DEBUG_DEBUG_MENU_FORCE_ENABLED` env var present and matching; remove before release. Test via `RELEASE` scheme before TestFlight. |
-| Signing requests with device key but not binding to request body | Replay attack with different body | Sign `SHA256(canonicalize(method + path + body + timestamp + nonce))` — include the body. Backend re-canonicalizes. |
-| Trusting the `Authorization` header alone for sensitive actions (tender, accept, BOL) | If a token leaks, attacker can impersonate | Require device-signed header (FR-iOS-AUTH MUST) on every sensitive action; backend re-verifies signature + device pubkey + freshness. |
-| Letting URL redirects follow across hosts | Token leaks to malicious host via `Referer` / logs | `URLSessionDelegate.urlSession(_:task:willPerformHTTPRedirection:newRequest:completionHandler:)` — verify host is allowlist; return nil otherwise. |
-| No clipboard wipe of copied values | Sensitive data lingers in clipboard; other apps read | `UIPasteboard.general.items = []` after 30s on sensitive fields; disable copy on QR payload. TechStack.md §5.5 already SHOULD this. |
-| Face ID context shared across operations | Single biometric prompt authorizes multiple operations, one of which user didn't expect | Per-operation `LAContext` with `localizedReason` specific to the action. Never reuse `LAContext.evaluateAccessControl(...)` across operations. |
-| App Attest assertion replayed | Attacker records + replays valid assertion | Server-issued challenge per request + monotonic counter + body hash binding. |
-| Chain-of-trust visualization cached locally without verification | User sees stale chain that looks current | Always re-verify chain server-side before showing. No "offline chain-of-trust." |
-| Obfuscating API URL as "security" | False confidence | Accept that this is speed bump. Don't treat as layer of defense. Security is TLS + cert pinning + server-side auth. TechStack.md §5.5 correctly flags this as "raises bar for casual RE; not a real defense." |
-
----
+| Client derives/upgrades a party's "verified" badge from local logic | A green checkmark — the strongest trust signal in the app — vouches for unverified data; tampered/stale response becomes "verified" | Verification state is a server-supplied opaque enum, render-only; fail closed to least-trusted on missing/unknown (Pitfall 3). |
+| Caching the chain-of-trust and showing it offline or after a stale fetch | User sees a chain that looks current but isn't — a load could have changed hands | No offline/cached chain-of-trust; show "trust chain unavailable" on stale/failed fetch (v1.0 already bans this). |
+| Logging load/party objects during development — counterparty names, MC numbers, addresses, phone numbers | PII leak; on a trust product one screenshot of a log with a counterparty's data ends the trust | Route all load logging through the v1.0 Logger/scrubber; never log raw load/party objects; extend the scrubber denylist with party-field keys; audit before milestone close. |
+| Load ID or party identifier in a `validationledger://` deep-link, Spotlight item, or `UIActivityViewController` payload | PII / business-relationship data leaks via Shortcuts, clipboard, share sheet | Deep links and shareable identifiers are opaque UUIDs only; no party PII in any URL. |
+| Trusting client-side load state as authoritative for what an action does | Client-side state machine is a UX affordance; if treated as enforcement, a tampered client performs disallowed transitions | Backend is the sole authority on transitions; client gating only hides impossible actions; every action result re-verified server-side (mock should emulate `409`/`422`). |
+| Action requests not device-signed (reusing the v1.0 device-signature requirement) | A leaked token alone could tender/accept/reject loads | Tender/accept/reject are sensitive actions — carry the v1.0 device-signed header; the request signature binds method+path+body (v1.0 Security Mistakes table). |
+| Verification state conveyed by color alone (green/amber/red) | Color-blind users can't distinguish verified from revoked — a safety-information failure | Pair every verification state with a distinct glyph + text label, not color alone (also an accessibility requirement, Pitfall 10). |
+| Showing a `revoked`/`unverified` party with reassuring or ambiguous styling | User proceeds with a load whose counterparty failed verification | Un-trusted states get visually prominent, non-reassuring treatment; the un-happy path is the one the fraud product most needs to be loud. |
 
 ## UX Pitfalls
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| Camera permission prompt during first KYC attempt with no context | User denies camera → KYC completion drops | Pre-permission explainer screen first ("We need camera to verify your identity — your photos are uploaded securely and deleted from the device"); only then show system prompt. Funnel improves 20-40%. |
-| "Always" location prompt fired immediately on app launch | Users deny reflexively | Two-stage: request "while in use" at first relevant action; upgrade to "always" only when user accepts first active load. |
-| Biometric re-auth every 5 minutes feels punitive | User frustration, workaround (keep app foregrounded) | Re-auth on 5-min BACKGROUND, not inactivity. User scrolling the app for 20 minutes should not re-prompt. |
-| Upload progress bar that goes 0-100% then hangs | User thinks app is frozen | Show "processing..." state when client done but server not ack; distinct UI from upload progress. |
-| "Identity rejected" with no reason | User gives up | Specific rejection reason + action ("Your DL photo was unreadable — retry with better lighting" + retry button). |
-| Full-screen error on every network blip | User trapped in error state | Inline banner + optimistic UI for non-destructive actions; full-screen only for auth expiry / server outage. |
-| Five-role switch at account creation with no preview | User picks wrong role; support burden | Preview screenshots of each role's home; confirm selection; role is still backend-enforced. |
-| QR scanner that demands perfect framing | User abandons scan | Widen the detection window; auto-torch in low light; offer "can't scan?" manual entry fallback per load (if product allows). |
-| eBOL PDF export triggers share sheet with arbitrary destinations | User shares to iMessage with PII attached to clipboard log | Curated share sheet (AirDrop, Mail, Files only); remove general Copy / Open In. |
-| Notification that deep-links to a screen requiring re-auth | User taps notification → biometric prompt → lands on screen; 3-tap flow feels wrong | If notification was fired within "trusted window," bypass re-auth; otherwise show lock + post-unlock navigate. |
-| Offline queue "pending" state invisible | User submits action, closes app, loses state | Persistent bottom-of-screen "3 updates pending sync" pill; tappable for details. |
-| "New device login detected" notification triggered by OWN new device | Noise; users tune out real alerts | Server correlates known devices; only alert on truly new device fingerprint, and only after 2-minute grace for user to confirm. |
-
----
+| Role-filtered list shows a blank screen when a role has zero relevant loads | User thinks the app or their account is broken | Explicit, role-appropriate empty state ("No loads tendered to you yet") — built from a real empty fixture (Pitfall 8). |
+| No loading state because mocks are instant | First real slow fetch shows a frozen blank screen | Skeleton/loading state on every load screen, exercised against a latency-injected fixture. |
+| Full-screen error on a load-list fetch blip traps the user | User stuck, can't navigate | Inline retry banner for list/detail fetch failures; full-screen only for auth expiry. |
+| Tender/accept/reject buttons with no confirmation on the destructive ones | A mis-tapped "Reject" on a load is costly and feels irreversible | Confirm destructive actions; keep non-destructive ones optimistic and instant. |
+| Action fails (optimistic rollback) with a generic "Something went wrong" | User doesn't know if the load is accepted or not — on a chain-of-custody product that's alarming | Specific, state-accurate message ("This load was already accepted by another carrier") + the load visibly reverts to its true state. |
+| The trust graph shows all-green and reads as decoration | User stops *reading* the graph; the one time a party is `revoked`, they miss it | Make verification state the visual focus; un-trusted parties are loud; tapping a node always reveals the basis, even for verified ones. |
+| Graph too small/dense to tap on iPhone; 5 nodes crammed edge-to-edge | Users can't reliably tap the party they want | 44pt minimum hit targets; pan or fold the chain rather than shrinking nodes (Pitfalls 2, 5). |
+| Load detail doesn't show *why* an offered action is unavailable (greyed with no reason) | User confused why they can't accept | When an action is gated out, either omit it cleanly or show the reason ("Awaiting broker tender"). |
+| iPad shows a single-column list + separately-pushed detail like a stretched iPhone | Wastes the screen the dispatch/factoring users chose for the work | `UISplitViewController` list+detail on regular width (Pitfall 5). |
 
 ## "Looks Done But Isn't" Checklist
 
-Things that appear complete in internal demo but have critical gaps in production. Run this list as explicit acceptance criteria before marking items complete.
+Run as explicit acceptance criteria before marking v1.1 items complete.
 
-- [ ] **Keychain token storage:** Items are also wiped on first-launch-after-reinstall. Test: delete app → reinstall → launch → not logged in.
-- [ ] **Secure Enclave key binding:** Handles biometric re-enrollment cleanly. Test: enroll Face ID → login → remove Face ID → re-enroll → login attempt shows re-bind flow, not cryptic error.
-- [ ] **Certificate pinning:** Backup pin shipped; rotation runbook written. Test: mock cert rotation on staging; app survives.
-- [ ] **PII scrubber:** Verifiable redaction. Test: intentional log of fake phone number; confirm redacted in crash dashboard / log file / analytics event.
-- [ ] **Session lock:** Fires on cold boot with valid token. Test: force-quit app → launch → biometric required before any UI visible.
-- [ ] **KYC upload:** Resumable across connection drops. Test: kill network mid-upload; reconnect; upload completes without restart from zero.
-- [ ] **KYC GPS metadata:** Actually attached to uploaded image. Test: inspect uploaded `.heic`/`.jpeg` EXIF server-side; GPS dict present.
-- [ ] **Role-switched tab shell:** All 5 roles render correctly on iPhone AND iPad. Test: one test pass per role, one device size of each.
-- [ ] **Deep link routing:** Works on cold launch with no session AND with expired session AND with valid session. Test: push notification → app killed → tap → correct navigation after auth.
-- [ ] **Offline queue:** Survives force-quit and airplane mode toggle without duplicates. Test: submit action → airplane mode on → force quit → airplane mode off → launch → action syncs once, not zero or twice.
-- [ ] **Screenshot blocking:** Works on iPhone, iPad, with external display, with AirPlay. Test: all four capture scenarios on a sensitive screen.
-- [ ] **Push permissions:** Critical alerts entitlement fallback path exists if denied. Test: run build with entitlement removed; auth anomaly uses `.timeSensitive` push.
-- [ ] **Privacy manifest:** In the built `.ipa`, not just the project. Test: extract IPA, confirm `PrivacyInfo.xcprivacy` in root.
-- [ ] **App Attest:** Simulator-safe. Test: simulator build runs; production build rejects simulator.
-- [ ] **CoreLocation authorization reversion:** Handled at runtime, not only at onboarding. Test: on an active load, change "Always" to "When in Use" in Settings → app detects and alerts.
-- [ ] **Background location battery:** ≤3%/hour per NFR. Test: 4-hour active-load simulation with location on; inspect battery graph.
-- [ ] **Biometric re-prompt:** Only on background >5min, not foreground inactivity. Test: foreground for 20 minutes → no prompt. Background for 6 minutes → prompt.
-- [ ] **URL cache:** Signed API responses not cached. Test: GET chain-of-trust, backend changes, second GET returns new data (not cached response).
-- [ ] **Debug menu:** Removed in release. Test: ship a release build through TestFlight; confirm no debug UI accessible.
-- [ ] **Accessibility:** Dynamic Type AND VoiceOver on KYC flow. Test: VoiceOver-only capture of a face photo possible. Dynamic Type XXL readable.
-
----
+- [ ] **Role-filtered load list:** Each of the 5 roles shows the correct subset. Test: one fixture-driven pass per role; verify a load visible to role A is correctly absent for role B, and the filter is one shared tested function — not 5 copies.
+- [ ] **Load list — empty state:** Renders a real empty state, not a blank screen. Test: load the empty fixture for a role.
+- [ ] **Load list — error state:** Renders an inline retry, not a frozen screen or crash. Test: load the `500`/timeout fixture.
+- [ ] **Load list — loading state:** Shows a skeleton/spinner. Test: load a latency-injected fixture (mock must support delay).
+- [ ] **Load list — large dataset:** Smooth scroll, correct cell reuse, no stale content in reused cells. Test: 100+ -item fixture; scroll fast; verify no leftover data in recycled cells.
+- [ ] **Load list — pagination:** "Load more"/infinite scroll works even though the mock can return all in page 1. Test: paginated fixture with ≥2 pages.
+- [ ] **Diffable data source:** Item identifiers are unique and stable (opaque load IDs, not array indices, not whole value objects). Test: a snapshot with duplicate-ID input must be impossible by construction; content updates use `reconfigureItems`, not full reload.
+- [ ] **Trust graph — gestures:** Node taps register reliably; pan/scroll doesn't scroll-jack the page. Test: on a physical device with a finger, not the simulator.
+- [ ] **Trust graph — variable chain:** Renders correctly with fewer than 5 parties and with a party in `pending`/`revoked`. Test: partial-chain and revoked-party fixtures.
+- [ ] **Trust graph — verification state:** Comes only from the server field; missing/unknown fails closed to least-trusted; nothing client-derived. Test: fixture with a missing verification field renders un-trusted, not verified.
+- [ ] **Trust graph — iPad native:** Uses a regular-width layout, not a stretched iPhone chain; re-lays-out on Split View resize. Test: iPad full-screen + Split View drag.
+- [ ] **Trust graph — accessibility:** VoiceOver traverses all 5 nodes in chain order, announcing role + verification state; labels scale with Dynamic Type. Test: full VoiceOver swipe + largest text size.
+- [ ] **Tender/accept/reject — rollback:** Optimistic UI reverts correctly on failure. Test: `409`/`422`/timeout fixtures; verify the load returns to its true state with a specific message.
+- [ ] **Tender/accept/reject — idempotency:** Double-tap and retry-after-ambiguous-failure don't double-apply. Test: action endpoints registered with the v1.0 interceptor; control disabled in-flight.
+- [ ] **Tender/accept/reject — gating:** Action set is computed from (state, role), no `switch load.status` in any VC/cell. Test: unit test the transition table for all (role, state) pairs.
+- [ ] **Mock-to-live readiness:** No hardcoded fixture IDs in product code; strict typed decoding; no `if isMocked` branches in feature code. Test: grep for literal IDs and `isMocked`; attempt decoding a deliberately-varied-but-valid JSON.
+- [ ] **PII hygiene:** No raw load/party object logged anywhere; load IDs in deep links are opaque. Test: grep load-domain logging; inspect any deep-link/share payloads.
 
 ## Recovery Strategies
 
-When pitfalls occur despite prevention, how to recover.
+When pitfalls occur despite prevention.
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Certificate pinning bricked users at rotation | HIGH | Emergency: deploy a TestFlight build with updated pins; coordinate with users to update. If App Store: expedited review (Apple grants for security-critical bugs); may take 24-48h. Long-term: implement kill-switch. |
-| Keychain leak across reinstall shipped to prod | HIGH | Deploy fix that wipes on first-launch-after-build-version-change; release notes warn users; backend force-logout all sessions created before the fix. |
-| PII in crash logs | MEDIUM | Purge crash reports from vendor dashboard (Sentry has purge APIs). Deploy scrubber fix. Audit all retained logs. GDPR/CCPA implications if EU/CA users affected. |
-| Secure Enclave re-bind flow missing, users locked out | MEDIUM | Hotfix release with re-bind flow; support ticket flow for locked-out users pre-fix (re-KYC) |
-| App Store rejection on jailbreak detection | MEDIUM | Rephrase strings ("device integrity check"); re-submit with explanation that report is backend-only; expedited review for minor rejections. |
-| App Attest rate limit hit in testing | LOW | Wait 24h, avoid reinstall cycle. Use `.isSupported` + manual fallback for integration tests. |
-| Upload queue overflow after outage | MEDIUM | Backend throttles idempotency-key processing; communicates status to client; client shows "backlog" UI. Build into design from start. |
-| MVVM retain cycle discovered at M4 | HIGH | Feature-freeze 1-2 weeks; Instruments pass; fix all weak captures; regression test. Prevention of next occurrence via CI lint. |
-| Offline queue duplicates on backend | MEDIUM | Backend-side dedup-by-key + user-visible "duplicate update suppressed" telemetry; retroactive cleanup of duplicate records if financial. |
-| Critical alerts entitlement denied by Apple | LOW | Fallback to `.timeSensitive` ship; revisit application every 6 months. |
-
----
+| Load features over-fitted to fixture shapes; live swap needs a refactor | HIGH | Reconstruct the contract retroactively; introduce pagination + strict decoding as a dedicated remediation phase; the longer this is deferred the worse it gets — catch it at Phase A. |
+| Client-side verification-state derivation shipped | HIGH (security) | Treat as a security incident: remove all client trust-derivation, make state render-only; audit every place a badge is shown; the green checkmark vouched for unverified data while it was live. |
+| Graph gesture conflicts discovered at demo | MEDIUM | Re-architect the interaction model (fixed graph + page scroll, or own scroll view with explicit `UIGestureRecognizerDelegate` precedence); contained to the graph view if the graph is a discrete component. |
+| Optimistic action UI with no rollback path | MEDIUM | Add the failure branch + pre-action snapshot; build the error/latency fixtures that should have existed; re-test every action against them. |
+| State machine / gating smeared across VCs and role shells | MEDIUM-HIGH | Extract the transition table to one tested value-type module; replace every `switch load.status` in views with calls to it; risk is missing a copy — grep exhaustively. |
+| Diffable data source crash from non-unique identifiers | LOW-MEDIUM | Switch item identifiers to opaque stable load IDs; ensure `Hashable`/`Equatable` are id-based; the crash is loud and early, so usually caught in dev. |
+| iPad shipped as a stretched iPhone layout | MEDIUM | Add the regular-width layouts (split view, multi-column, horizontal graph); the deterministic graph layout makes the graph part cheaper if it took size as input. |
+| Mock fixtures happy-path-only; empty/error/loading states missing | LOW-MEDIUM | Build the fixture matrix + latency/failure injection; add the missing UI states — cheap if caught before the live swap, a scramble after. |
 
 ## Pitfall-to-Phase Mapping
 
-How roadmap phases should address these pitfalls. Cross-phase dependencies marked.
+How v1.1 phases should address these pitfalls.
 
-| # | Pitfall | Prevention Phase | Verification | Depends On |
-|---|---------|------------------|--------------|------------|
-| 1 | Secure Enclave biometric-invalidation silent brick | M1 Phase 1 | Physical-device test: re-enroll Face ID → re-bind flow appears | Re-bind UX decision (Open Q5 analogue) |
-| 2 | Keychain items survive app delete | M1 Phase 1 | Delete-reinstall test: not logged in | — |
-| 3 | Certificate pinning no rotation plan | M1 (dual-pin code) + M5 (runbook) | Staging cert rotation simulated without user action | Backend cert strategy |
-| 4 | PII leakage via logs/analytics/URLs | M1 Phase 1 (scrubber) + M2 (vendor integration) + M5 (audit) | Intentional-leak test returns scrubbed output | Analytics vendor choice (M2 Open Q7) |
-| 5 | MVVM-C + Combine retain cycles | M1 Phase 1 (conventions) + ongoing | Instruments pass per phase | — |
-| 6 | KYC GPS metadata stripped by UIImage | M1 KYC phase | EXIF inspection on uploaded file | Mock backend GPS validation |
-| 7 | Upload non-resumable, no jitter, no idempotency | M1 upload phase | Connection-drop test completes without restart | Backend chunk endpoint |
-| 8 | Secure Enclave simulator falsely green | M1 Phase 1 (CI structure) | CI split: simulator tests + device tests | Physical device CI farm |
-| 9 | Massive ViewModel rot | M1 Phase 1 (conventions) + M3 (review) | Per-VM line count ≤ 400; service layer present | — |
-| 10 | Cold-boot session reveal | M1 Phase 1 (session lock) | Cold-launch biometric test | — |
-| 11 | iOS 17 vs 18 CoreLocation divergence | M2 (API strategy) + M3 (background location) | Tests on both iOS versions physically | iOS-version policy |
-| 12 | Screenshot blocking incomplete (AirPlay/mirror) | M3 Dock & BOL | Multi-display capture test | TechStack.md §5.5 expanded |
-| 13 | App Attest replay / rate limit | M1 (subsequent phase) + M2 (server contract) | Monotonic counter + challenge test | Backend counter endpoint |
-| 14 | Privacy Manifest omissions | M1 (skeleton) + M4 (audit) + M5 (TestFlight validation) | TestFlight submission passes | Third-party SDK selection |
-| 15 | Jailbreak detection App Store rejection | M1 (subsequent phase) + M5 (review audit) | TestFlight submission accepted | — |
-| 16 | CoreLocation authorization reverted mid-trip | M3 Dock & BOL | Settings-toggle test on active load | — |
-| 17 | Critical Alerts entitlement confusion | M2 (entitlement request) + M3 (push impl) | Entitlement decision received | Apple entitlement pipeline |
-| 18 | Deep link cold-launch race | M3 Dock & BOL | Cold-launch + push + deep-link test | Router design |
-| 19 | Offline queue duplicate + encryption + restore | M4 Intelligence & polish | Airplane-mode + iCloud-restore tests | — |
-| 20 | M1 scope doubling from hidden work | Roadmap creation + week-2 re-estimate | Mid-M1 checkpoint | — |
-
-**Cross-phase dependency hotspots:**
-- Pitfalls 1, 4, 7, 13 have **backend contract dependencies**. If backend GSD project lags, these slip. Define contract in M1 regardless.
-- Pitfalls 3, 14, 15, 17 have **Apple external dependencies** (cert rotation, App Store review, entitlement approval). File all applications and documents **by M2** to absorb calendar risk.
-- Pitfalls 8 requires **physical device CI** to be budgeted in M1; not having it infects every security test.
-
----
-
-## Summary: TechStack.md Coverage Audit
-
-The TechStack.md spec is strong on feature-level requirements but light on **implementation-risk details** and **cross-phase dependencies**. This analysis flags:
-
-**Already well-covered in TechStack.md (enforce, don't re-spec):**
-- Jailbreak detection policy (§5.3) — "don't block on client-only signal"
-- Backend as sole authority for QR validation (§5.8)
-- No client-side JWT claims validation (§5.6)
-- No PII in analytics/crash (§8) — premise correct, implementation missing
-- Biometric on `.biometryCurrentSet` (§8) — intent correct, recovery missing
-- App Transport Security strict (§5.5)
-- Identity documents never cached post-upload (§8)
-- AI assistant is SHOULD-tier, app must work without it (§13)
-
-**Partially covered — roadmap must expand:**
-- Certificate pinning (needs dual-pin + rotation runbook + kill switch)
-- KYC upload pipeline (needs chunking + idempotency + background session)
-- Secure Enclave integration (needs re-bind UX + error code surface)
-- Screenshot/recording blocking (needs AirPlay/Stage Manager/multi-display coverage)
-- App Attest (needs challenge/counter design + simulator bypass)
-- Privacy Manifest (needs Copy Bundle Resources step + SDK audit + CI check)
-- MVVM-C (needs memory management conventions + VM size limits + service boundaries)
-- PII scrubbing (needs URL-query/deep-link/VC-title coverage beyond "no PII in logs")
-- Critical alerts (needs entitlement request timeline + fallback UX)
-- Background location (needs CLServiceSession vs delegate decision + iOS 17/18 split)
-- Session persistence (needs cold-boot+background unified invariant)
-- Offline queue (needs idempotency-key schema + serialization + iCloud restore)
-
-**Not covered in TechStack.md — roadmap must add:**
-- Keychain-survives-uninstall wipe (Pitfall 2)
-- iOS 17 vs iOS 18 CoreLocation API divergence (Pitfall 11)
-- CoreLocation authorization reverted mid-trip (Pitfall 16)
-- Deep link cold-launch race (Pitfall 18)
-- M1 scope inflation / infrastructure tax (Pitfall 20)
-- Physical-device CI requirement (Pitfall 8)
-- URL redirect hopping (Security Mistakes table)
-- Biometric re-prompt on 5-min background, not inactivity (UX Pitfalls)
-- Debug menu gating in release builds
-
----
+| # | Pitfall | Prevention Phase | Verification |
+|---|---------|------------------|--------------|
+| 1 | Third-party graph library / SwiftUI for the trust graph | Phase C (decision ratified before code) | No graph dependency in `Package.swift`; no `import SwiftUI` in `Features/Loads`; deterministic layout. |
+| 2 | Graph gesture conflicts (tap vs pan vs scroll) | Phase C | Physical-device interaction smoke test: node taps register, no scroll-jacking. |
+| 3 | Client shows "verified" it can't attest | Phase A (contract) + Phase C (render-only) | Fixture with missing verification field renders least-trusted; no client trust-derivation code. |
+| 4 | Optimistic action UI with no rollback | Phase D (fixtures from Phase A) | Action demoed against `409`/`422`/timeout fixtures; UI reverts to true state. |
+| 5 | iPad gets a scaled-up iPhone layout | Phase B (list) + Phase C (graph) | Per-role render check on an iPad size class; graph re-lays-out on Split View resize. |
+| 6 | No idempotency / no invalid-transition guard on actions | Phase D | Action endpoints registered with v1.0 idempotency interceptor; control disabled in-flight. |
+| 7 | State machine / gating leaks into views | Phase A (tested module) before Phase D | Unit test covers all (role, state) → action-set pairs; zero `switch load.status` in views. |
+| 8 | Happy-path-only mock fixtures | Phase A | Fixture matrix exists (empty/large/error/latency); `MockURLProtocol` supports delay + forced failure. |
+| 9 | Over-fitting to fixture shapes (mock→live) | Phase A (contract + pagination + strict models) | List paginated against a ≥2-page fixture; no hardcoded IDs; no `isMocked` branches. |
+| 10 | Graph inaccessible to VoiceOver / Dynamic Type | Phase C | VoiceOver traverses all nodes in order; labels scale with Dynamic Type. |
 
 ## Sources
 
-Verified against Apple official documentation and community sources. Confidence level noted per source.
-
-**HIGH confidence (Apple official + multi-source verified):**
-- Apple Developer — [Protecting keys with the Secure Enclave](https://developer.apple.com/documentation/security/protecting-keys-with-the-secure-enclave)
-- Apple Developer — [biometryCurrentSet (SecAccessControlCreateFlags)](https://developer.apple.com/documentation/security/secaccesscontrolcreateflags/biometrycurrentset)
-- Apple Developer — [Preparing to use the app attest service](https://developer.apple.com/documentation/devicecheck/preparing-to-use-the-app-attest-service)
-- Apple Developer — [Privacy manifest files](https://developer.apple.com/documentation/bundleresources/privacy-manifest-files)
-- Apple Developer — [Adding a privacy manifest to your app or third-party SDK](https://developer.apple.com/documentation/bundleresources/adding-a-privacy-manifest-to-your-app-or-third-party-sdk)
-- Apple Developer — [Describing use of required reason API](https://developer.apple.com/documentation/bundleresources/describing-use-of-required-reason-api)
-- Apple Developer — [Handling location updates in the background](https://developer.apple.com/documentation/corelocation/handling-location-updates-in-the-background)
-- Apple Developer — [liveUpdates (CLLocationUpdate)](https://developer.apple.com/documentation/corelocation/cllocationupdate/liveupdates(_:))
-- WWDC23 — [Discover streamlined location updates](https://developer.apple.com/videos/play/wwdc2023/10180/)
-- WWDC24 — [What's new in location authorization](https://developer.apple.com/videos/play/wwdc2024/10212/)
-- WWDC23 — [Build robust and resumable file transfers](https://developer.apple.com/videos/play/wwdc2023/10006/)
-- WWDC21 — [Mitigate fraud with App Attest and DeviceCheck](https://developer.apple.com/videos/play/wwdc2021/10244/)
-- Apple Developer — [Identity Pinning: How to configure server certificates for your app](https://developer.apple.com/news/?id=g9ejcf8y)
-
-**MEDIUM confidence (community sources verified against Apple docs):**
-- [Core Location Modern API Tips (twocentstudios)](https://twocentstudios.com/2024/12/02/core-location-modern-api-tips/)
-- [Managing self and cancellable references when using Combine (Swift by Sundell)](https://www.swiftbysundell.com/articles/combine-self-cancellable-memory-management/)
-- [Memory management in Combine (Tanaschita)](https://tanaschita.com/20220912-memory-management-in-combine/)
-- [URLSession: Common pitfalls with background download & upload tasks (avanderlee.com)](https://www.avanderlee.com/swift/urlsession-common-pitfalls-with-background-download-upload-tasks/)
-- [Task Cancellation in Swift Concurrency (Swift with Majid)](https://swiftwithmajid.com/2025/02/11/task-cancellation-in-swift-concurrency/)
-- [iOS Keychain vs. Android Keystore (Talsec)](https://docs.talsec.app/appsec-articles/articles/ios-keychain-vs.-android-keystore)
-- [This iOS Security Flaw Needs To Be Addressed In Every App (Tom Colvin)](https://tdcolvin.medium.com/this-ios-security-flaw-needs-to-be-addressed-in-every-app-e2b7d8b6cd95)
-- [Certificate Pinning Pitfalls: Why Rotation Breaks Apps (Lotushints)](https://www.lotushints.com/2026/03/certificate-pinning-pitfalls-why-rotation-breaks-apps/)
-- [After using short certificate chain, trust is broken in certificate pinning mechanism (Let's Encrypt Community)](https://community.letsencrypt.org/t/after-using-short-certificate-chain-trust-is-broken-in-certificate-pinning-mechanism/218512)
-- [Dangers of Cert Pinning (Production ESP32)](https://productionesp32.com/posts/dangers-of-cert-pinning/)
-- [Required Reason API: Troubleshooting your iOS Privacy Manifest file (Jochen Holzer)](https://jochen-holzer.medium.com/required-reason-api-troubleshooting-your-ios-privacy-manifest-file-privacyinfo-xcprivacy-c81084dc9d51)
-- [Apple App Store Rejection Reasons In 2025 (Twinr)](https://twinr.dev/blogs/apple-app-store-rejection-reasons-2025/)
-- [Preserving and Updating Image EXIF data in iOS (Startxlabs)](https://www.startxlabs.com/post/preserving-and-updating-image-exif-data-in-ios/)
-- [In-Depth Guide on Image Metadata in iOS Swift (Shubham Kaliyar)](https://shubhamkaliyar.medium.com/an-in-depth-guide-on-image-metadata-in-ios-swift-6551cbd24d08)
-- [Silent Push Notifications in iOS: Opportunities, Not Guarantees (Mohsin Khan)](https://mohsinkhan845.medium.com/silent-push-notifications-in-ios-opportunities-not-guarantees-2f18f645b5d5)
-- [Understanding Silent Push Notification Behavior and Limits on iOS (Pushwoosh)](https://help.pushwoosh.com/hc/en-us/articles/26713265335581-Understanding-Silent-Push-Notification-Behavior-and-Limits-on-iOS)
-- [Exposing the Shortcomings of Apple DeviceCheck and Apple App Attest (Approov)](https://approov.io/blog/limitations-of-apple-devicecheck-and-apple-app-attest)
-- [iOS App Attest + DeviceCheck: Building Real Trust Into Your App (Wesley Matlock)](https://medium.com/@wesleymatlock/%EF%B8%8F-ios-app-attest-devicecheck-building-real-trust-into-your-app-without-losing-your-mind-c98bc39eb142)
-- [The Hidden Problems of Offline-First Sync: Idempotency, Retry Storms, and Dead Letters (DEV)](https://dev.to/salazarismo/the-hidden-problems-of-offline-first-sync-idempotency-retry-storms-and-dead-letters-1no8)
-- [Implementing Idempotency Keys in REST APIs (Zuplo)](https://zuplo.com/learning-center/implementing-idempotency-keys-in-rest-apis-a-complete-guide)
-- [Screenshot Prevention in iOS: Advanced Techniques (Neeshu Kumar)](https://medium.com/@thakurneeshu280/screenshot-prevention-in-ios-advanced-techniques-inspired-by-banking-authenticator-apps-0d1900c2a1bb)
-- [Prevent Screen Capture on iOS17 (SIDESTEP)](https://tigi44.github.io/ios/iOS,-Swift-Prevent-Screen-Capture-on-iOS17/)
-- [Beyond the Basics: Architecting Next-Gen Deep Linking in iOS (Neeshu Kumar)](https://medium.com/@thakurneeshu280/beyond-the-basics-architecting-next-gen-deep-linking-in-ios-64c31cf68c36)
-
-**LOW confidence (single-source, training-data-only, or specific numbers uncertain):**
-- App Attest rate limit exact numbers — Apple does not publish; inferred from developer forum reports
-- Critical Alerts entitlement approval rate — based on developer community anecdotes, no Apple-published data
-- VisionKit liveness false-reject rate — entirely application-specific; TechStack.md §12 Open Q1 parks this for M1 prototyping
-- iOS 17.x vs iOS 17.4 behavior differences for `liveUpdates` — some community observation, not Apple-documented
+- Apple Developer — [UICollectionViewDiffableDataSource](https://developer.apple.com/documentation/uikit/uicollectionviewdiffabledatasource) — identifier-based snapshots, uniqueness requirement. HIGH.
+- [Demystifying the UICollectionView Crash: DUPLICATE_ITEM_IDENTIFIERS_IN_SECTION_SNAPSHOT](https://medium.com/ios-ic-weekly/demystifying-the-uicollectionview-crash-7f327aa8b210) — root cause of the non-unique-identifier crash, Hashable/Equatable correctness. MEDIUM (community, multi-source corroborated).
+- [Diffable data source behavior changes and reconfiguring cells in iOS 15 — Jesse Squires](https://www.jessesquires.com/blog/2021/07/08/diffable-data-source-behavior-changes-and-reconfiguring-cells-in-ios-15/) — use identifiers not model objects; `reconfigureItems` vs `reloadItems`; value-type item pitfall. MEDIUM.
+- [Cells Reload Improvements in iOS 15 — Swift Senpai](https://swiftsenpai.com/development/cells-reload-improvements-ios-15/) — `reconfigureItems` semantics for content updates without full reload. MEDIUM.
+- [Tips and practices for setting up Diffable Data Sources — Filip Němeček](https://nemecek.be/blog/70/tips-and-practices-for-setting-up-diffable-data-sources) — stable identifiers, snapshot apply practices. MEDIUM.
+- Apple Developer — UIKit gesture recognizer / `hitTest(_:with:)` / `UIScrollView` pan arbitration documentation — nested scroll/tap conflict handling. HIGH (training-data-consistent with current Apple docs; standard UIKit behavior).
+- Apple Human Interface Guidelines — minimum 44×44pt tap targets; trait-collection-driven adaptive layout. HIGH.
+- `.planning/research/v1.0/PITFALLS.md` — prior project pitfalls (foundation, not repeated here); the idempotency-key interceptor, PII scrubber, `MockURLProtocol` contract-first pattern, and "no offline chain-of-trust" / "backend is sole authority" rules referenced as v1.1 dependencies. HIGH (project source of record).
+- `.planning/PROJECT.md` and `CLAUDE.md` — v1.1 scope, UIKit-for-critical-surfaces constraint, closed dependency shortlist, iPad-native requirement, zero-PII-in-logs constraint. HIGH (project source of record).
+- Codebase inspection — `validationLedger/Core/Networking/Mock/` (`MockURLProtocol`, `MockFixture`) confirmed synchronous/instant fixture model; `Features/Loads/` confirmed empty (`.gitkeep`) — v1.1 builds the load domain from scratch. HIGH (direct inspection).
 
 ---
-
-*Pitfalls research for: Validation Ledger iOS client (identity-verified freight, MVVM+Coordinators+Combine, iOS 17+, UIKit-first, 1-2 engineers, 24-week v1 to TestFlight beta)*
-*Researched: 2026-04-20*
+*Pitfalls research for: v1.1 "Load Flows" — load list/detail/trust-graph/tender on an existing UIKit/MVVM-C app against MockURLProtocol fixtures*
+*Researched: 2026-05-19*

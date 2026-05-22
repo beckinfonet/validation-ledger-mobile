@@ -1,0 +1,165 @@
+{
+  "load": {
+    "id": "VL-1008",
+    "reference_number": "REF-1008-HH",
+    "origin": {
+      "city": "Houston",
+      "state": "TX",
+      "postal_code": "77002",
+      "country": "US"
+    },
+    "destination": {
+      "city": "Tulsa",
+      "state": "OK",
+      "postal_code": "74103",
+      "country": "US"
+    },
+    "equipment": "dry_van",
+    "weight": 40500,
+    "rate": 1495.0,
+    "pickup_at": "2026-04-23T08:00:00Z",
+    "deliver_at": "2026-04-23T19:00:00Z",
+    "status": "posted",
+    "state_history": [
+      {
+        "status": "draft",
+        "timestamp": "2026-04-19T14:00:00Z",
+        "actor": {
+          "party_id": "party-shipper-easternfoods",
+          "role": "shipper",
+          "display_name": "Eastern Foods Distributing"
+        }
+      },
+      {
+        "status": "posted",
+        "timestamp": "2026-04-19T14:25:00Z",
+        "actor": {
+          "party_id": "party-broker-freightwise",
+          "role": "broker",
+          "display_name": "FreightWise Brokerage"
+        }
+      }
+    ],
+    "respond_by_at": null,
+    "tender_eligibility": {
+      "can_tender": false,
+      "disabled_reason": "Carrier identity not yet verified — Phase 5 KYC outstanding"
+    }
+  },
+  "chain_of_trust": {
+    "nodes": [
+      {
+        "party_id": "party-shipper-easternfoods",
+        "role": "shipper",
+        "display_name": "Eastern Foods Distributing",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-12-01T09:30:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationships": [
+          {
+            "load_id": "VL-1017",
+            "occurred_at": "2026-01-12T10:30:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Sunbelt Logistics"
+          },
+          {
+            "load_id": "VL-1018",
+            "occurred_at": "2026-02-04T14:15:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Keystone Freight Group"
+          },
+          {
+            "load_id": "VL-1019",
+            "occurred_at": "2026-02-23T08:45:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "FreightWise Brokerage"
+          },
+          {
+            "load_id": "VL-1020",
+            "occurred_at": "2026-03-15T12:00:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Sunbelt Logistics"
+          },
+          {
+            "load_id": "VL-1021",
+            "occurred_at": "2026-04-08T09:20:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "Acme Trucking Inc."
+          }
+        ]
+      },
+      {
+        "party_id": "party-broker-freightwise",
+        "role": "broker",
+        "display_name": "FreightWise Brokerage",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-08-12T09:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationships": [
+          {
+            "load_id": "VL-1015",
+            "occurred_at": "2026-01-12T10:30:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "National Link Carriers"
+          },
+          {
+            "load_id": "VL-1016",
+            "occurred_at": "2026-02-04T14:15:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "PhantomLine Logistics"
+          },
+          {
+            "load_id": "VL-1017",
+            "occurred_at": "2026-02-23T08:45:00Z",
+            "counterparty_role": "shipper",
+            "counterparty_display_name": "Global Exports Co."
+          },
+          {
+            "load_id": "VL-1018",
+            "occurred_at": "2026-03-15T12:00:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "Red Rock Carriers"
+          },
+          {
+            "load_id": "VL-1019",
+            "occurred_at": "2026-04-08T09:20:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "National Link Carriers"
+          }
+        ]
+      },
+      {
+        "party_id": "party-carrier-nationallink",
+        "role": "carrier",
+        "display_name": "National Link Carriers",
+        "verification_state": "unverified",
+        "kyc_completed_at": null,
+        "device_binding_status": "unbound",
+        "usdot_number": "1144882",
+        "usdot_authority_status": "active",
+        "prior_relationships": []
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "edge-VL-1008-shipper-broker",
+        "from_party_id": "party-shipper-easternfoods",
+        "to_party_id": "party-broker-freightwise",
+        "relationship_state": "verified",
+        "tender_ref": null
+      }
+    ],
+    "integrity": {
+      "verdict": "caution",
+      "reason": "Target carrier identity has not completed KYC; tender disabled until verification completes.",
+      "implicated_node_ids": [
+        "party-carrier-nationallink"
+      ],
+      "implicated_edge_ids": []
+    }
+  }
+}

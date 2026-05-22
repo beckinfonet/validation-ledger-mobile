@@ -198,31 +198,49 @@ final class AppCoordinator {
             guard let container else { return UIViewController() }
             return container.makeKYCStatusScreen()
         }
+        // Phase 8 LOAD-03 (T-08-11): the per-role Loads screen factory. Same
+        // [weak container] capture discipline as kycStatusFactory above — a
+        // strong capture would cycle the container alive past a role swap
+        // (ADR 0002). The SAME closure instance is passed into every
+        // *TabBarController; the role-specific routing happens inside each
+        // tab bar's viewDidLoad() by invoking loadListScreenFactory?(self.role)
+        // where self.role is the controller's stored `let role: Role` constant
+        // (T-08-11 — each tab bar is the single source of truth for its own
+        // role).
+        let loadListFactory: (Role) -> UIViewController = { [weak container] role in
+            guard let container else { return UIViewController() }
+            return container.makeLoadListScreen(role: role)
+        }
         switch role {
         case .shipper:
             return ShipperTabBarController(
                 logoutService: container.logoutService,
-                kycStatusScreenFactory: kycStatusFactory
+                kycStatusScreenFactory: kycStatusFactory,
+                loadListScreenFactory: loadListFactory
             )
         case .broker:
             return BrokerTabBarController(
                 logoutService: container.logoutService,
-                kycStatusScreenFactory: kycStatusFactory
+                kycStatusScreenFactory: kycStatusFactory,
+                loadListScreenFactory: loadListFactory
             )
         case .carrier:
             return CarrierTabBarController(
                 logoutService: container.logoutService,
-                kycStatusScreenFactory: kycStatusFactory
+                kycStatusScreenFactory: kycStatusFactory,
+                loadListScreenFactory: loadListFactory
             )
         case .dispatch:
             return DispatchTabBarController(
                 logoutService: container.logoutService,
-                kycStatusScreenFactory: kycStatusFactory
+                kycStatusScreenFactory: kycStatusFactory,
+                loadListScreenFactory: loadListFactory
             )
         case .factoring:
             return FactoringTabBarController(
                 logoutService: container.logoutService,
-                kycStatusScreenFactory: kycStatusFactory
+                kycStatusScreenFactory: kycStatusFactory,
+                loadListScreenFactory: loadListFactory
             )
         }
     }

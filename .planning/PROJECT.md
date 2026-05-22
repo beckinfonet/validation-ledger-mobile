@@ -4,7 +4,9 @@
 
 Native iOS client (iPhone + iPad, iOS 17+) for Validation Ledger — a verified-identity freight platform that attacks fraud (double/triple brokering, chameleon carriers, factoring fraud) by making identity and the chain-of-trust between shippers, brokers, carriers, dispatch, and factoring parties verifiable in real time. The iOS app is where most verification happens physically — at the dock, in the cab, in the broker's office.
 
-As of v1.0, the app has shipped its M1 Foundation: all five roles can OTP-authenticate into role-distinct tab shells, persist a session across cold boot, complete KYC capture, and resume a chunked upload — on a UIKit/iOS-17 base with device-bound Secure Enclave keys and App Attest.
+As of v1.0, the app shipped its M1 Foundation: all five roles can OTP-authenticate into role-distinct tab shells, persist a session across cold boot, complete KYC capture, and resume a chunked upload — on a UIKit/iOS-17 base with device-bound Secure Enclave keys and App Attest.
+
+v1.1 "Load Flows" (shipped 2026-05-21) adds the freight load domain on top of that foundation: a role-filtered load list, a load detail screen with an interactive chain-of-trust visualization, and per-role tender/accept/reject — built entirely against `MockURLProtocol` fixtures with no backend dependency.
 
 ## Core Value
 
@@ -12,11 +14,11 @@ As of v1.0, the app has shipped its M1 Foundation: all five roles can OTP-authen
 
 ## Current State
 
-**Shipped:** v1.0 "M1 Foundation" — 2026-05-18 (6 phases, 55 plans, ~28 days).
+**Shipped:** v1.1 "Load Flows" — 2026-05-21 (5 phases, 35 plans). Previous: v1.0 "M1 Foundation" — 2026-05-18 (6 phases, 55 plans, ~28 days).
 
-The foundation is in place: UIKit module layout, the 8 foundational conventions, contract-first mock networking, Secure Enclave device keys, App Attest, 5-role OTP auth + session, and the KYC capture + resumable upload pipeline. ~28,700 LOC of Swift across 207 files. The v1.0 milestone audit closed `tech_debt` — 67/67 requirements satisfied, 6/6 phases verified, 8/8 E2E flows wired, zero critical blockers.
+v1.1 delivered the freight load domain end-to-end on iOS — a role-filtered load list, a load detail screen with an interactive chain-of-trust visualization (a 2D `TrustGraphView` on iPad, a vertical attribution tree + role strip on iPhone), and per-role tender/accept/reject with optimistic UI and a server-confirmed rollback path — built entirely against `MockURLProtocol` fixtures with zero backend dependency. ~65,000 LOC of Swift. The v1.1 milestone audit closed `tech_debt` — 20/22 requirements satisfied (2 partial, 0 unsatisfied), 5/5 phases verified, 11/11 cross-phase connections wired, 0 critical blockers.
 
-**Next:** M2 "Core Flows" — load list/detail with chain-of-trust visualization, tender/accept/reject, real-time updates, push notifications, and the swap from contract-first JSON stubs to the live backend. Run `/gsd-new-milestone` to scope it.
+**Next:** undecided — start the next milestone with `/gsd-new-milestone`. The natural candidates are the rest of the original M2 "Core Flows" scope (real backend integration, real-time updates, APNs push) — all need a running server. See Requirements → Deferred from M2.
 
 ## Requirements
 
@@ -43,19 +45,37 @@ All 67 M1 Foundation requirements shipped and verified across 6 phases:
 
 v1.0 closed with a `tech_debt` milestone audit — see `.planning/milestones/v1.0-MILESTONE-AUDIT.md`. ~24 physical-device HUMAN-UAT scenarios remain unexecuted; they are real-hardware observation tasks against verified code, carried as a parallel verification track, not blockers.
 
+<!-- Shipped in v1.1 "Load Flows" (2026-05-21). Full requirement-level detail with evidence in .planning/milestones/v1.1-REQUIREMENTS.md. -->
+
+All 22 v1.1 "Load Flows" requirements shipped and verified across 5 phases (7, 8, 9, 9.1, 10):
+
+- ✓ **Load domain & mock contract (LOAD-01, LOAD-02)** — `Core/Load/` value types, the full load state machine, `RoleLoadPolicy`, 3 typed endpoints, a 22-fixture matrix, DEBUG `MockLoadFixtureRegistry` — v1.1 (Phase 7)
+- ✓ **Role-filtered load list (LOAD-03, LOAD-04, LOAD-07, LOAD-08, TRUST-02)** — per-role fixture-filtered list, standard freight row, single reusable verification badge, empty/loading/error states, pull-to-refresh — v1.1 (Phase 8)
+- ✓ **Load detail & chain-of-trust (LOAD-05, LOAD-06, TRUST-01, TRUST-03, TRUST-04, TRUST-05)** — load detail screen, status timeline, interactive trust graph, tap-node-for-verification-basis, tap-edge-for-handoff, fixture-supplied fraud verdict (never client-computed) — v1.1 (Phase 9)
+- ✓ **iPhone chain-of-vouches redesign (R1–R12)** — `EveryoneOnLoadStripView` + `ChainOfVouchesView` vertical attribution tree replacing the 2D graph on iPhone (iPad keeps `TrustGraphView`); `DS.Colors.Verification` single-source TRUST-02 helper locked by an R12 grep gate — v1.1 (Phase 9.1)
+- ✓ **Per-role actions (ACTION-01..ACTION-09)** — `RoleLoadPolicy`-driven action region, optimistic-predict + server-confirmed rollback (D-15), two-gate hard-disable of tender-to-unverified, idempotency-routed action POSTs — v1.1 (Phase 10)
+
+v1.1 closed with a `tech_debt` milestone audit — see `.planning/milestones/v1.1-MILESTONE-AUDIT.md`. 20/22 requirements satisfied, 2 partial (LOAD-05/LOAD-06 — SUMMARY-frontmatter bookkeeping only; both verified implemented), 0 unsatisfied; 5/5 phases verified. ~20 physical-device HUMAN-UAT scenarios across Phases 8/9/9.1/10 remain unexecuted — real-hardware observation tasks against verified code, carried as a parallel verification track.
+
 ### Active
 
-<!-- M2 "Core Flows" scope — hypotheses until shipped + validated. Detailed when /gsd-new-milestone runs. -->
+<!-- No active milestone — v1.1 shipped 2026-05-21. The next milestone's requirements are defined via /gsd-new-milestone. Candidates below under "Deferred from M2". -->
 
-- [ ] Role-filtered load list + load detail with chain-of-trust visualization (LOAD-*)
-- [ ] Tender / accept / reject actions
+_None — start the next milestone with `/gsd-new-milestone`._
+
+### Deferred from M2 (post-v1.1)
+
+<!-- The rest of the original M2 "Core Flows" scope — needs a running backend, addressed in a later milestone. -->
+
 - [ ] Real-time load updates (WebSocket or SSE)
 - [ ] APNs push registration with deep links + notification categories; Critical Alerts entitlement
 - [ ] Real backend integration — M1's contract-first JSON stubs swap to the live backend
 - [ ] File-based background `URLSession` upload rework (ratified M2 follow-up — M1 shipped the foreground chunk loop + BGProcessingTask continuation)
 - [ ] Crash/analytics vendor pick behind a `CrashReporter` protocol
 
-**Carried tech debt (from the v1.0 audit — address opportunistically or in an M2 cleanup phase):**
+### Carried tech debt
+
+<!-- From the v1.0 audit — not in v1.1 scope; address opportunistically or in a dedicated cleanup phase. -->
 
 - [ ] Nyquist validation gaps — Phase 1 `01-VALIDATION.md` is an unfilled draft, Phase 2 has none (`/gsd-validate-phase 1`, `/gsd-validate-phase 2`)
 - [ ] `OTPViewModel.retryRegister()` re-issues an already-consumed OTP code — recovery-path robustness (06-REVIEW CR-01)
@@ -86,7 +106,7 @@ v1.0 closed with a `tech_debt` milestone audit — see `.planning/milestones/v1.
 - Client-composed BOL PDFs, client-side QR payload validation — anti-features; backend is the sole authority
 - Third-party chat / analytics / marketing SDKs — anti-features; privacy posture is non-negotiable
 
-**Deferred past M1, now scheduled:** real backend integration and APNs/notifications move into M2 Active; liveness detection on KYC capture and the crash/analytics vendor pick move to M3/M4 respectively.
+**Deferred past M1:** v1.1 "Load Flows" takes the load slice (list/detail/trust-graph/tender). Real backend integration, real-time updates, and APNs/notifications are deferred to a post-v1.1 milestone (they need a running server); liveness detection on KYC capture and the crash/analytics vendor pick remain M3/M4 respectively. See Requirements → Deferred from M2.
 
 **Out of this GSD project entirely:**
 
@@ -143,8 +163,10 @@ TechStack.md (in repo root) is the iOS client's detailed technical spec — 13 s
 | Phase 5: `KYCUploader` uses the foreground `APIClient` chunk loop + `BGProcessingTaskRequest`; file-based background `URLSession` deferred | Ratified user decision — ships resumable upload without the background-session rework | — Pending (M2 follow-up) |
 | Phase 5: selfie capture uses a manual shutter, superseding the D-04 hands-free auto-fire | Device debugging showed auto-fire unreliable; Vision gate repurposed to gate shutter-enabled state | ✓ Good |
 | Insert Phase 6 from the v1.0 audit to close DEV-04 / CI-03 gaps before milestone close | The audit found App Attest unwired at first login + Phase 4 unverified | ✓ Good — audit→closure-phase loop worked; re-audit closed `tech_debt` |
-
-## Evolution
+| Scope the original M2 "Core Flows" down to v1.1 "Load Flows" — load list/detail/trust-graph/tender only; defer real backend, real-time, push, analytics, background `URLSession` | M2 was too large for a focused cycle; the load domain is a coherent vertical slice buildable against M1's `MockURLProtocol` pattern with zero backend dependency | — Pending |
+| Build v1.1 against `MockURLProtocol` fixtures; keep the production backend a separate GSD project | M1 proved contract-first iOS dev needs no running server; upholds the documented iOS/backend separation | — Pending |
+| Insert Phase 9.1 from device-UAT 2026-05-20 to replace iPhone 2D trust-graph with a vertical attribution tree + role strip; preserve the 2D graph on iPad | iPhone composition collapsed at high broker counts (slot-collision + chip overcrowding); vertical attribution tree is the most direct fix — and folding the chain-integrity banner into the card footer + landing a shared `DS.Colors.Verification` helper strengthens TRUST-02 as a side effect | ✓ Good — 12/12 R-truths verified 2026-05-21 |
+| Close v1.1 "Load Flows" as `tech_debt` — accept the deferred-item tail (≈20 device-UAT scenarios, partial Nyquist on Phases 7/8/9.1, advisory code-review warnings) rather than insert a closure phase | No unsatisfied requirement, no broken flow, no critical blocker; the 2 red tests the audit flagged were fixed first via quick task 260521-l9p — the remaining tail is device-observation + doc hygiene, not code gaps | ✓ Good |
 
 This document evolves at phase transitions and milestone boundaries.
 
@@ -162,4 +184,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-18 after v1.0 "M1 Foundation" milestone*
+*Last updated: 2026-05-21 — v1.1 "Load Flows" milestone closed (`tech_debt` audit). 5 phases / 35 plans shipped the freight load domain end-to-end against `MockURLProtocol` — role-filtered list, load detail with the chain-of-trust visualization, and per-role tender/accept/reject. ROADMAP collapsed, requirements archived to `milestones/v1.1-REQUIREMENTS.md`. Next milestone via `/gsd-new-milestone`.*

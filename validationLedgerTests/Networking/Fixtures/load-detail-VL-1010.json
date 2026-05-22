@@ -1,0 +1,231 @@
+{
+  "load": {
+    "id": "VL-1010",
+    "reference_number": "REF-1010-JJ",
+    "origin": {
+      "city": "Miami",
+      "state": "FL",
+      "postal_code": "33130",
+      "country": "US"
+    },
+    "destination": {
+      "city": "Jacksonville",
+      "state": "FL",
+      "postal_code": "32202",
+      "country": "US"
+    },
+    "equipment": "dry_van",
+    "weight": 39950,
+    "rate": 1685.0,
+    "pickup_at": "2026-04-22T07:00:00Z",
+    "deliver_at": "2026-04-22T19:00:00Z",
+    "status": "accepted",
+    "state_history": [
+      {
+        "status": "draft",
+        "timestamp": "2026-04-19T12:00:00Z",
+        "actor": {
+          "party_id": "party-shipper-easternfoods",
+          "role": "shipper",
+          "display_name": "Eastern Foods Distributing"
+        }
+      },
+      {
+        "status": "posted",
+        "timestamp": "2026-04-19T12:30:00Z",
+        "actor": {
+          "party_id": "party-broker-sunbelt",
+          "role": "broker",
+          "display_name": "Sunbelt Logistics"
+        }
+      },
+      {
+        "status": "tendered",
+        "timestamp": "2026-04-20T08:00:00Z",
+        "actor": {
+          "party_id": "party-broker-sunbelt",
+          "role": "broker",
+          "display_name": "Sunbelt Logistics"
+        }
+      },
+      {
+        "status": "accepted",
+        "timestamp": "2026-04-20T09:14:00Z",
+        "actor": {
+          "party_id": "party-carrier-phantomline",
+          "role": "carrier",
+          "display_name": "PhantomLine Logistics"
+        }
+      }
+    ],
+    "respond_by_at": null,
+    "tender_eligibility": null
+  },
+  "chain_of_trust": {
+    "nodes": [
+      {
+        "party_id": "party-shipper-easternfoods",
+        "role": "shipper",
+        "display_name": "Eastern Foods Distributing",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-12-01T09:30:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationships": [
+          {
+            "load_id": "VL-1017",
+            "occurred_at": "2026-01-12T10:30:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Sunbelt Logistics"
+          },
+          {
+            "load_id": "VL-1018",
+            "occurred_at": "2026-02-04T14:15:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Keystone Freight Group"
+          },
+          {
+            "load_id": "VL-1019",
+            "occurred_at": "2026-02-23T08:45:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "FreightWise Brokerage"
+          },
+          {
+            "load_id": "VL-1020",
+            "occurred_at": "2026-03-15T12:00:00Z",
+            "counterparty_role": "broker",
+            "counterparty_display_name": "Sunbelt Logistics"
+          },
+          {
+            "load_id": "VL-1021",
+            "occurred_at": "2026-04-08T09:20:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "Acme Trucking Inc."
+          }
+        ]
+      },
+      {
+        "party_id": "party-broker-sunbelt",
+        "role": "broker",
+        "display_name": "Sunbelt Logistics",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-09-08T11:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": null,
+        "usdot_authority_status": "not_applicable",
+        "prior_relationships": [
+          {
+            "load_id": "VL-1015",
+            "occurred_at": "2026-01-12T10:30:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "National Link Carriers"
+          },
+          {
+            "load_id": "VL-1016",
+            "occurred_at": "2026-02-04T14:15:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "PhantomLine Logistics"
+          },
+          {
+            "load_id": "VL-1017",
+            "occurred_at": "2026-02-23T08:45:00Z",
+            "counterparty_role": "shipper",
+            "counterparty_display_name": "Global Exports Co."
+          },
+          {
+            "load_id": "VL-1018",
+            "occurred_at": "2026-03-15T12:00:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "Red Rock Carriers"
+          },
+          {
+            "load_id": "VL-1019",
+            "occurred_at": "2026-04-08T09:20:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "National Link Carriers"
+          }
+        ]
+      },
+      {
+        "party_id": "party-carrier-phantomline",
+        "role": "carrier",
+        "display_name": "PhantomLine Logistics",
+        "verification_state": "flagged",
+        "kyc_completed_at": "2026-04-18T22:14:00Z",
+        "device_binding_status": "mismatched",
+        "usdot_number": "3998112",
+        "usdot_authority_status": "revoked",
+        "prior_relationships": []
+      },
+      {
+        "party_id": "party-dispatch-cornerstone",
+        "role": "dispatch",
+        "display_name": "Cornerstone Dispatch",
+        "verification_state": "verified",
+        "kyc_completed_at": "2025-11-22T11:00:00Z",
+        "device_binding_status": "bound",
+        "usdot_number": "0445582",
+        "usdot_authority_status": "active",
+        "prior_relationships": [
+          {
+            "load_id": "VL-1018",
+            "occurred_at": "2026-01-12T10:30:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "Red Rock Carriers"
+          },
+          {
+            "load_id": "VL-1019",
+            "occurred_at": "2026-02-04T14:15:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "National Link Carriers"
+          },
+          {
+            "load_id": "VL-1020",
+            "occurred_at": "2026-02-23T08:45:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "PhantomLine Logistics"
+          },
+          {
+            "load_id": "VL-1021",
+            "occurred_at": "2026-03-15T12:00:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "Acme Trucking Inc."
+          },
+          {
+            "load_id": "VL-1022",
+            "occurred_at": "2026-04-08T09:20:00Z",
+            "counterparty_role": "carrier",
+            "counterparty_display_name": "Red Rock Carriers"
+          }
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "edge_id": "edge-VL-1010-shipper-broker",
+        "from_party_id": "party-shipper-easternfoods",
+        "to_party_id": "party-broker-sunbelt",
+        "relationship_state": "verified",
+        "tender_ref": null
+      },
+      {
+        "edge_id": "edge-VL-1010-broker-carrier",
+        "from_party_id": "party-broker-sunbelt",
+        "to_party_id": "party-carrier-phantomline",
+        "relationship_state": "flagged",
+        "tender_ref": "TNDR-1010-A"
+      }
+    ],
+    "integrity": {
+      "verdict": "compromised",
+      "reason": "Carrier identity does not match USDOT authority on file — chameleon-carrier pattern. USDOT authority revoked; recent revocation. Stop dispatch and contact broker.",
+      "implicated_node_ids": [
+        "party-carrier-phantomline"
+      ],
+      "implicated_edge_ids": [
+        "edge-VL-1010-broker-carrier"
+      ]
+    }
+  }
+}

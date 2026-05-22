@@ -1,235 +1,311 @@
-# Feature Research — Validation Ledger iOS Client
+# Feature Research — v1.1 "Load Flows"
 
-**Domain:** Identity-verified freight / trucking mobile app (iOS, five roles: Shipper, Broker, Carrier, Dispatch, Factoring)
-**Researched:** 2026-04-20
-**Confidence:** MEDIUM-HIGH (cross-verified against 2026 industry sources — FMCSA MOTUS rollout, Highway/Verified Carrier, Trustd DIATF certification, Vector, Samsara, McLeod 26.1, Uber Freight 2025–2026 release notes, Plaid/Persona/Jumio/Alloy 2026 posture)
+**Domain:** Identity-verified freight load management (iOS, five roles: Shipper, Broker, Carrier, Dispatch, Factoring)
+**Milestone:** v1.1 "Load Flows" — the load slice of the original M2 "Core Flows"
+**Researched:** 2026-05-19
+**Confidence:** HIGH for the freight-domain model (EDI 204/990, factoring, FMCSA 2025 changes cross-verified); HIGH for feature scoping (1:1 against PROJECT.md Active list + v1.0 codebase contracts); MEDIUM for the trust-graph node/edge semantics (a Validation Ledger-specific design synthesised from FMCSA fraud patterns + v1.0 identity primitives — no published competitor renders it exactly this way).
 
 ---
 
-## Executive Orientation
+## Scope of This Research
 
-The competitive landscape split into two camps by early 2026:
+This file covers **only the five new v1.1 load-domain features**. v1.0 features (OTP auth, role tab shells, KYC capture, device binding) are shipped and excluded — they appear here only as **dependencies** the load domain consumes.
 
-1. **Legacy TMS mobile apps** (Samsara Driver, McLeod LoadMaster Mobile, TruckLogics, Trucker Path, Truckstop ITS Dispatch, Uber Freight Carrier) that treat identity as a one-time signup step and then become utility apps for load matching, navigation, ELD, and document capture.
-2. **Emerging identity-first freight stack** (Highway, Verified Carrier's "Verified Pickup" launched April 15 2026, Trustd in EU/UK, MyCarrierPortal) that treats identity and the chain-of-trust as the primary product surface, wrapping TMS functions around it.
+**v1.1 hard constraints that shape every feature below:**
+- **iOS-only against `MockURLProtocol` fixtures.** No backend, no real-time (WS/SSE), no APNs push. Every "live" behaviour is a fixture response, not a server event.
+- New load endpoints extend the v1.0 contract-first pattern: a typed `APIEndpoint` struct per call, fixtures keyed off `path` + `method` (`Core/Networking/Mock/MockURLProtocol.swift`, fixtures in `validationLedgerTests/Networking/Fixtures`).
+- `Features/Loads/` exists as an empty `.gitkeep` directory — this milestone fills it.
+- All five role tab shells (`Roles/{Broker,Carrier,Dispatch,Factoring,Shipper}TabBarController.swift`) exist as placeholders — v1.1 wires a real Loads tab into each.
+- UIKit-first; the trust graph, load list, and load detail are non-trivial interactive surfaces → UIKit (SwiftUI only acceptable for static sub-rows if at all).
 
-Validation Ledger is in camp 2. The most important insight from the research: **Verified Carrier's "Verified Pickup" (shipped April 2026) validates Validation Ledger's thesis** — a shipper scans a driver's encrypted QR / DL at the dock to confirm the carrier's verification status and the driver's confirmed photo before releasing freight. That is almost exactly the eBOL + rotating-QR + dock scanner flow in TechStack §5.7–5.8. The delta for Validation Ledger is (a) iOS-first from day one, (b) a rotating/signed QR with TTL rather than an encrypted-but-static QR, (c) chain-of-trust visualization as a first-class UI surface rather than a buried attribute, (d) five roles in one app rather than separate shipper/carrier apps, (e) device-bound one-active-device enforcement rather than account-level login.
+---
 
-Against this backdrop, feature categorization:
+## The Load State Model (canonical, for REQUIREMENTS.md)
+
+Freight loads move through a well-defined lifecycle. The industry-standard sequence — cross-verified against TMS shipment-status documentation and the EDI 204/990 tender handshake — is the basis for v1.1's model. Because v1.1 is mock-only and excludes the dock/BOL/POD milestone (M3) and real backend, the **v1.1 state model is deliberately truncated at `Delivered`** and treats post-delivery funding states as display-only.
+
+**Canonical Validation Ledger load state machine:**
+
+```
+                  ┌─────────────────────────────────────────────┐
+   Draft ──post──▶ Posted ──tender──▶ Tendered ──accept──▶ Accepted (Booked)
+                      │                  │ │
+                      │                  │ └─reject──▶ Rejected ──┐
+                      │                  └─expire──▶ Expired ──────┤
+                      │                                            │
+                      │◀───────── retender / repost ───────────────┘
+                      ▼
+   Accepted ──dispatch──▶ Dispatched ──pickup──▶ In-Transit ──deliver──▶ Delivered
+                                                                            │
+                                              (M3+: ──▶ POD-Captured)        │
+                                              (post-v1.1: ──▶ Invoiced ──▶ Funded)
+   Any non-terminal state ──cancel──▶ Cancelled
+```
+
+| State | Meaning | Set by | Terminal? | v1.1 scope |
+|-------|---------|--------|-----------|------------|
+| `draft` | Load created, not yet offered | Shipper / Broker | No | Display only — fixtures may include; no create-load UI in v1.1 |
+| `posted` | Load is on the board / available, not assigned | Shipper / Broker | No | **In scope** — list source for Carrier/Dispatch |
+| `tendered` | Load offered to a specific carrier; awaiting accept/reject | Broker / Shipper | No | **In scope** — core v1.1 interaction |
+| `accepted` (a.k.a. `booked`) | Carrier accepted the tender; load is committed | Carrier (or Dispatch on carrier's behalf) | No | **In scope** — core v1.1 interaction |
+| `rejected` | Carrier declined the tender | Carrier / Dispatch | No (can retender) | **In scope** — terminal-for-that-tender; load returns to `posted` |
+| `expired` | Tender's must-respond-by deadline lapsed with no response | System (fixture-simulated) | No (can retender) | **In scope** — see Tender section |
+| `dispatched` | Pickup/delivery details confirmed with driver; en route to pickup | Carrier / Dispatch | No | **In scope** (status display + action) |
+| `in_transit` | Freight loaded; truck moving to delivery | Carrier / Dispatch | No | **In scope** (status display + action) |
+| `delivered` | Freight unloaded at consignee | Carrier / Dispatch | Yes (for v1.1) | **In scope** — v1.1 timeline ends here |
+| `pod_captured` | Signed proof-of-delivery captured | Carrier | — | **OUT** — M3 (eBOL/POD milestone) |
+| `invoiced` | Carrier submitted invoice + BOL to factoring | Carrier / Factoring | — | **Display-only** — fixture may show a `funded`-track load so Factoring role has content; no invoice-submission UI |
+| `funded` | Factoring advanced payment against the invoice | Factoring | Yes | **Display-only** — same as above |
+| `cancelled` | Load voided before delivery | Shipper / Broker | Yes | **In scope** — fixtures include; no cancel UI required (display-only acceptable) |
+
+**Roadmap note:** v1.1 must implement the state *enum* and *transitions* fully (the state machine is cheap and the fixtures need it), but only `posted → tendered → accepted/rejected/expired` and `accepted → dispatched → in_transit → delivered` require **interactive transitions** (action buttons). `invoiced`/`funded`/`pod_captured` are render-only in v1.1 — keep them in the enum so Factoring's list isn't empty and so the model doesn't need a breaking change in M3.
+
+---
+
+## Per-Role Action Matrix (canonical, for REQUIREMENTS.md)
+
+The five roles do **not** have symmetric power over a load. The freight industry's structural reality: a **broker** represents the shipper and is paid by the shipper; a **dispatcher** represents the carrier and is paid by the carrier; **factoring** is a financier sitting downstream of delivery. This asymmetry is the entire point of the chain-of-trust and must be enforced in the UI.
+
+| Action | Shipper | Broker | Carrier | Dispatch | Factoring |
+|--------|---------|--------|---------|----------|-----------|
+| **View load** (list + detail) | ✅ own loads | ✅ loads it brokers | ✅ loads tendered/assigned to it | ✅ loads for its carrier(s) | ✅ loads tied to invoices it factors |
+| **Post / offer a load** | ✅ (origin of freight) | ✅ (on shipper's behalf) | ❌ | ❌ | ❌ |
+| **Tender** (offer to a specific carrier) | ✅ (direct-to-carrier shippers) | ✅ (primary tendering party) | ❌ | ❌ | ❌ |
+| **Accept a tender** | ❌ | ❌ | ✅ (primary) | ✅ (acts *for* the carrier) | ❌ |
+| **Reject a tender** | ❌ | ❌ | ✅ (primary) | ✅ (acts *for* the carrier) | ❌ |
+| **Re-tender after reject/expire** | ✅ | ✅ | ❌ | ❌ | ❌ |
+| **Advance status** (dispatched → in_transit → delivered) | ❌ | ❌ | ✅ (primary) | ✅ (on carrier's behalf) | ❌ |
+| **Cancel a load** | ✅ (pre-delivery) | ✅ (pre-delivery) | ❌ | ❌ | ❌ |
+| **View chain-of-trust graph** | ✅ | ✅ | ✅ | ✅ | ✅ (all 5 — it's the shared trust surface) |
+| **Fund / mark invoiced** | ❌ | ❌ | ❌ (submits invoice — M3) | ❌ | ✅ (display-only in v1.1) |
+
+**Per-role action-set summary (what each role's Loads tab actually offers in v1.1):**
+
+- **Shipper** — owns the freight. Sees its own loads across all states. Can post and tender (direct-to-carrier case). Read-only on status progression and the trust graph. *v1.1 action set: post (optional), tender, cancel (optional).*
+- **Broker** — the central tendering actor; represents the shipper. Sees loads it brokers. The classic Tender screen lives here. Can tender, retender, cancel. **D4 "refuse-to-tender-to-unverified-counterparty" (a v1.0-thesis differentiator) is primarily a Broker surface** — the Tender action is hard-disabled when the target carrier's verification state ≠ verified. *v1.1 action set: tender, retender, cancel.*
+- **Carrier** — receives tenders, accepts/rejects, then advances status. The accept/reject screen and the one-tap status updates live here. *v1.1 action set: accept, reject, advance-status.*
+- **Dispatch** — acts *for* a carrier (a dispatcher works for the motor carrier, not the shipper — a load is never tendered *to* the dispatcher). In v1.1, Dispatch sees the same tender/accept/status surfaces as Carrier but scoped to all carriers it represents. *v1.1 action set: accept, reject, advance-status — identical to Carrier, multi-carrier scope.*
+- **Factoring** — a financier downstream of delivery. Does not touch tender/accept/status at all. Sees loads tied to invoices it factors, and the chain-of-trust graph (factoring's whole job is verifying the load was real and the chain was clean before advancing money — this is why factoring is a node on the graph). *v1.1 action set: view only (funding is display-only).*
+
+**Critical roadmap implication:** Carrier and Dispatch share an action set (accept/reject/advance) — build one set of action components, parameterise by carrier scope. Shipper and Broker share a tendering action set. Factoring is read-only. This collapses "per-role action sets across all 5 roles" into **3 distinct action surfaces**, not 5 — a meaningful complexity reduction for the roadmap.
 
 ---
 
 ## Feature Landscape
 
-### Table Stakes — Users Expect These (ship or product feels broken)
+### Table Stakes (Users Expect These)
 
-These are the features that users will silently expect. Missing them does not earn a mention in reviews — they only earn a mention when absent, and then as a deal-breaker. Cross-referenced with Samsara Driver, Trucker Path, Uber Freight Carrier, TruckLogics, Vector eBOL, and Trustd (2026).
+Features that any freight load app must have for the load domain to feel complete. Missing them = the v1.1 milestone reads as a non-functional placeholder.
 
-| # | Feature | Why Expected | Role(s) | Complexity | Milestone | Implementation Notes |
-|---|---------|--------------|---------|------------|-----------|----------------------|
-| T1 | Phone + SMS OTP auth | Every consumer app in 2026; drivers won't type passwords in a cab | All 5 | LOW | M1 | Spec'd as FR-iOS-AUTH shim. Token in Keychain, `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`. No "remember me" — intentional. |
-| T2 | Biometric (Face ID / Touch ID) re-prompt for sensitive actions | Banking-app mental model — users assume touching a financial action requires biometrics | All 5 | LOW | M1 | `LocalAuthentication` + Keychain `.biometryCurrentSet`. Spec'd. |
-| T3 | Role-switched primary navigation | Shipper, dispatcher, driver, factoring rep have zero overlap in daily flow | All 5 | MEDIUM | M1 | Role set at backend account creation; tab-bar swapped at coordinator. Spec'd (TechStack §4). |
-| T4 | Live face capture + DL front/back capture | Post-FMCSA-MOTUS (Dec 2025 rollout) every freight participant expects to prove identity once, permanently | All 5 | MEDIUM | M1 | Vision + `VisionKit.DataScannerViewController`. Liveness deferred past M1 per PROJECT.md. |
-| T5 | Vehicle/trailer/plate photo capture with GPS metadata | Carrier-side. Chameleon-carrier fraud crackdown made this mandatory per FMCSA | Carrier, Dispatch | LOW | M1 | Camera + CoreLocation. Spec'd FR-iOS-KYC. |
-| T6 | Resumable upload pipeline with visible progress | Drivers are on LTE in truck stops. KYC uploads fail. Industry benchmark: users who must re-upload are 3× more likely to abandon | All 5 | MEDIUM | M1 | `URLSession` background config + checkpointed multipart. Exponential backoff, retry, persistent queue. Spec'd. |
-| T7 | Clear KYC status with reason-for-rejection text | Industry data: generic "rejected, try again" causes 15–30% ID-step abandonment; specific rejection reasons cut re-upload abandonment by 25–30% | All 5 | LOW | M1 | Four states: Pending / Under Review / Verified / Rejected. Rejection copy comes from backend but iOS must render it prominently. Spec'd. |
-| T8 | Load list filtered by role | Driver sees their loads, broker sees their tendered loads. Samsara/Uber Freight/TruckLogics all do this — not optional | All 5 | MEDIUM | M2 | List + detail via MVVM ViewModels. Backend filters by role token; client does not re-filter. |
-| T9 | Load detail with status timeline | Standard Uber Freight / Convoy pattern — "Booked → Dispatched → Arrived at shipper → Loaded → In transit → Arrived at receiver → Delivered" | All 5 (read-only for Shipper/Factoring) | MEDIUM | M2 | The "chain-of-trust" visualization is the differentiator layered on top of this timeline. |
-| T10 | One-tap status updates (Arrived, Loaded, Delivered) | Convoy-popularized pattern; now universal. Carriers won't adopt an app that requires more than one tap per checkpoint | Carrier, Dispatch | LOW | M2 | Geofenced pre-fill where possible (M3+). Queue offline via FR-iOS-OFF. |
-| T11 | Tender → Accept/Reject flow | Broker → Carrier handoff. The single flow every TMS app has. Must be friction-light for brokers but device-signed for identity | Broker, Carrier | MEDIUM | M2 | Requires device-key signing (FR-iOS-DEV). Spec'd as FR-iOS-LOAD. |
-| T12 | Real-time load status updates (WS / SSE) | Dispatchers and factoring companies check status obsessively; polling feels broken in 2026 | All 5 | MEDIUM | M2 | Abstraction over WebSocket/SSE per TechStack §5.6. |
-| T13 | Push notifications with deep links | Samsara, Uber Freight, McLeod, Trucker Path, Truckstop all do this. Drivers live on the lock screen | All 5 | MEDIUM | M3 | APNs + notification categories. "Accept" action from lock screen for carriers. Critical alerts for new-device login. Spec'd FR-iOS-NOTIF. |
-| T14 | eBOL rendering (read-only on mobile) | Vector, SmartBOL, J.B. Hunt, C.H. Robinson all ship it; FMCSA and E-SIGN laws make it legally enforceable. Drivers expect the BOL in the app, not on paper | Shipper, Broker, Carrier | MEDIUM | M3 | PDF generated server-side; iOS renders. Export via share sheet. Spec'd FR-iOS-BOL. |
-| T15 | QR code scanner for dock | YardView, MobileDock, SmartBOL, myQ Enterprise, Verified Pickup — the check-in-by-QR pattern is universal at modern DCs in 2026 | Carrier, Shipper | LOW | M3 | AVFoundation `AVCaptureMetadataOutput`. Torch toggle. Spec'd FR-iOS-SCAN. |
-| T16 | POD / delivery-confirmation signature + photo capture | Vector, SmartBOL; every freight mobile app captures a POD. E-SIGN Act compliance | Carrier | MEDIUM | M3 | UIKit canvas for signature + camera. Timestamp + GPS + device-signed payload. Not yet explicit in TechStack §5.7 — likely M3 addition. |
-| T17 | In-app chat / messaging between parties | Uber Freight, Convoy, Truckstop ITS all include broker-carrier messaging. Without it, parties go to SMS and PII leaks | All 5 | MEDIUM | M4 (or defer to v2) | Must avoid third-party chat SDKs that leak PII — see Anti-Feature A4. Backend-mediated, not a dropped-in SDK. |
-| T18 | Offline read-only access to active load + BOL | Drivers hit dead zones. Vector and Samsara both do this. Losing BOL visibility because of LTE kills adoption | All 5 | MEDIUM | M4 | Encrypted cache. Clear on load completion. Spec'd FR-iOS-OFF. |
-| T19 | Dynamic Type + VoiceOver on primary flows | App Store submission quality; drivers over 50 rely on Dynamic Type | All 5 | LOW | M4 | UIKit native support. Audit pass per TechStack §6. Spec'd. |
-| T20 | Factoring: invoice submission + BOL attach | Triumph, RTS, OTR Solutions, Cashway all ship this. A factoring mobile app without this does not exist | Factoring, Carrier | MEDIUM | M2–M3 | Scan BOL (camera + image enhancement) and attach to invoice. Factoring side gets the same BOL with chain-of-trust attached. |
-| T21 | MC/DOT number entry + live FMCSA lookup | Post-2025-crackdown, brokers literally won't tender to a carrier whose MC can't be instantly validated. MOTUS phased in through 2026 | Broker, Carrier, Factoring | LOW | M1 | Backend-mediated FMCSA call (FMCSA Mobile API / QCMobile). iOS renders result. Spec'd FR-iOS-KYC SHOULD. |
-| T22 | Settings: notification prefs, help, logout, delete account | App Store rejects apps without account deletion since 2022; drivers expect granular push prefs | All 5 | LOW | M1–M2 | SwiftUI-permitted surface per TechStack §3.2. |
-| T23 | Cold start < 2s, screen transitions < 200ms | Drivers open the app 30+ times/day; latency is an abandonment driver | All 5 | MEDIUM | M1–M5 | Spec'd in non-functionals §6. Validates MVVM+Coordinator choice (lighter than TCA). |
+| # | Feature | Why Expected | Complexity | Notes |
+|---|---------|--------------|------------|-------|
+| L1 | **Role-filtered load list** | Every TMS app (Samsara, Uber Freight, TruckLogics, Truckstop ITS) scopes the load list to the signed-in party. A carrier seeing a broker's full book, or vice versa, is a data-leak bug, not a feature gap. | MEDIUM | One `LoadListViewController` + `LoadListViewModel`, instantiated per role by the existing `RoleCoordinator`. Backend (here: the mock) filters by role token — **client must not re-filter** (matches v1.0 "backend filters, client renders" rule). Each role gets a fixture file: `loads-shipper.json`, `loads-broker.json`, etc. Depends on v1.0 session/role (SHELL-01). |
+| L2 | **Load row with the standard freight field set** | Load boards and TMS lists have a near-universal row shape; users scan for these fields. | LOW | Row fields: load reference #, origin city/state → destination city/state, pickup date, delivery date, equipment type, weight, rate, commodity (short), **load state badge**, **counterparty verification badge** (the VL-specific addition). Keep the row dense but legible — drivers scan one-handed. |
+| L3 | **Load detail screen** | Tapping a load row must open a full detail view; this is universal. The detail screen is also the host for the trust graph and the action buttons. | MEDIUM | `LoadDetailViewController` + `LoadDetailViewModel`. Sections: load summary, stops (pickup/delivery with addresses, dates, appointment windows, contact), commodity/equipment/weight/dimensions, rate + accessorials, **status timeline**, **chain-of-trust graph**, **role-specific action bar**. Depends on L1. |
+| L4 | **Load status timeline** | The "Posted → Tendered → Accepted → Dispatched → In-Transit → Delivered" progression rendered as a vertical timeline is the standard Uber Freight / Convoy pattern. Users expect to see *where the load is*. | LOW-MEDIUM | Distinct from the trust graph — the timeline is *load state over time*; the trust graph is *who's involved and are they real*. Render completed states filled, current state highlighted, future states dimmed. Drives off the `load.state` field + a `stateHistory` array in the fixture. |
+| L5 | **Tender → Accept / Reject interaction** | The single most universal TMS flow. Broker offers, carrier accepts or rejects. Mirrors the EDI 204 (tender) / EDI 990 (response) handshake every freight system implements. | MEDIUM | See "Tender / Accept / Reject Semantics" below. Tender from Shipper/Broker; accept/reject from Carrier/Dispatch. Each is a typed endpoint (`POST /loads/{id}/tender`, `/accept`, `/reject`) with a fixture response. v1.0's idempotency-key interceptor already covers double-submit. |
+| L6 | **One-tap status advancement** (dispatched / in_transit / delivered) | Convoy-popularised, now universal. Carriers will not adopt an app that needs more than one tap per checkpoint. | LOW | Carrier/Dispatch only. `POST /loads/{id}/status` with the next state. Action button shows only the *next legal* transition (state machine drives button visibility). No geofencing in v1.1 (that's M3+ background location). |
+| L7 | **Empty / loading / error states for the list and detail** | A list that shows nothing on a network failure, or a spinner forever, reads as broken. App Store quality bar. | LOW | Standard UIKit pattern. Particularly relevant because v1.1 is mock-driven — fixtures should include an empty-list fixture and an error fixture so these states are actually exercised. |
+| L8 | **Pull-to-refresh on the load list** | Because v1.1 has no real-time/push, refresh is the *only* way state changes propagate. Without it the list is frozen. | LOW | `UIRefreshControl`. This is the v1.1 substitute for the deferred WS/SSE — call it out in REQUIREMENTS as the explicit no-real-time mitigation. |
 
-### Differentiators — Validation Ledger's Competitive Advantage
+### Differentiators (Competitive Advantage)
 
-These are where Validation Ledger competes. These features are not required by users-in-general; they are the reason this product exists at all. Anchored to PROJECT.md Core Value: "identity that cannot be spoofed + chain-of-trust that cannot be faked."
+Features that exist because Validation Ledger is an *identity-first* freight platform, not a generic TMS. These are anchored to PROJECT.md Core Value: "identity that cannot be spoofed and a chain-of-trust that cannot be faked." For v1.1 these are the reason the milestone exists.
 
-| # | Feature | Value Proposition | Role(s) | Complexity | Milestone | Implementation Notes |
-|---|---------|-------------------|---------|------------|-----------|----------------------|
-| D1 | **Chain-of-trust visualization as a primary UI surface** | The user-facing manifestation of the entire product thesis. No competitor surfaces "X → Y → Z, each verified, here's who vouched" as first-class. Trustd has the data; Highway has the data; none render it as a timeline the user can tap through. TechStack §13 calls it "the single most important screen in the product." | All 5 | HIGH | M2 | Vertical timeline: Shipper → Broker → Carrier → Driver. Each node renders: verification status, KYC timestamp, counterparty-relationship proof, tap-for-details. Must be reactive to live status. Requires design investment — this is the marketing screen. Spec'd FR-iOS-LOAD. |
-| D2 | **Live rotating QR on eBOL (30s TTL, backend-signed)** | Verified Pickup uses an "encrypted QR" but it's a static encrypted payload on the driver's side. Validation Ledger's QR is fetched live from backend with a short TTL so a screenshot is worthless 30 seconds later — this closes the fraud window between "driver forwarded a screenshot" and "driver is actually at the dock." | Carrier (displays), Shipper/Broker (scans) | HIGH | M3 | Backend is signing authority; iOS only displays. Requires: 30s refresh timer, fall-back to backend round-trip on expiry, cached last-known-good for offline (flagged "offline — ask again"). Screenshot-block mandatory. Spec'd FR-iOS-BOL. Depends on: backend signing service (cross-team dep). |
-| D3 | **Device-bound identity with one-active-device enforcement** | Chameleon-carrier fraud works because a fraudster can log a stolen identity into a new device. Secure Enclave + one-active-device + re-KYC-to-switch closes that loop. Samsara, Uber Freight, McLeod all allow multi-device login. | All 5 | HIGH | M1 | EC P-256 in Secure Enclave. Public key at first login. Client refuses to proceed if backend reports another active device; flow to switch requires re-KYC. Spec'd FR-iOS-DEV. Depends on backend device-registry. |
-| D4 | **Refuse-to-tender-to-unverified-counterparty with inline reason** | Highway and Trustd flag unverified carriers; none *block* the action at the client level with a clear UI explanation. This moves Validation Ledger from "carrier vetting tool" to "fraud-prevention rail." | Broker, Shipper, Factoring | MEDIUM | M2 | Hard disable of Tender/Accept/Pay action when counterparty verification status ≠ Verified. Reason text from backend. Spec'd FR-iOS-LOAD. |
-| D5 | **US-only login with client-side country pre-check + impossible-travel backend enforcement** | A large share of freight fraud originates from foreign IPs. Client-side `CLLocationManager` reverse-geocode + backend re-verification is a consumer-invisible hardening that competitors don't do | All 5 | MEDIUM | M1 (pre-check), M2 (impossible-travel UI) | Pre-check on client, backend authoritative. Impossible-travel downgraded to SHOULD on client per PROJECT.md. Spec'd FR-iOS-GEO. |
-| D6 | **Screenshot + screen-recording block on eBOL, QR, chain-of-trust, DL capture** | The entire platform premise breaks if fraud works via screenshot forwarding. Most TMS apps have zero screenshot protection. Banking apps have it; freight apps don't. This is a credible differentiator in sales conversations. | All 5 | MEDIUM | M3 (BOL/QR), M1 (KYC) | `UIScreen.capturedDidChangeNotification` + `isSecureTextEntry`-layer trick + `UIScreen.main.isCaptured`. Four sensitive surfaces: eBOL, live QR, DL-capture screen, chain-of-trust. Spec'd FR-iOS-SEC. |
-| D7 | **Role-unified app (all 5 roles in one binary) with role-specific UX** | Competitors split this: Uber Freight Carrier vs. Uber Freight Shipper are different apps; Samsara Driver is only for drivers. A broker inspecting a load sees the same chain-of-trust the driver signed into. One app = one source of truth for the verification state. | All 5 | HIGH | M1 (shell), M2 (per-role surfaces) | Shared shell, role-specific coordinators + view controllers. iPad native for dispatch/factoring. Spec'd TechStack §4. |
-| D8 | **Identity-grounded messaging (no third-party chat SDK)** | If parties talk in the app, PII flows through the app. Using Intercom/SendBird/Stream means PII hits a third party. Validation Ledger running its own backend-mediated chat avoids that and lets every message be device-signed and attributed to a verified identity. Differentiator vs. the "chat SDKs in a trust app" anti-pattern. | All 5 | HIGH | M4+ (or defer to v2) | Custom implementation on the Validation Ledger backend. Not a table-stake at launch; differentiates once rolled out. |
-| D9 | **Backend-mediated AI assistant scoped to role + verification state** | Every 2026 TMS has a chatbot (Samsara, McLeod RespondAI, Uber Freight). Most are generic LLMs. Validation Ledger's assistant answers only with data the user is authorized to see AND cites the chain-of-trust — e.g., "this carrier's verification lapsed on April 3; do not tender." Grounded in identity. | All 5 | HIGH | M4 | Claude Sonnet 4.5 backend-mediated. iOS never calls Anthropic directly per TechStack §5.9. Streamed rendering. |
-| D10 | **KYC-as-identity (single verification, portable across counterparties)** | Trustd's core premise; Validation Ledger adopts it. A driver verified once on the platform is trusted by every broker, shipper, factoring party on the platform — no re-onboarding packet per relationship (MyCarrierPackets eliminates packet collection; Validation Ledger goes further by making identity permanent and portable). Changes the economics of broker-onboarding from "1 week" to "instant." | Broker, Carrier, Factoring | HIGH | Platform-level (iOS surfaces it in M2) | iOS surface: "This carrier has already been verified by the platform since [date]" on tender screen. Policy and data model live on backend. |
-| D11 | **Device-attested login payload (App Attest + Secure Enclave signature)** | DeviceCheck/App Attest adds a "this is a genuine, unmodified iOS app on a real device" signal to every login. Almost no trucking app does this. Fraud rings that clone apps or run on emulators get rejected. | All 5 | MEDIUM | M1 | `DCAppAttestService`. Spec'd FR-iOS-DEV SHOULD. |
-| D12 | **Biometric-bound device key (`.biometryCurrentSet`)** | Face-ID re-enrollment invalidates the device key, forcing re-binding. A thief who steals a phone and re-enrolls their face cannot transact. Samsara/Uber Freight do not do this. | All 5 | LOW | M1 | Keychain access control. Spec'd TechStack §8. |
+| # | Feature | Value Proposition | Complexity | Notes |
+|---|---------|-------------------|------------|-------|
+| L9 | **Interactive chain-of-trust graph on load detail** | The user-facing manifestation of the entire product thesis. No competitor (Highway, Trustd, Verified Carrier) renders the *full counterparty chain for a specific load* as a tappable node-graph. This is the marquee v1.1 screen. | **HIGH** | See "Chain-of-Trust Graph: Node & Edge Semantics" below. The single highest-design-investment, highest-risk feature in v1.1 — flag for deeper phase-level research. UIKit custom view (likely `UICollectionView` with a custom layout, or a hand-drawn `CALayer`/`UIBezierPath` graph). |
+| L10 | **Per-party verification state badges, everywhere a party appears** | The verification state (verified / unverified / flagged / pending) of each counterparty must be visible on the load row, in load detail, and on every graph node. A user should never see a party name without its trust state attached. | MEDIUM | A reusable `VerificationBadge` component in `UI/DesignSystem`. Consumes a `verificationState` enum on every party object in the fixtures. Consistency is the differentiator — banks show a verified checkmark everywhere; VL shows trust state everywhere. |
+| L11 | **Tap-a-node-for-verification-basis detail** | Tapping any party in the trust graph opens *why* that party is trusted: KYC completion date, identity-document type verified, device-binding status, USDOT authority status, prior-relationship history. This is "the chain of trust cannot be faked" made inspectable. | MEDIUM-HIGH | A `PartyVerificationDetailViewController` presented from a graph-node tap. Content comes from a `GET /parties/{id}/verification` fixture. This is where v1.1 surfaces the v1.0 identity primitives (KYC status, device binding) *about other people*. |
+| L12 | **Refuse-to-tender / reject-action-disabled when a counterparty is unverified** | Highway and Trustd *warn* about unverified carriers; none *block* the action client-side with an inline reason. This moves VL from "carrier-vetting tool" to "fraud-prevention rail." | MEDIUM | The Tender button (Broker/Shipper) is hard-disabled — with visible reason copy — when the target carrier's `verificationState != verified`. Reason text comes from the fixture (`tenderEligibility` object). This is the load-domain expression of the v1.0 thesis; it depends on L10's verification-state data being present on every party. |
+| L13 | **Trust graph reflects double-/triple-brokering risk visually** | Double brokering is the #1 fraud the platform attacks. If a load's chain has *more broker hops than authorised*, or an unverified intermediary, the graph should make that legible at a glance (e.g., a flagged edge, a warning node). | MEDIUM | Mostly a rendering concern: the graph data model already carries the ordered chain; v1.1 just needs to render an extra/unauthorised hop or a `flagged` party distinctly. The *detection* logic is backend's job (out of scope) — v1.1 renders the fixture's `chainIntegrity` verdict. |
 
-### Anti-Features — Deliberately NOT Built (with rationale)
+### Anti-Features (Commonly Requested, Often Problematic)
 
-These are features competitors or users will request. Each one is a trap for a trust-first product. Rationale documented.
+Features that will be requested for the load domain but are wrong for v1.1 — either they violate the milestone's mock-only scope, or they violate the platform's trust posture.
 
-| # | Anti-Feature | Why Users / PMs Ask For It | Why It's Wrong for Validation Ledger | Alternative |
-|---|--------------|---------------------------|--------------------------------------|-------------|
-| A1 | **"Remember me" / persistent login with no re-auth** | Every consumer app has it; drivers will complain | Defeats device-binding; a stolen unlocked phone = full account access | Auto-logout on token expiry + Face ID re-prompt on foreground after 5min background (spec'd). |
-| A2 | **Self-serve password reset / "forgot password" flow** | Table stakes for most apps | The whole point of the platform is identity cannot be re-established by a form. Fraud vector: attacker intercepts SMS, resets, gains account | Support-channel + re-KYC for recovery (spec'd FR-iOS-AUTH SHOULD). |
-| A3 | **Multi-device simultaneous login** | Drivers ask ("my work iPhone died, I need to use my personal"). Dispatchers ask ("I use iPad in office and iPhone on the road") | Negates one-active-device enforcement, which is a core fraud control. Chameleon carriers thrive on shared credentials | One-device-per-user with a clean "switch to this device" flow requiring re-KYC (spec'd FR-iOS-DEV). Messaged as a feature, not a limitation. |
-| A4 | **Drop-in third-party chat SDK (Intercom / SendBird / Stream / Twilio Conversations)** | Fastest path to shipping messaging | Every message between parties would be PII (driver name, load location, BOL number). A third-party SDK means that PII leaves the trust boundary. Most 2026 SDKs also embed analytics | Custom backend-mediated chat (D8) if messaging ships at all. Defer until M4+ or v2. |
-| A5 | **Third-party analytics or ad SDKs (Mixpanel, Amplitude, Firebase Analytics, Facebook SDK)** | PM demand for funnel analytics | Every SDK is a PII exfiltration risk; App Store privacy manifests make it auditable; drivers in 2026 know when an app is tracking them | PII-scrubbed structured logging via `os_log` / `OSLogStore` (M1). Crash vendor decision deferred per PROJECT.md. Analytics vendor picked in M2 with strict PII scrubber middleware. Spec'd TechStack §8. |
-| A6 | **Offline QR verification at the dock** | Shippers in rural DCs with bad WiFi will ask | The rotating-QR TTL is the fraud control; if iOS validates QR locally, screenshots work for the cache window. Fraud window too wide | Explicitly out-of-scope per TechStack §11 and PROJECT.md. Show "Waiting for connectivity — cannot verify offline." |
-| A7 | **Client-side QR content validation** | Engineers will "just parse the payload" as an optimization | Client-side validation is bypassable by any attacker. Backend is sole authority | Client only transports the payload to backend per FR-iOS-SCAN. Spec'd. |
-| A8 | **Hidden / always-on background location** | PM will ask "so we always know where the driver is" | Battery drain is the #1 driver complaint in 2026 trucking app reviews. Also a privacy disaster — background location for a non-carrier role (factoring, shipper) is indefensible in App Store review | Background location ("Always") only for **Carrier role with an active load**, explicit opt-in, clear banner in UI. Respect iOS background budget. Spec'd FR-iOS-GEO SHOULD. |
-| A9 | **Raw GPS coordinates in analytics / crash / logging payloads** | Easy default when adding analytics | Coordinates are PII under every privacy framework in 2026; App Store privacy manifests will flag them | Coordinates only to the platform API (verified endpoint); PII-scrubber middleware in `Core/Logging`. Spec'd TechStack §8. |
-| A10 | **CarPlay / Apple Watch companion / iMessage extension** | Shiny ecosystem features PMs love | Every surface is a new attack surface for an identity-verification app. CarPlay has no biometric prompts. Apple Watch can't do Secure Enclave signing. iMessage extension leaks BOL payloads to Apple's servers | Explicitly out-of-scope v1 per TechStack §11. Revisit post-PMF. |
-| A11 | **Client-rendered PDF of BOL (composed on device)** | "Why round-trip to backend to make a PDF?" | The BOL PDF is a legal document. Client-composition means the client could alter it. Backend-generated PDFs are authoritative + signed | Backend composes; iOS shares via share sheet. Spec'd FR-iOS-BOL. |
-| A12 | **Android app first / cross-platform (React Native, Flutter)** | Engineering leaders will propose it for "velocity" | Every security control in the spec (Secure Enclave EC P-256, App Attest, `isSecureTextEntry`-screenshot-trick, biometric-bound Keychain) has a native implementation and a weaker cross-platform one. A 10% shortcut on any of these invalidates the trust story | iOS-native v1. Android as a separate codebase + separate threat-model pass. Spec'd TechStack §11. |
-| A13 | **User-editable profile fields post-verification (change name, DOB, DL)** | Users will complain ("I typo'd my name") | Mutable identity is the chameleon-carrier attack vector | Name/DOB/DL corrections require re-KYC through support. Cosmetic fields (display name, photo) may be editable in v2. |
-| A14 | **"Invite a friend" / referral-style onboarding** | PM-favorite growth lever | Referrals in a trust product are a vouching mechanism. If they're ungoverned, they're social-engineering vectors (fraudster refers confederates). If governed, they're not the same thing as the core chain-of-trust | No referral in v1. Vouching is an official product feature in the chain-of-trust, not a growth feature. |
-| A15 | **Email / SMS "trust this device" link for auth recovery** | Common 2FA bypass pattern | SIM-swap fraud explicitly attacks this. OPEN Q5 in TechStack §12 calls out SIM-swap recovery as unresolved | Force re-KYC for device changes. Revisit in beta data. |
-| A16 | **Web-based KYC fallback / "verify on desktop"** | Engineers ask when camera quality on older iPhones fails | Desktop webcams have worse liveness signals; desktop browsers have no Secure Enclave; the whole device-binding model breaks | iOS-only KYC. Fallback for KYC failure = support channel with human review. |
-| A17 | **Client-local decryption of eBOL content** | "Faster load" | eBOL content delivery = backend HTTPS render of ready-to-display payload. Local decryption opens a vector where a compromised client extracts plaintext | Backend gates delivery; iOS renders what it receives. |
-| A18 | **Generic "sign in with Google / Apple"** | Fastest auth integration | Google/Apple identity ≠ FMCSA-verified freight identity. Adding social auth weakens the phone-number-bound identity model | Phone + OTP v1; passkey migration is v2 candidate per FR-iOS-AUTH MAY. |
+| # | Anti-Feature | Why Requested | Why Problematic | Alternative |
+|---|--------------|---------------|-----------------|-------------|
+| AL1 | **Real-time load updates (WebSocket/SSE) in v1.1** | "Dispatchers check status obsessively; polling feels broken." True — but… | v1.1 is explicitly mock-only with no backend. Real-time needs a running server. Building a WS/SSE abstraction against a mock is throwaway work. | Pull-to-refresh (L8) is the v1.1 substitute. WS/SSE is deferred to a post-v1.1 milestone per PROJECT.md. |
+| AL2 | **APNs push for tender notifications** | "Carrier should get a lock-screen alert when tendered." | No backend to send pushes; APNs is deferred per PROJECT.md. A mock cannot originate a push. | The carrier sees the tender on next list refresh. Push lands in the post-v1.1 milestone with the real backend. |
+| AL3 | **Client-side load filtering / re-scoping the list** | "Just filter the array by role on the client — simpler than per-role fixtures." | Breaks the v1.0 "backend is the authority, client renders" rule. A client that *can* see other roles' loads (even if it filters them) is a data-exposure bug and a fraud vector. | Per-role fixture files; the mock returns only that role's loads, exactly as the real backend will. |
+| AL4 | **Client-side trust-graph computation / chain-integrity verdict** | "The client has the chain data — just compute whether it's clean." | Client-side trust computation is bypassable by any attacker and contradicts "the chain of trust cannot be faked." The verdict must be authoritative. | The fixture (later: backend) supplies the computed `chainIntegrity` verdict and per-party `verificationState`; the client *renders* them, never derives them. |
+| AL5 | **Create-load / full load-entry form** | "A shipper needs to create loads." | True for the real product, but a full load-creation form (multi-stop, commodity, accessorials, rate) is a large surface that v1.1's mock-only scope and the "list/detail/trust-graph/tender" framing do not include. | v1.1 fixtures pre-populate loads in every state. Load creation is a later milestone. `post`/`cancel` actions, if included, act on pre-existing fixture loads. |
+| AL6 | **eBOL rendering / rotating QR / dock scanner on the load detail** | "The load detail is the natural home for the BOL and the dock QR." | eBOL, the rotating QR, and the scanner are the explicit M3 milestone. Pulling them into v1.1 blows the milestone scope and pulls in the deferred backend-signing dependency. | Load detail in v1.1 has a *placeholder* or omits the BOL section entirely. M3 adds it. Keep the detail layout extensible so M3 slots in cleanly. |
+| AL7 | **Editable load fields on the detail screen** | "Let the broker fix a typo'd weight inline." | Mutable load data mid-lifecycle is both a scope expansion and a fraud surface (rate/commodity tampering). v1.1 detail is read-only except for the role-action buttons. | Load detail is read-only. Corrections are a later-milestone concern with backend validation + audit trail. |
+| AL8 | **Map / live truck-location tracking on the load** | "Show the truck on a map en route." | Live location needs background location (M3) + a real backend feed. A static map adds little and a live one is out of scope. | Status timeline (L4) communicates progress without a map. Map/tracking is post-v1.1. |
+| AL9 | **In-app messaging between load counterparties** | "Broker and carrier need to talk about the load." | Messaging is an M4/v2 concern and (per v1.0 research A4) must never be a third-party SDK. Not a load-domain feature. | Out of v1.1 entirely. |
+
+---
+
+## Chain-of-Trust Graph: Node & Edge Semantics (canonical, for REQUIREMENTS.md)
+
+This is the v1.1 marquee feature (L9/L11) and the most design-novel. Here is the concrete model the requirements and roadmap should adopt.
+
+### What the graph *is*
+
+A directed, ordered visual representation of **every party in a specific load's transaction chain**, in handoff order, each annotated with its real-time verification state. It answers, for the user looking at this one load: *"Who is in this deal, and is every one of them demonstrably real?"*
+
+### Nodes — one per party in the chain
+
+Canonical node order (a node is omitted if that role isn't in this particular load's chain — e.g., a direct shipper→carrier load has no broker node):
+
+```
+[ Shipper ] ──▶ [ Broker ] ──▶ [ Carrier ] ──▶ [ Dispatch ] ──▶ [ Factoring ]
+```
+
+Each **node** carries:
+
+| Node field | What it is | Source |
+|------------|------------|--------|
+| `partyId` | Stable party identifier | fixture |
+| `role` | shipper / broker / carrier / dispatch / factoring | fixture |
+| `displayName` | Company / person name | fixture |
+| `verificationState` | `verified` \| `unverified` \| `pending` \| `flagged` | fixture (authoritative) |
+| `usdotNumber` | USDOT # (the post-Oct-2025 sole FMCSA identifier; MC numbers are eliminated) | fixture |
+| `authorityType` | carrier / broker / forwarder authority, suffixed on the USDOT # | fixture |
+| `kycCompletedAt` | When this party's identity was verified | fixture |
+| `deviceBound` | Whether the party has an active device-bound identity (the v1.0 Secure Enclave primitive) | fixture |
+| `isCurrentUser` | Highlights the signed-in user's own node in the chain | derived client-side (the one allowed derivation) |
+
+**The four verification states (the heart of "verified vs unverified vs flagged"):**
+
+| State | Meaning | Visual | What it means for actions |
+|-------|---------|--------|---------------------------|
+| `verified` | Identity proofed (KYC complete), USDOT authority active, device-bound. The party is demonstrably real. | Green node, check glyph | Actions toward this party are enabled |
+| `pending` | KYC submitted but not yet cleared, or authority filing in progress | Amber node, clock glyph | Actions may be soft-warned; not necessarily blocked |
+| `unverified` | No completed KYC / no device binding / authority not confirmed. Identity is *not* established. | Grey node, hollow glyph | Tender/accept toward this party is **hard-disabled** (L12) |
+| `flagged` | Active fraud signal — authority revoked, identity mismatch, prior double-brokering, impossible-travel hit, or an unauthorised extra broker hop | Red node, warning glyph | Actions hard-disabled + prominent inline warning |
+
+### Edges — one per handoff between adjacent parties
+
+Each **edge** represents a *counterparty relationship / handoff* (shipper→broker, broker→carrier, etc.) and carries:
+
+| Edge field | What it is |
+|------------|------------|
+| `fromPartyId` / `toPartyId` | The two parties this handoff connects |
+| `relationshipState` | `established` (a verified prior relationship or a clean handoff) \| `new` (first-time counterparties — not wrong, but noted) \| `flagged` (the handoff itself is suspect — e.g., an unauthorised re-broker) |
+| `tenderRef` | If the handoff was a tender, the tender record id (links the edge to L5 data) |
+
+An edge is the visual home for **double-/triple-brokering risk (L13)**: a clean broker→carrier edge renders as a solid connector; an unauthorised additional broker hop, or an edge between two parties with no legitimate relationship, renders `flagged` (red, dashed) — making the fraud legible at a glance.
+
+### Chain-level verdict
+
+The graph as a whole carries one `chainIntegrity` field — `clean` \| `caution` \| `compromised` — supplied by the fixture (later: backend; **never computed client-side**, per AL4). The graph header renders this verdict.
+
+### Interaction
+
+- Tapping a **node** → `PartyVerificationDetailViewController` (L11): the verification basis for that party.
+- Tapping an **edge** → optional: the handoff/tender detail. v1.1 may scope edge-tap as a "nice to have."
+- The graph is **read-only** — it visualises trust, it never edits it.
+
+### Roadmap risk callout
+
+The trust graph is the only **HIGH-complexity** feature in v1.1 and has no off-the-shelf UIKit component. It needs its own phase (or a dedicated design spike): node layout, edge drawing, the four-state visual language, accessibility (VoiceOver must read the chain as an ordered list), and iPad-native layout (the chain is wider — dispatch/factoring use iPad). **Flag this phase for deeper research during roadmap planning.**
 
 ---
 
 ## Feature Dependencies
 
 ```
-[T1 Phone OTP auth] ──required by──> [T2 Biometric re-prompt]
-                                  └─required by──> [T3 Role-switched nav]
-                                                └─required by──> all T8–T23
+[v1.0: OTP auth + session + role]  ── required by ──▶  [L1 Role-filtered load list]
+[v1.0: RoleCoordinator / 5 tab shells] ── required by ──▶ [L1 Role-filtered load list]
+[v1.0: APIEndpoint + MockURLProtocol contract] ── required by ──▶ [all new load endpoints]
+[v1.0: device-bound identity (Secure Enclave)] ── surfaced-as-data-by ──▶ [L11 verification basis]
+[v1.0: KYC status model] ── surfaced-as-data-by ──▶ [L10, L11 verification badges/basis]
 
-[D3 Device-bound keypair] ──required by──> [D4 Refuse-to-tender]
-                       └─required by──> [D11 App Attest login]
-                       └─required by──> [T11 Tender/Accept signing]
+[L1 Load list]
+    └── required by ──▶ [L3 Load detail screen]
+                            └── required by ──▶ [L4 Status timeline]
+                            └── required by ──▶ [L5 Tender/Accept/Reject]
+                            └── required by ──▶ [L6 One-tap status advance]
+                            └── required by ──▶ [L9 Chain-of-trust graph]
 
-[T4 Live face + DL] ──required by──> [T7 KYC status UI]
-                 └─required by──> [D10 Portable identity]
-                 └─required by──> [D1 Chain-of-trust viz]
+[L2 Load row field set] ── needs ──▶ [L10 verification badge component]  (the row shows a trust badge)
 
-[T6 Resumable upload] ──required by──> [T4 + T5] (upload pipeline underlies KYC)
+[L9 Chain-of-trust graph]
+    └── required by ──▶ [L11 Tap-node-for-verification-basis]
+    └── required by ──▶ [L13 Double-brokering risk visualisation]
+    └── shares-data-with ──▶ [L12 Refuse-to-tender]   (both consume per-party verificationState)
 
-[T8 Load list] ──required by──> [T9 Load detail timeline]
-             └─required by──> [D1 Chain-of-trust viz]
-             └─required by──> [T11 Tender flow]
+[L10 Verification badges] ── required by ──▶ [L12 Refuse-to-tender]   (the disable rule reads the same state)
 
-[D1 Chain-of-trust viz] ──required by──> [D4 Refuse-to-tender UI]
-                      └─required by──> [D9 AI assistant grounding]
+[L8 Pull-to-refresh] ── substitutes-for ──▶ [deferred WS/SSE real-time]
 
-[T14 eBOL render] ──required by──> [D2 Rotating QR display]
-                └─required by──> [T15 QR scanner] (scan-side must know what a valid BOL-QR looks like)
-                └─required by──> [T16 POD capture]
-
-[D2 Rotating QR] ──required by──> [T15 QR scanner] (scan-side is the counterparty to display-side)
-             └─requires──> backend signing service (cross-team dependency)
-
-[T10 One-tap status] ──enhanced-by──> [T18 Offline queue]
-                  └─enhanced-by──> [D8 Background location for active load]
-
-[T13 Push notif] ──required by──> [T17 Chat/messaging] (notification of new message)
-
-[D6 Screenshot block] ──applies-to──> [T4 DL capture, T14 eBOL, D1 chain-of-trust, D2 rotating QR]
-
-[A3 No multi-device] ──conflicts-with──> [T11 Tender flow convenience] — resolved by D3 device-switch-requires-re-KYC UI
-
-[D7 Role-unified app] ──required by──> all Shipper/Factoring/Dispatch-specific surfaces
-                   └─constrains──> architecture choice (MVVM+Coordinator per TechStack §3.1)
+[AL5 Create-load] ── conflicts-with ──▶ [v1.1 mock-only scope]   (fixtures pre-populate instead)
+[AL6 eBOL/QR/scanner] ── conflicts-with ──▶ [v1.1 scope]   (explicit M3 milestone)
 ```
 
-### Critical Dependency Notes
+### Dependency Notes
 
-- **D2 (Rotating QR) depends on backend signing service.** This is the single biggest cross-team dependency in M3. If backend signing is not ready, M3 slips. Flag this in the roadmap handoff as "M3 has an external dependency that M1/M2 do not."
-- **D3 (Device binding) must ship in M1** because every signed-request feature in M2+ (T11 tender signing, D4 refuse-to-tender) layers on top. Deferring device-binding to M2 would require retrofitting signed headers across every endpoint.
-- **T7 (KYC status UI with rejection reasons) is cheap to ship badly and expensive to re-ship.** The difference between "Rejected. Try again" and "Your DL photo has glare on the name field — please retake" is the difference between 30% abandonment and 5%. Worth prioritizing the copy + backend reason codes in M1.
-- **D1 (Chain-of-trust visualization) is called out in TechStack §13 as "the single most important screen."** It depends on T8 (Load list) and T9 (Load detail) to even exist. M2 must deliver it well, not ship a placeholder that gets iterated later.
-- **A4 (No third-party chat SDK) conflicts with T17 (in-app messaging).** Resolution: defer T17 to M4 or v2; when it ships, it's D8 (custom backend-mediated chat), not an SDK integration.
+- **L1 (load list) is the v1.1 critical-path root.** Load detail, the timeline, the trust graph, and every action all hang off being able to fetch and render a load. The list + the load data model + the mock endpoints should be the first phase.
+- **L9 (trust graph) depends on L3 (load detail) existing as a host**, and on the load fixture carrying a full `chain` object. The graph cannot be a standalone screen — it lives inside detail.
+- **L10 (verification badges) and L12 (refuse-to-tender) consume the same `verificationState` field.** Build the data model once; both features read it. If the load/party fixture schema doesn't carry `verificationState` on every party from day one, L12 and the whole graph are blocked — so the fixture schema is itself a gating dependency, design it up front.
+- **The new load endpoints depend on the v1.0 contract-first pattern.** Every load call is a typed `APIEndpoint` struct + a `path`/`method`-keyed fixture. This is a *known, proven* pattern from v1.0 (7 endpoints shipped this way) — LOW risk, but it is a hard prerequisite and should be scoped as its own early slice (the "new load-domain mock endpoints + fixtures" Active item).
+- **L5 (tender/accept/reject) depends on the load state machine being implemented.** Accept/reject is only legal from `tendered`; the buttons' visibility is state-driven. Implement the state enum + transition rules before the action UI.
+- **No v1.1 feature depends on a backend, WS/SSE, or APNs.** This is the milestone's defining property — every "live" behaviour is a fixture, every state change propagates via pull-to-refresh.
+
+---
+
+## Tender / Accept / Reject Semantics (for REQUIREMENTS.md)
+
+Modelled on the EDI 204 (Motor Carrier Load Tender) / EDI 990 (Response to a Load Tender) handshake — the freight industry's universal tender protocol — adapted to a mock-only iOS client.
+
+**A tender contains** (the offer a Broker/Shipper sends, surfaced as a fixture object on the load):
+- Target carrier (the specific party being offered the load — a tender is always to *one* carrier)
+- The full load details required to decide: stops, dates/appointment windows, equipment type, weight, commodity
+- The offered rate (carrier rate)
+- A **must-respond-by deadline** (`respondByAt`) — the EDI 204 G62 "must-respond-by" segment
+- Tender reference id
+
+**Accept semantics:**
+- Only the targeted Carrier (or its Dispatch) can accept; only when the load is in `tendered`.
+- Accept transitions `tendered → accepted`. The load is now committed to that carrier.
+- `POST /loads/{id}/accept` — fixture returns the updated load.
+
+**Reject semantics:**
+- Only the targeted Carrier (or its Dispatch); only from `tendered`.
+- Reject transitions `tendered → rejected`; the load returns to `posted` and can be re-tendered (by Broker/Shipper) to a different carrier.
+- An optional reason code is good practice (mirrors the EDI 990 rejection code).
+- `POST /loads/{id}/reject`.
+
+**Expiration semantics:**
+- A tender **can and does expire.** If `respondByAt` lapses with no accept/reject, the tender is `expired`; like a reject, the load returns to `posted` and can be re-tendered.
+- v1.1 is mock-only — there is no server clock. **Expiration is fixture-simulated:** ship a fixture load whose tender's `respondByAt` is already in the past so the `expired` state and its UI are exercised. The client may also render a live countdown from `respondByAt` for an active tender (the deadline is real data even if enforcement isn't).
+- Roadmap note: real server-side expiry enforcement is a post-v1.1/backend concern. v1.1 only needs to *render* the expired state and the countdown.
+
+**Refuse-to-tender (L12) interacts with this:** the Broker's Tender action is disabled before a tender can even be created, when the chosen carrier's `verificationState != verified`.
 
 ---
 
 ## MVP Definition
 
-### Launch With (v1 = M1 through M5 closed beta)
+### Launch With (v1.1 — the milestone itself)
 
-Minimum viable scope for the TestFlight closed beta. Anything below the line is "doesn't ship in v1." PROJECT.md locks M1 scope; the list below extends through M5.
+The five PROJECT.md Active items, decomposed:
 
-**M1 Foundation (weeks 1–4) — must ship:**
+- [ ] **New load-domain mock endpoints + fixtures** — `GET /loads` (role-scoped), `GET /loads/{id}`, `GET /parties/{id}/verification`, `POST /loads/{id}/{tender|accept|reject|status}`; per-role fixture files + per-state fixture loads + an empty-list and an error fixture. *Essential: everything else reads this.*
+- [ ] **L1 Role-filtered load list** — one list screen, instantiated per role, mock-filtered. *Essential: the critical-path root.*
+- [ ] **L2 Standard load row** + **L10 verification badge component**. *Essential: the list is unreadable without a row design and trust badges.*
+- [ ] **L3 Load detail screen** + **L4 status timeline** + **L7 empty/loading/error** + **L8 pull-to-refresh**. *Essential: the host for the graph and actions; refresh is the only state-propagation path.*
+- [ ] **L5 Tender / Accept / Reject** + the load state machine + **L6 one-tap status advance**. *Essential: "per-role tender/accept/reject action sets" is a named milestone deliverable.*
+- [ ] **L9 Interactive chain-of-trust graph** + **L11 tap-node-for-verification-basis** + **L13 double-brokering risk rendering**. *Essential: the marquee differentiator; the milestone is named after the load domain but the trust graph is its reason to exist.*
+- [ ] **L12 Refuse-to-tender-to-unverified** with inline reason. *Essential: the load-domain expression of the platform thesis; cheap once L10's data exists.*
 
-- [ ] T1 Phone OTP auth with Keychain storage
-- [ ] T2 Biometric re-prompt on sensitive actions + 5min-background return
-- [ ] T3 Role-switched tab-bar shell (all 5 roles with placeholder tabs)
-- [ ] T4 Live face + DL front/back capture (Vision-based, no liveness in M1 per PROJECT.md)
-- [ ] T5 Vehicle/trailer/plate capture with GPS metadata
-- [ ] T6 Resumable upload pipeline
-- [ ] T7 KYC status UI with rejection reasons
-- [ ] T21 MC/DOT entry with backend FMCSA lookup (SHOULD — negotiable under schedule pressure)
-- [ ] T22 Settings (logout, notification prefs, delete account, help)
-- [ ] D3 Secure Enclave device-bound keypair + registration
-- [ ] D5 Client-side US-only country pre-check
-- [ ] D6 Screenshot block on DL-capture screen (KYC subset)
-- [ ] D11 App Attest / DeviceCheck on login
-- [ ] D12 `.biometryCurrentSet` on device key
+### Add After Validation (v1.x — post-v1.1, needs the real backend)
 
-**M2 Core flows (weeks 5–8):**
+- [ ] Real-time load updates (WebSocket/SSE) — replaces L8 pull-to-refresh as the propagation mechanism.
+- [ ] APNs push for tender / status-change notifications with deep links.
+- [ ] Edge-tap detail on the trust graph (handoff/tender drill-down) — if cut from v1.1 for scope.
+- [ ] Full load-creation form (multi-stop, commodity, accessorials, rate entry) for Shipper/Broker.
 
-- [ ] T8 Role-filtered load list
-- [ ] T9 Load detail with status timeline
-- [ ] T10 One-tap status updates (Carrier)
-- [ ] T11 Tender / Accept / Reject flow with device-key signing
-- [ ] T12 Real-time updates (WS or SSE abstraction)
-- [ ] T20 Factoring invoice submission + BOL attach (read-path; write-path M3)
-- [ ] D1 **Chain-of-trust visualization** (the single most important screen)
-- [ ] D4 Refuse-to-tender-to-unverified with reason UI
-- [ ] D7 Role-specific surfaces instantiated per role
+### Future Consideration (v2+ / later milestones)
 
-**M3 Dock & BOL (weeks 9–14):**
-
-- [ ] T13 Push notifications with deep links + Critical alerts
-- [ ] T14 eBOL render with PDF share
-- [ ] T15 QR scanner at dock
-- [ ] T16 POD signature + photo capture
-- [ ] D2 **Live rotating QR (30s TTL) with backend-signed payload**
-- [ ] D6 Screenshot block extended to eBOL, live QR, chain-of-trust surfaces
-
-**M4 Intelligence & polish (weeks 15–20):**
-
-- [ ] T18 Offline read-only + queued status updates
-- [ ] T19 Accessibility pass (Dynamic Type + VoiceOver)
-- [ ] D9 AI assistant UI (SHOULD-tier per TechStack §13 — app must be useful without it)
-- [ ] Analytics instrumentation with PII scrubber
-- [ ] (Defer decision: T17 in-app messaging → likely v2 as D8)
-
-**M5 Beta hardening (weeks 21–24):**
-
-- [ ] Crash-rate tuning
-- [ ] Device matrix QA (iPhone 12 / 15, iPad 9th gen / Pro M-series; iOS 17 / 18)
-- [ ] App Store submission prep (privacy manifest, App Store privacy labels)
-- [ ] TestFlight external beta launch
-
-### Add After Validation (v1.x = post-beta, same codebase)
-
-- [ ] Liveness detection upgrade (decision gate from TechStack §12 Open Q1 — Vision-only vs. Jumio/Onfido/Persona buy)
-- [ ] Impossible-travel pre-check on client (currently backend-only per PROJECT.md)
-- [ ] Scan history with backend-confirmed outcomes (FR-iOS-SCAN SHOULD)
-- [ ] Rich notifications with image previews (FR-iOS-NOTIF SHOULD)
-- [ ] Voice input for AI assistant (FR-iOS-AI SHOULD)
-- [ ] iPad bespoke layouts (TechStack §12 Open Q3 — depends on dispatch/factoring iPad usage data)
-- [ ] Apple Business Manager enrollment for large fleets (TechStack §12 Open Q4)
-
-### Future Consideration (v2+)
-
-- [ ] Passkey / WebAuthn migration (TechStack §5.1 MAY)
-- [ ] NFC passport read for non-US drivers (TechStack §5.2 MAY)
-- [ ] Offline QR scan with delayed verification (TechStack §5.11 MAY — explicitly deferred; fraud window risk)
-- [ ] Suggested quick-action chips for AI assistant (FR-iOS-AI MAY)
-- [ ] D8 Custom backend-mediated messaging (if validated by user demand)
-- [ ] Non-English localization (Spanish first per non-functionals)
-- [ ] Android client (separate codebase, separate threat model)
-- [ ] Web client (separate codebase, shared backend)
+- [ ] eBOL rendering + rotating QR + dock scanner on load detail — explicit M3 milestone.
+- [ ] POD signature/photo capture + the `pod_captured` state transition — M3.
+- [ ] Factoring invoice-submission write-path + the `invoiced`/`funded` transitions — post-v1.1.
+- [ ] Map / live truck-location tracking — needs M3 background location + a backend feed.
+- [ ] AI assistant grounded in the chain-of-trust ("this carrier's verification lapsed — do not tender") — M4.
 
 ---
 
@@ -237,147 +313,90 @@ Minimum viable scope for the TestFlight closed beta. Anything below the line is 
 
 | # | Feature | User Value | Implementation Cost | Priority | Notes |
 |---|---------|------------|---------------------|----------|-------|
-| T1 | Phone OTP auth | HIGH | LOW | P1 | Gate-keeps everything |
-| T3 | Role-switched nav | HIGH | MEDIUM | P1 | Product shape |
-| T4 | Live face + DL | HIGH | MEDIUM | P1 | Gate-keeps identity |
-| T6 | Resumable upload | HIGH | MEDIUM | P1 | Avoids T4/T5 data loss |
-| T7 | KYC status + reasons | HIGH | LOW | P1 | Cheap abandonment win |
-| T11 | Tender/Accept | HIGH | MEDIUM | P1 | Core role interaction |
-| T13 | Push notif | HIGH | MEDIUM | P1 | Table-stake expectation |
-| T14 | eBOL render | HIGH | MEDIUM | P1 | Core dock flow |
-| T15 | QR scanner | HIGH | LOW | P1 | Core dock flow |
-| D1 | Chain-of-trust viz | HIGH | HIGH | P1 | The differentiator |
-| D2 | Rotating QR | HIGH | HIGH | P1 | The differentiator |
-| D3 | Device-bound keypair | HIGH | HIGH | P1 | Foundation for D4/D11/T11 |
-| D4 | Refuse-to-tender-unverified | HIGH | MEDIUM | P1 | Moves from vetting to fraud-rail |
-| D6 | Screenshot block | HIGH | MEDIUM | P1 | Core trust story |
-| T2 | Biometric re-prompt | MEDIUM | LOW | P1 | Expected by users |
-| T5 | Vehicle capture | MEDIUM | LOW | P1 | Carrier-required |
-| T8 | Load list | MEDIUM | MEDIUM | P1 | Must exist |
-| T9 | Load detail | MEDIUM | MEDIUM | P1 | Must exist |
-| T10 | One-tap status | MEDIUM | LOW | P1 | Expected |
-| T12 | Real-time updates | MEDIUM | MEDIUM | P1 | Expected |
-| T16 | POD capture | MEDIUM | MEDIUM | P1 | Carrier-expected |
-| T20 | Factoring invoice+BOL | MEDIUM | MEDIUM | P1 | Factoring-role required |
-| T21 | FMCSA lookup | MEDIUM | LOW | P1 | Broker/carrier expected |
-| D5 | US-only pre-check | MEDIUM | MEDIUM | P1 | Invisible-to-user hardening |
-| D7 | Role-unified app | HIGH | HIGH | P1 | Architecture choice |
-| D10 | Portable identity | HIGH | (Platform) | P1 | iOS surface in M2 |
-| D11 | App Attest | MEDIUM | MEDIUM | P1 | Cheap ceiling-raise |
-| D12 | Biometric-bound key | MEDIUM | LOW | P1 | Cheap win |
-| T17 | In-app messaging | MEDIUM | HIGH | P2 | Defer — see A4/D8 |
-| T18 | Offline | MEDIUM | MEDIUM | P2 | M4 |
-| T19 | Accessibility | MEDIUM | LOW | P2 | M4, App Store quality |
-| T22 | Settings | MEDIUM | LOW | P1 | M1–M2 |
-| D8 | Custom chat | MEDIUM | HIGH | P3 | v2 |
-| D9 | AI assistant | MEDIUM | MEDIUM | P2 | M4, SHOULD-tier |
+| — | New load mock endpoints + fixtures | HIGH | MEDIUM | P1 | Gates everything; known v1.0 pattern → low risk, but must be first |
+| L1 | Role-filtered load list | HIGH | MEDIUM | P1 | Critical-path root |
+| L2 | Standard load row | HIGH | LOW | P1 | The list's primary surface |
+| L3 | Load detail screen | HIGH | MEDIUM | P1 | Host for graph + actions |
+| L4 | Status timeline | MEDIUM | LOW-MEDIUM | P1 | Standard pattern; cheap |
+| L5 | Tender / Accept / Reject | HIGH | MEDIUM | P1 | Named milestone deliverable |
+| L6 | One-tap status advance | MEDIUM | LOW | P1 | Carrier/Dispatch; state-machine-driven |
+| L7 | Empty / loading / error states | MEDIUM | LOW | P1 | App Store quality bar |
+| L8 | Pull-to-refresh | HIGH | LOW | P1 | The *only* state-propagation path in a mock-only milestone |
+| L9 | **Chain-of-trust graph** | HIGH | **HIGH** | P1 | The marquee differentiator; flag for deeper phase research |
+| L10 | Verification badge component | HIGH | MEDIUM | P1 | Reused by row, detail, graph, L12 |
+| L11 | Tap-node-for-verification-basis | HIGH | MEDIUM-HIGH | P1 | "Trust cannot be faked" made inspectable |
+| L12 | Refuse-to-tender-to-unverified | HIGH | MEDIUM | P1 | Platform thesis in the load domain; cheap given L10 |
+| L13 | Double-brokering risk rendering | HIGH | MEDIUM | P1 | Mostly rendering; verdict comes from fixture |
+
+**Priority key:** P1 = must have for the v1.1 milestone · P2 = post-v1.1 · P3 = later milestone.
+
+*All v1.1 features are P1 — the milestone was already scoped down to a tight vertical slice, so there is no P2/P3 within v1.1. The relevant ordering signal is the dependency chain (endpoints → list → detail → graph/actions), not priority tiers.*
 
 ---
 
 ## Competitor Feature Analysis
 
-| Feature | Samsara Driver | Uber Freight | McLeod Mobile | Highway / Verified Pickup | Trustd | Vector eBOL | Validation Ledger (proposed) |
-|---------|---------------|--------------|---------------|---------------------------|--------|-------------|-------------------------------|
-| Phone OTP auth | Yes | Yes | Yes | Yes | Yes | Yes | Yes (T1) — Keychain + biometric re-prompt |
-| Face ID re-prompt on sensitive | Partial | Partial | No | Yes | Yes | Partial | Yes (T2) — on every sensitive action, backend-classified |
-| One-active-device enforcement | No | No | No | No | Partial (DIATF-certified) | No | **Yes (A3+D3)** — with re-KYC switch flow |
-| Secure Enclave device-bound key | No | No | No | No | Partial | No | **Yes (D3)** — EC P-256, `.biometryCurrentSet` |
-| App Attest on login | No | No | No | No | No (Android primary) | No | **Yes (D11)** |
-| KYC selfie + DL + vehicle | Driver-only | Carrier-only | Partial | Yes (at registration) | Yes | No (TMS-delegated) | Yes (T4/T5) — all 5 roles |
-| Live rotating QR on BOL | No | No | No | **Encrypted static QR (Verified Pickup, Apr 2026)** | No | No (static digital BOL) | **Yes (D2)** — 30s TTL, backend-signed |
-| eBOL render | No | Yes | Yes | No | No | **Yes (primary feature)** | Yes (T14) — backend-composed PDF |
-| QR scanner at dock | No | No | No | **Yes (Verified Pickup Apr 2026)** | Yes (Secure Collect) | Yes | Yes (T15) — backend-validated |
-| Chain-of-trust visualization | No | No (simple timeline) | No | Partial (carrier-relationship tree) | Partial (credential list) | No | **Yes (D1)** — first-class UI surface |
-| Refuse-to-tender-unverified | No | No | No | Advisory (warn) | Partial (block) | N/A | **Yes (D4)** — hard block with reason |
-| FMCSA lookup | No | Yes | Yes | **Yes (primary)** | N/A (UK) | No | Yes (T21) — backend-mediated |
-| Role-unified app (all 5) | No (Driver-only) | No (Carrier vs. Shipper split) | Partial (TMS + Driver app) | No (Broker vs. Carrier) | Partial | No (facility + driver split) | **Yes (D7)** — all 5 in one binary |
-| Screenshot block on sensitive | No | No | No | No | Yes (DL capture) | No | **Yes (D6)** — eBOL, QR, chain, DL |
-| Background location (carrier active load) | Yes (ELD-grade) | Yes | Yes | No | Yes | No | Yes (A8 carve-out) — opt-in, carrier-role-only |
-| In-app messaging | Yes (via Samsara) | Yes (SendBird-style) | Yes | No | Yes | Partial | Defer (A4) — custom (D8) in v2 |
-| Analytics SDKs | Multiple | Multiple | Multiple | Minimal | Minimal (DIATF-constrained) | Multiple | **None in v1 (A5)** — os_log only in M1 |
-| Offline read-only load+BOL | Yes | Partial | Yes | No | Yes | Yes | Yes (T18) — M4 |
-| Passkey / WebAuthn | No | No | No | No | Partial | No | v2 (TechStack MAY) |
-| Apple Watch companion | Partial | No | No | No | No | No | No (A10) — v1 out of scope |
-| Push w/ deep-link + critical alerts | Yes | Yes | Yes | Partial | Yes | Yes | Yes (T13) — critical alerts for auth anomalies |
-| Invoice submission + BOL (factoring) | No | No | Yes (TMS) | No | No | No | Yes (T20) — factoring role first-class |
-
----
-
-## Sources
-
-**Primary (2026 industry references):**
-
-- [Verified Carrier Launches Verified Pickup, Closing Critical Gap in Freight Fraud Prevention — GlobeNewswire, April 15 2026](https://www.globenewswire.com/news-release/2026/04/15/3274604/0/en/Verified-Carrier-Launches-Verified-Pickup-Closing-Critical-Gap-in-Freight-Fraud-Prevention.html) — the most direct analog to Validation Ledger's dock-handoff flow; validates the thesis
-- [Verified Carrier launches Verified Pickup for driver-level freight verification — FleetOwner, April 2026](https://www.fleetowner.com/safety/news/55371676/verified-carrier-launches-verified-pickup-for-driver-level-freight-verification)
-- [Highway — Carrier Identity & Freight Fraud Prevention](https://highway.com/posts/the-future-of-carrier-identity-combating-fraud-and-double-brokering-in-the-freight-industry)
-- [Trustd Becomes First Digital Identity Platform for Transport & Logistics Certified Under UK DIATF (April 2025)](https://trustd.net/news/trustd-becomes-first-digital-identity-platform-for-transport-logistics-certified-under-uk-digital-identity-framework/)
-- [Trustd iOS app listing (Apple App Store)](https://apps.apple.com/us/app/trustd/id1626268438)
-- [Chameleon Carriers, Fraud Detection, and FMCSA's Evolving Data Strategy — Trucksafe 2026](https://trucksafe.com/post/chameleon-carriers-fraud-detection-and-fmcsa-s-evolving-data-strategy)
-- [FMCSA Broker Transparency Rulemaking (Overdrive)](https://www.overdriveonline.com/regulations/article/15750254/fmcsa-broker-transparency-rulemaking-part-of-illegal-brokering-crackdown)
-- [New FMCSA Rule: Impact on Brokers and Dispatchers in 2026](https://idispatchhub.com/how-fmcsas-new-broker-rule-puts-brokers-and-dispatchers-on-notice/)
-- [McLeod Updates TMS With Benchmark, AI Features (26.1 release, March 2026)](https://www.ttnews.com/articles/mcleod-new-tms-benchmark-ai)
-- [Samsara Unveils New AI Safety Tools for 2026 Fleet Needs](https://fleet-connection.com/technology-telematics-elds/samsara-unveils-new-ai-safety-tools-for-2026-fleet-needs/)
-- [Samsara Driver App (Play Store listing)](https://play.google.com/store/apps/details?id=com.samsara.driver&hl=en_US)
-- [Uber Freight carrier app — searching and booking loads](https://help.uber.com/en/freight/carrier/article/using-the-uber-freight-app-to-search-and-book-loads?nodeId=dfe69814-ea0d-43e8-ad16-f77621cd2e0c)
-- [Uber Freight 2025 enhancements](https://www.uberfreight.com/blog/powering-carrier-success-new-tools-and-enhancements-from-uber-freight-in-2025/)
-- [Vector eBOL product page](https://www.withvector.com/connected-facilities/ebol/)
-- [SmartBOL eBOL solutions](https://smartbol.com/electronic-bill-of-lading-ebol-solutions/)
-- [MobileDock QR check-in features](https://www.mobiledock.com/features)
-- [YardView dock appointments & QR scanning](https://www.yardview.com/dock-appointments)
-- [Trucker Path + McLeod navigation integration (FleetOwner)](https://www.fleetowner.com/technology/article/55142967/mcleod-software-and-trucker-path-integrate-tms-and-navigation-app-capabilities-for-seamless-fleet-operations)
-- [CarShipIO Driver eBOL ePOD (App Store)](https://apps.apple.com/us/app/carshipio-driver-ebol-epod/id1128518437)
-- [DAT acquires Convoy Platform (FreightWaves, 2025)](https://www.freightwaves.com/news/load-matching-wars-escalate-as-dat-snaps-up-convoy)
-- [Descartes MyCarrierPortal — carrier identity & vetting](https://www.mycarrierportal.com/features/carrier-identify-vetting/)
-- [Plaid Identity Verification overview](https://plaid.com/docs/identity-verification/)
-- [Plaid selfie ID verification](https://plaid.com/resources/identity/selfie-id-verification/)
-- [Alloy + Plaid partnership (April 2026)](https://www.alloy.com/about/press/alloy-partners-with-plaid)
-- [Onfido / Entrust Identity Verification](https://onfido.com/)
-- [Jumio how-to-reduce-customer-abandonment](https://www.jumio.com/how-to-reduce-customer-abandonment/)
-
-**KYC abandonment + UX friction research (2026):**
-
-- [How to Reduce KYC Onboarding Drop-Off by 40% — Zyphe](https://www.zyphe.com/resources/blog/reduce-kyc-onboarding-drop-off)
-- [How to Reduce KYC Abandonment in 3 Steps — UXCam](https://uxcam.com/blog/reduce-kyc-abandonment/)
-- [KYC and Onboarding Friction: What Customer Research Reveals](https://www.userintuition.ai/reference-guides/kyc-onboarding-friction-research-guide/)
-- [What truck drivers really think about driver apps — Scanbot SDK](https://scanbot.io/blog/trucking-apps-survey/)
-
-**iOS security posture 2026:**
-
-- [iOS App Security Features You Should Not Ignore in 2026](https://www.mobileappdevelopmentcompany.us/blog/ios-app-security-features-2026/)
-- [Screenshot Prevention in iOS: Advanced Techniques Inspired by Banking & Authenticator Apps](https://medium.com/@thakurneeshu280/screenshot-prevention-in-ios-advanced-techniques-inspired-by-banking-authenticator-apps-0d1900c2a1bb)
-- [Implement Face ID & Touch ID in iOS (Swift 2026) — Complete Guide](https://medium.com/codetodeploy/implement-face-id-touch-id-in-ios-swift-2026-complete-guide-to-biometric-authentication-with-3557f2bcf1db)
-- [Seven Mobile Security Disruptions That Could Blindside You in 2026 — Approov](https://approov.io/blog/seven-mobile-security-disruptions-that-could-blindside-you-in-2026)
-- [525,600 Assessments Later — Top Mobile App Risks Since 2022 — NowSecure](https://www.nowsecure.com/blog/2025/04/30/525600-assessments-later-top-mobile-app-risks-since-2022/)
-- [Impossible Travel Detection — Fingerprint](https://fingerprint.com/blog/impossible-travel-detection/)
-
-**Factoring mobile apps:**
-
-- [OTR Solutions Freight Factoring Mobile App](https://otrsolutions.com/solutions/tools/mobile-app/)
-- [Triumph Network — Freight Payments, Banking, Intelligence](https://triumph.io/)
-- [RTS Factoring & Carrier Services](https://www.rtsinc.com/)
+| Feature | Samsara / Uber Freight / McLeod (legacy TMS) | Highway / Verified Carrier / Trustd (identity-first) | Validation Ledger v1.1 |
+|---------|----------------------------------------------|------------------------------------------------------|------------------------|
+| Role-filtered load list | Yes — but split across separate apps per role | Partial — carrier-facing only | Yes (L1) — all 5 roles, one binary, mock-scoped |
+| Load detail + status timeline | Yes — universal | Limited (identity-focused, not load-ops) | Yes (L3, L4) |
+| Tender / accept / reject | Yes — EDI 204/990 backed | Mostly N/A (not load-execution tools) | Yes (L5) — EDI-204/990-modelled, mock-only |
+| Counterparty verification state on the load | No — identity is a signup step, not load-attached | Yes — but as a separate vetting screen, not per-load | Yes (L10) — trust state attached to every party, everywhere |
+| **Chain-of-trust graph per load** | No | Partial — Highway has a carrier-relationship view; none render the full per-load chain as a tappable node-graph | **Yes (L9)** — first-class, per-load, interactive |
+| Tap-for-verification-basis | No | Partial — credential lists exist | Yes (L11) — KYC date, device binding, USDOT authority, relationship history |
+| Refuse-to-tender-to-unverified | No | Advisory warning only (Highway, Trustd) | **Yes (L12)** — hard client-side block + inline reason |
+| Double-brokering visualised on the load | No | Detected in back-office dashboards, not on the load | Yes (L13) — flagged node/edge on the graph |
 
 ---
 
 ## Confidence Assessment
 
-| Category | Confidence | Rationale |
-|----------|------------|-----------|
-| Table stakes (T1–T23) | HIGH | Cross-verified across 6+ competitors' 2026 product docs, App Store listings, and release notes. Consistent patterns. |
-| Differentiators (D1–D12) | HIGH for D1/D2/D3/D6/D11/D12 — spec'd in TechStack and validated against Verified Pickup / Highway / Trustd gap analysis. MEDIUM for D4/D7/D8/D9/D10 — defensible positions but some (D8, D9) are uncommon and harder to benchmark. | Verified Pickup's April 2026 launch is the strongest external validation of D1/D2 thesis. |
-| Anti-features (A1–A18) | HIGH | Grounded in 2026 iOS security guidance, FMCSA fraud patterns, App Store privacy manifest rules, and driver-review complaints. |
-| Milestone mapping | HIGH | Mapped 1:1 to TechStack §10 and PROJECT.md M1 scope. |
-| Role mapping | HIGH | Mapped from TechStack §4 role-tabs table. |
+| Area | Confidence | Rationale |
+|------|------------|-----------|
+| Load state model | HIGH | EDI 204/990 handshake and TMS shipment-status sequences are well-documented and consistent across sources; the v1.1 truncation at `Delivered` is a deliberate scope decision, not a knowledge gap. |
+| Per-role action matrix | HIGH | The broker-represents-shipper / dispatcher-represents-carrier / factoring-is-downstream structure is the freight industry's settled reality, cross-verified across multiple 2025–2026 sources. |
+| Load list / detail field set | HIGH | The origin/destination/commodity/weight/rate/dates field set is near-universal across load boards and TMS products. |
+| Tender semantics + expiration | HIGH | Directly modelled on EDI 204 G62 "must-respond-by" and EDI 990 accept/reject — the documented industry protocol. |
+| Trust-graph node/edge semantics | MEDIUM | The freight-fraud problem (double brokering, chameleon carriers, USDOT-only identity post-Oct-2025) is HIGH-confidence; the *specific* node/edge data model and four-state visual language is a Validation Ledger design synthesis — defensible and grounded, but no published competitor renders it exactly this way, so it warrants a design/security review during the roadmap. |
+| v1.1 scope boundaries | HIGH | Mapped 1:1 against PROJECT.md's Active list, Deferred-from-M2 list, and the v1.0 codebase contracts (`APIEndpoint`, `MockURLProtocol`, `Features/Loads/` stub, role tab shells). |
 
 **Gaps / open items for phase-specific follow-up:**
 
-- Liveness-SDK vs. Vision-only decision (TechStack §12 Open Q1) needs its own feasibility research at M2 boundary.
-- Chat architecture (D8 vs. defer) needs its own decision at M4 boundary.
-- iPad bespoke layouts vs. adaptive (TechStack §12 Open Q3) needs UX research after M2 launches.
-- SIM-swap recovery UX (Open Q5) needs dedicated research when beta data arrives.
-- The "rotating QR with 30s TTL" pattern: no published competitor does this exactly as spec'd (Verified Pickup uses a static encrypted QR; SmartBOL uses session-bound QRs). This is genuinely novel — worth confirming with a security-review pass before M3.
+- **The chain-of-trust graph (L9) needs a dedicated design + research spike** during roadmap planning: UIKit rendering approach (custom `CALayer`/`UIBezierPath` vs. `UICollectionView` custom layout), the four-state visual language, VoiceOver semantics (ordered-list reading of the chain), and iPad-native wide layout. It is the only HIGH-complexity feature and the milestone's headline — it should be its own phase.
+- **The load/party fixture schema is itself a gating design artifact.** Every party object must carry `verificationState`, `usdotNumber`, `authorityType`, `kycCompletedAt`, `deviceBound` from day one; every load must carry an ordered `chain`, a `chainIntegrity` verdict, a `stateHistory`, and tender data with `respondByAt`. Get this schema right before building the list — it is consumed by L1, L9, L10, L11, L12, L13.
+- **Edge-tap interaction (L9)** is the most plausible scope-trim candidate if the trust-graph phase runs long — node-tap (L11) is essential, edge-tap is a "nice to have."
+- **`post`/`cancel` actions for Shipper/Broker** are listed in the action matrix as optional — confirm during requirements whether v1.1 includes them as real interactions or display-only, since there is no load-creation form (AL5).
+
+## Sources
+
+**Load lifecycle & tender protocol:**
+- [What is Shipment Status Updates? — Owlery](https://owlery.ai/glossary/shipment-status-updates)
+- [Shipment Status & Alerts Workflows — TAI Software](https://learn.tai-software.com/knowledge/shipment-status)
+- [EDI X12 204 Motor Carrier Load Tender overview — EDI2XML](https://www.edi2xml.com/blog/edi-x12-204-motor-carrier-load-tender-overview/)
+- [X12 EDI 204 Motor Carrier Load Tender — Stedi](https://www.stedi.com/edi/x12/transaction-set/204)
+- [EDI 990 Response to a Load Tender — Infocon Systems](https://www.infoconn.com/EDIDOCS/EDI990.htm)
+- [How to automate EDI 204s truckload tender process — Coneksion](https://www.coneksion.com/blog/how-to-automate-edi-204s-truckload-tender-process)
+
+**Roles (broker / dispatcher / carrier / factoring):**
+- [Freight Broker vs. Dispatcher: What's the Difference? — altLINE](https://altline.sobanco.com/freight-broker-vs-dispatcher-differences/)
+- [Freight Broker vs Dispatcher: Key Differences (2026) — O Trucking](https://otrucking.com/resources/guides/freight-broker-vs-dispatcher/)
+- [Freight Brokers vs. Dispatchers — Freight 360](https://www.freight360.net/freight-brokers-vs-dispatchers/)
+- [The Complete Guide to Freight Factoring — Transwest Capital](https://www.transwestcapital.com/blog/the-complete-guide-to-freight-factoring-for-trucking-companies)
+- [Comprehensive Guide to Freight Invoice Factoring — Triumph](https://triumph.io/blog/carrier/comprehensive-guide-to-freight-invoice-factoring/)
+- [What Is Freight Factoring & How Does It Work? — altLINE](https://altline.sobanco.com/freight-factoring/)
+
+**Fraud, chain-of-trust & FMCSA identity (2025–2026):**
+- [Broker and Carrier Fraud and Identity Theft — FMCSA](https://www.fmcsa.dot.gov/mission/help/broker-and-carrier-fraud-and-identity-theft)
+- [Double Brokering: Legal Consequences and FMCSA Penalties (2026) — O Trucking](https://otrucking.com/resources/guides/double-brokering-legal-consequences/)
+- [FMCSA Ditches MC Numbers: What Carriers Must Know — FreightWaves](https://www.freightwaves.com/news/what-it-means-for-the-industry-as-fmcsa-eliminates-mc-numbers-in-2025)
+- [Registration Modernization FAQs — FMCSA](https://www.fmcsa.dot.gov/registration/modernization-faqs)
+- [How Carriers Can Spot and Report Double-Brokering — Truckstop](https://truckstop.com/blog/how-to-report-double-brokering/)
+
+**Load detail / TMS field set:**
+- [Load Board (Truckstop) — TMS Wiki](https://wiki.tms.ai/load-board-truckstop)
+- [Transportation Management Systems (TMS): Features and Providers — AltexSoft](https://www.altexsoft.com/blog/transportation-management-system/)
 
 ---
-
-*Feature research for: Validation Ledger iOS Client (identity-verified freight, iOS 17+, five roles)*
-*Researched: 2026-04-20*
-*Feeds: roadmap phase structure for M1 Foundation; downstream refinement at M2–M5 boundaries*
+*Feature research for: Validation Ledger iOS Client — v1.1 "Load Flows" milestone (load domain only)*
+*Researched: 2026-05-19*
+*Feeds: REQUIREMENTS.md categorisation + REQ-IDs and the v1.1 roadmap phase structure*

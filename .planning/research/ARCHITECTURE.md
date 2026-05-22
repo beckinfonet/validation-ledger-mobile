@@ -1,888 +1,362 @@
-# Architecture Research — Validation Ledger iOS Client
+# Architecture Research
 
-**Domain:** Identity-verified, security-sensitive freight iOS client (UIKit-first, iOS 17+, Swift 5.9+, 1–2 engineers + AI coding tools)
-**Researched:** 2026-04-20
-**Overall confidence:** HIGH
-
-> This file is prescriptive. Where it disagrees with `TechStack.md §3`, a **Delta vs TechStack.md** callout appears with rationale. TechStack.md §3 was written before GSD init and holds up well — the deltas below are surgical, not structural.
+**Domain:** Native iOS feature integration — adding the load domain (list / detail / trust-graph / per-role actions) to a shipped UIKit / MVVM-C / contract-first app
+**Researched:** 2026-05-19
+**Confidence:** HIGH — every claim below is grounded in the actual v1.0 source tree (`validationLedger/`, ~28,700 LOC), not training data. The v1.0 architecture is settled and the patterns are observed directly in shipped files.
 
 ---
 
-## TL;DR — Does TechStack.md §3 Hold Up in 2026?
+## Scope note
 
-**Yes, with four clarifying amendments.** The MVVM + Coordinators + AppContainer + Core/Features split is still the 2026 consensus for UIKit apps of this size and security posture. Uber/DoorDash-scale RIBs/VIPER and TCA are overkill for 1–2 engineers. SwiftUI-only patterns (FlowStacks, stinsen) don't apply because the spec is UIKit-first for the sensitive surfaces that dominate M1–M3.
+This is a SUBSEQUENT-milestone research doc. The v1.0 architecture exists and is not up for redesign. The question is *integration*: where v1.1's load features attach to the existing UIKit AppDelegate + SceneDelegate + AppContainer + AppCoordinator skeleton, the `Core/` modules, the `Features/`+`Roles/` split, and the contract-first `MockURLProtocol` networking. Everything below is either **NEW** (a file/folder v1.1 creates) or **MODIFIES** (an existing v1.0 file v1.1 edits). The two are tagged explicitly because the roadmapper needs that split.
 
-**Amendments to §3:**
-
-1. **Split `Core/Security` into three modules** (`Core/Security`, `Core/KeyStore`, `Core/Attestation`). Single-bucket security modules become junk drawers. (see §5, §6)
-2. **Module cross-talk rule is stricter than §3.2 states.** Cross-feature communication goes through `Core/` **protocol interfaces** — never through `Core/` implementation types. This is the difference between testable and untestable Features. (see §3, §10)
-3. **Role-based shell uses a `RoleCoordinator` swap at the SceneDelegate level, not a TabBarCoordinator swap.** Cleanly wipes state on role change (currently impossible per spec — role change requires re-KYC — but the pattern is correct for logout/switch-account). (see §7)
-4. **ObservableObject + `@Published` stays for M1**, but plan a Swift 6 / `@Observable` migration gate for M4. WWDC23/24/25 signals Combine is in maintenance mode; Observation is the path forward. (see §4)
-
-Everything else in §3 is current.
+One correction up front: `.planning/codebase/*.md` is **stale** (dated 2026-04-21, "brand-new SwiftUI scaffold"). It predates all of v1.0. The real, current layout is the `validationLedger/` tree on disk — that is what this doc is built against. `TechStack.md` referenced by `CLAUDE.md`/`PROJECT.md` is **not present at the repo root** (removed in commit `7e14f7d` / archived); PROJECT.md is the authoritative scope source and was used instead.
 
 ---
 
 ## Standard Architecture
 
-### System Overview
+### System Overview — v1.1 load slice over the v1.0 skeleton
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                            App/  (composition root)                       │
-│  ┌────────────────┐  ┌────────────────┐  ┌─────────────────────────┐     │
-│  │ AppDelegate    │  │ SceneDelegate  │  │ AppContainer            │     │
-│  │ (APNs reg,     │  │ (owns window,  │  │ (builds all deps,       │     │
-│  │  background    │  │  routes to     │  │  passes to root coord)  │     │
-│  │  tasks)        │  │  RoleCoord)    │  │                         │     │
-│  └────────────────┘  └───────┬────────┘  └────────────┬────────────┘     │
-│                              │                        │                   │
-│                              ▼                        ▼                   │
-│                     ┌─────────────────────────────────────┐               │
-│                     │       AppCoordinator                │               │
-│                     │  (launch → auth → role selection)   │               │
-│                     └──────────┬──────────────────────────┘               │
-│                                │                                          │
-│        ┌───────────────────────┼───────────────────────┐                  │
-│        ▼                       ▼                       ▼                  │
-│  ┌──────────┐            ┌──────────┐            ┌──────────┐             │
-│  │ AuthCoord│            │OnboardC. │            │RoleCoord │             │
-│  │ (OTP,    │            │(KYC flow)│            │(per-role │             │
-│  │  bio)    │            │          │            │ tab bar) │             │
-│  └──────────┘            └──────────┘            └─────┬────┘             │
-└───────────────────────────────────────────────────────┼──────────────────┘
-                                                        │
-                     ┌──────────────────────────────────┼──────────────────┐
-                     │           Features/              │                  │
-                     │  ┌────────┐  ┌────────┐  ┌───────▼──┐  ┌─────────┐ │
-                     │  │ Loads  │  │ BOL    │  │ Scanner  │  │ Profile │ │
-                     │  │ (VM+C) │  │ (VM+C) │  │ (VM+C)   │  │ (VM+C)  │ │
-                     │  └───┬────┘  └───┬────┘  └────┬─────┘  └────┬────┘ │
-                     └──────┼───────────┼────────────┼─────────────┼──────┘
-                            │           │            │             │
-                            ▼           ▼            ▼             ▼
-                     ┌──────────────────────────────────────────────────┐
-                     │                     Core/                         │
-                     │  (Features depend ONLY on Core protocol types)    │
-                     │                                                    │
-                     │  ┌────────────┐  ┌────────────┐  ┌─────────────┐ │
-                     │  │ Networking │  │ Auth       │  │ KeyStore    │ │
-                     │  │ (NetClient │◄─┤ (Session,  │◄─┤ (SecEnclave │ │
-                     │  │  interceptr│  │  tokens)   │  │  P-256)     │ │
-                     │  │  cert pin) │  │            │  │             │ │
-                     │  └─────┬──────┘  └─────┬──────┘  └──────┬──────┘ │
-                     │        │               │                │        │
-                     │  ┌─────▼──────┐  ┌─────▼──────┐  ┌──────▼──────┐ │
-                     │  │ Storage    │  │ Identity   │  │ Attestation │ │
-                     │  │ (Keychain, │  │ (KYC capt, │  │ (AppAttest, │ │
-                     │  │  SQLCipher,│  │  Vision)   │  │  DeviceChk) │ │
-                     │  │  queue)    │  │            │  │             │ │
-                     │  └────────────┘  └────────────┘  └─────────────┘ │
-                     │                                                    │
-                     │  ┌────────────┐  ┌────────────┐  ┌─────────────┐ │
-                     │  │ Realtime   │  │ Logging    │  │ Security    │ │
-                     │  │ (WS/SSE    │  │ (os_log +  │  │ (screenshot │ │
-                     │  │  abstrn)   │  │  PII scrub)│  │  block, JB) │ │
-                     │  └────────────┘  └────────────┘  └─────────────┘ │
-                     │                                                    │
-                     │  ┌────────────┐  ┌────────────┐                   │
-                     │  │ Analytics  │  │ AIKit      │                   │
-                     │  │ (PII-aware)│  │ (backend-  │                   │
-                     │  │            │  │  mediated) │                   │
-                     │  └────────────┘  └────────────┘                   │
-                     └───────────────────────────────────────────────────┘
-                                      │
-                     ┌────────────────▼────────────────────┐
-                     │            UI/  (design system)      │
-                     │  Shared components, colors, spacing  │
-                     │  (no Core/ or Features/ deps)        │
-                     └──────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│  App/ (composition root — MODIFIED, not restructured)                  │
+│  AppContainer  ──makeLoadListScreen(role:)──┐  (new factory methods)    │
+│                ──makeLoadDetailScreen(id:)──┤                          │
+├─────────────────────────────────────────────┼─────────────────────────┤
+│  Roles/  (5 tab-bar shells — MODIFIED)        │                         │
+│  ShipperTabBarController … FactoringTabBar    │  each swaps its         │
+│      └─ "Loads" tab placeholder ──────────────┘  placeholder VC for     │
+│                                                   a real Loads stack    │
+├──────────────────────────────────────────────────────────────────────┤
+│  Features/Loads/  (NEW feature module — the bulk of v1.1)               │
+│  ┌────────────┐  ┌────────────┐  ┌──────────────────────────────┐      │
+│  │ LoadList   │  │ LoadDetail │  │ TrustGraph (child component)  │      │
+│  │ Coordinator│  │ Coordinator│  │  TrustGraphView + ViewModel   │      │
+│  │  VC + VM   │  │  VC + VM   │  │  (no coordinator of its own)  │      │
+│  └─────┬──────┘  └─────┬──────┘  └──────────────┬───────────────┘      │
+│        │ push(loadID)  │ child VC               │ tap → present sheet  │
+│        └───────────────┴────────────────────────┘                      │
+├──────────────────────────────────────────────────────────────────────┤
+│  Core/  (shared kernel — MODIFIED + small NEW additions)                │
+│  ┌──────────────────────────┐  ┌────────────────────────────────────┐  │
+│  │ Core/Networking/         │  │ Core/Load/  (NEW small module)      │  │
+│  │  Endpoints/              │  │  Load, ChainOfTrust, TrustNode,     │  │
+│  │   LoadListEndpoint   NEW │  │  LoadStatus, LoadAction,            │  │
+│  │   LoadDetailEndpoint NEW │  │  RoleLoadPolicy  (pure value types  │  │
+│  │   LoadActionEndpoint NEW │  │  + role-action policy table)        │  │
+│  │  Mock/                   │  └────────────────────────────────────┘  │
+│  │   MockDefaultFixtures +  │  consumed by ALL 5 role shells; no       │
+│  │   MockLoadFixtureRegistry│  feature owns the domain types           │
+│  └──────────────────────────┘                                          │
+│  Core/Networking/APIClient — UNCHANGED (typed-endpoint facade)          │
+└──────────────────────────────────────────────────────────────────────┘
 ```
-
-**Dependency direction (strict, enforced by SPM module boundaries):**
-
-```
-App/  →  Features/  →  Core/ (protocols)  ←  Core/ (implementations)
-                                 ↑
-                                 UI/  (pure visual, depends on nothing)
-```
-
-Features never import Core implementation types. They receive them via initializer injection as protocol existentials (`any AuthService`, `any NetworkClient`, etc.). This is the boundary that makes the Core/ testable without feature coupling (see Quality Gate item #10).
 
 ### Component Responsibilities
 
-| Component | Responsibility | Typical Implementation |
-|-----------|----------------|------------------------|
-| **App/AppDelegate** | APNs registration, background task registration (`BGTaskScheduler`), crash-handler install | Thin — delegates to `AppContainer` |
-| **App/SceneDelegate** | Owns `UIWindow`, picks root coordinator (launch → auth → role), handles scene lifecycle (>5min background → biometric re-prompt trigger) | Single SceneDelegate; no multi-scene in v1 |
-| **App/AppContainer** | Instantiates every `Core/` service once, holds strong refs, hands them to coordinators | Plain struct or class, no DI framework |
-| **App/AppCoordinator** | Top-level flow: launch → (auth needed? → `AuthCoordinator`) → (kyc pending? → `OnboardingCoordinator`) → `RoleCoordinator` | Standard coordinator — owns a `UINavigationController` or root `UIWindow.rootViewController` |
-| **Features/\*/Coordinator** | Per-feature navigation, push/present, deep-link handling | One coordinator per feature; holds weak ref to parent |
-| **Features/\*/ViewModel** | Presentation state, exposes `@Published` properties, owns async tasks for that screen | `@MainActor` class, `ObservableObject` in M1, `@Observable` after M4 migration |
-| **Features/\*/ViewController** | Dumb — binds ViewModel via Combine subscribers, forwards user actions | UIKit; no business logic, no networking |
-| **Core/Networking/NetworkClient** | All HTTP; owns URLSession, auth header injection, cert pin delegate, retry policy | Actor-based `URLSession` wrapper; exposes async/await API |
-| **Core/Networking/Interceptor** | Request-signing (device key), idempotency-key injection, auth refresh | Chain of interceptor protocols; `AuthInterceptor`, `DeviceSignatureInterceptor`, `IdempotencyInterceptor` |
-| **Core/Auth** | Session state, token storage orchestration, OTP flow, biometric gate | Owns `SessionStore` (actor), `OTPService`, `BiometricService` |
-| **Core/KeyStore** (new, split from §3 `Security/`) | Secure Enclave P-256 key lifecycle, sign/verify, key rotation | Thin wrapper over `SecureEnclave.P256.Signing.PrivateKey` from CryptoKit |
-| **Core/Attestation** (new, split from §3 `Security/`) | App Attest key + assertion, DeviceCheck token | `DCAppAttestService` wrapper; deferred past M1 per PROJECT.md |
-| **Core/Security** (narrowed) | Screenshot/recording block, jailbreak heuristics, cert-pin configuration (NOT cert-pin implementation — that lives in Networking) | Standalone observers + feature flags |
-| **Core/Storage** | Keychain (`SecItem` wrapper), encrypted SQLite outbound queue, file-backed caches | Hand-rolled Keychain wrapper per STACK.md; SQLCipher or `CryptoKit.AES.GCM` over SQLite for queue |
-| **Core/Identity** | KYC capture orchestration, Vision face-landmark pipeline, DL scan, upload-pipeline facade | Coordinates `AVCaptureSession` + `VisionKit` + `Core/Networking` upload |
-| **Core/Realtime** | WebSocket/SSE abstraction (`RealtimeChannel` protocol), retry + reconnect + heartbeat | `URLSessionWebSocketTask` impl for M2+; SSE impl behind same protocol |
-| **Core/Logging** | `OSLog.Logger` facades per subsystem, PII scrubber, `OSLogStore` export for support dumps | Structured — `Logger(subsystem: "com.maldin.validationLedger", category: "auth")` |
-| **Core/Analytics** | Event abstraction, PII-aware serializer (compile-time prevents raw PII attach) | Phantom-typed events so a `RawCoordinate` cannot be attached to an `AnalyticsEvent` |
-| **Core/AIKit** | Assistant client (backend-mediated only, never calls Anthropic) | Thin wrapper over `Core/Networking` with SSE stream rendering |
-| **UI/** | Design system, shared `UIView` subclasses, spacing/color tokens, accessibility helpers | No Core/ dependencies; no networking |
+| Component | Responsibility | NEW / MODIFIES | Module path |
+|-----------|----------------|----------------|-------------|
+| `Load`, `ChainOfTrust`, `TrustNode`, `LoadStatus`, `LoadParty`, `VerificationState` | Pure `Decodable & Sendable` value types — the load domain model. Shared by all 5 roles. | NEW | `validationLedger/Core/Load/` |
+| `LoadAction` + `RoleLoadPolicy` | Enum of tender/accept/reject + a pure table mapping `(Role, LoadStatus) → [LoadAction]`. The single source of truth for "what can this role do to this load." | NEW | `validationLedger/Core/Load/` |
+| `LoadListEndpoint`, `LoadDetailEndpoint`, `LoadActionEndpoint` | Typed `APIEndpoint` conformers — the load-domain wire contract. | NEW | `validationLedger/Core/Networking/Endpoints/` |
+| `MockLoadFixtureRegistry` + JSON fixtures | Registers `MockURLProtocol` handlers for the 3 load endpoints; new fixture files. | NEW | `validationLedger/Core/Networking/Mock/` + `validationLedgerTests/Networking/Fixtures/` |
+| `LoadsCoordinator` | Owns the Loads-tab `UINavigationController`; pushes list → detail; mediates action results. One per role tab (5 instances, same class). | NEW | `validationLedger/Features/Loads/` |
+| `LoadListViewController` + `LoadListViewModel` | Role-filtered load list. VM calls `APIClient.request(LoadListEndpoint(role:))`. | NEW | `validationLedger/Features/Loads/` |
+| `LoadDetailViewController` + `LoadDetailViewModel` | Single load detail; hosts the trust-graph child VC; surfaces the role's action set. | NEW | `validationLedger/Features/Loads/` |
+| `TrustGraphViewController` + `TrustGraphView` + `TrustGraphViewModel` | The interactive chain-of-trust node-graph. A reusable **child view controller**, not a coordinator. | NEW | `validationLedger/Features/Loads/TrustGraph/` |
+| 5 role tab-bar controllers | Swap the placeholder "Loads" tab `UIViewController` for a real `LoadsCoordinator.rootViewController`. | MODIFIES | `validationLedger/Roles/<Role>/` |
+| `AppContainer` | Gains `makeLoadListScreen(role:)` / `makeLoadDetailScreen(loadID:)` composition-root factories; registers `MockLoadFixtureRegistry` in the DEBUG mock block. | MODIFIES | `validationLedger/App/AppContainer.swift` |
+| `APIClient`, `MockURLProtocol`, `APIEndpoint` | **UNCHANGED.** The typed-endpoint facade already accepts any new `APIEndpoint`; mock matching is path+method-generic. | — | `validationLedger/Core/Networking/` |
 
 ---
 
 ## Recommended Project Structure
 
 ```
-ValidationLedger/
-├── App/
-│   ├── AppDelegate.swift
-│   ├── SceneDelegate.swift
-│   ├── AppContainer.swift
-│   ├── AppCoordinator.swift
-│   └── Environment.swift            # dev/staging/prod config
+validationLedger/
+├── Core/
+│   ├── Load/                               # NEW — shared load domain kernel
+│   │   ├── Load.swift                      #   Load, LoadStop, LoadStatus
+│   │   ├── ChainOfTrust.swift              #   ChainOfTrust, TrustNode, LoadParty,
+│   │   │                                   #   VerificationState  (graph data model)
+│   │   ├── LoadAction.swift                #   enum LoadAction { .tender/.accept/.reject }
+│   │   └── RoleLoadPolicy.swift            #   pure (Role, LoadStatus) → [LoadAction] table
+│   │
+│   └── Networking/
+│       ├── Endpoints/
+│       │   ├── LoadListEndpoint.swift      # NEW — GET  /loads?role=…
+│       │   ├── LoadDetailEndpoint.swift    # NEW — GET  /loads/{id}
+│       │   └── LoadActionEndpoint.swift    # NEW — POST /loads/{id}/actions
+│       └── Mock/
+│           └── MockLoadFixtureRegistry.swift  # NEW — registers the 3 load handlers
+│                                              #       (mirrors MockOTPRoleFixtureRegistry)
 │
-├── Core/                            # each is a local SPM package in M2+
-│   ├── Networking/
-│   │   ├── NetworkClient.swift      # protocol + actor impl
-│   │   ├── MockURLProtocol.swift    # M1 contract-first stub
-│   │   ├── Interceptors/
-│   │   │   ├── AuthInterceptor.swift
-│   │   │   ├── DeviceSignatureInterceptor.swift
-│   │   │   └── IdempotencyInterceptor.swift
-│   │   ├── CertificatePinning/
-│   │   │   ├── PinningSessionDelegate.swift
-│   │   │   └── PinnedCertificateStore.swift
-│   │   └── Errors/
-│   ├── Auth/
-│   │   ├── SessionStore.swift       # actor, observable state
-│   │   ├── OTPService.swift
-│   │   ├── BiometricService.swift
-│   │   └── TokenRefreshPolicy.swift
-│   ├── KeyStore/                    # split from Security/
-│   │   ├── SecureEnclaveKeyManager.swift
-│   │   ├── KeyStoreProtocol.swift   # for mocking in tests
-│   │   └── MockKeyStore.swift       # test-target only
-│   ├── Attestation/                 # split from Security/
-│   │   ├── AppAttestService.swift
-│   │   └── DeviceCheckService.swift
-│   ├── Security/                    # narrowed scope
-│   │   ├── ScreenshotGuard.swift
-│   │   ├── ScreenRecordingDetector.swift
-│   │   ├── JailbreakHeuristics.swift
-│   │   └── SecurityConfig.swift     # pin config lives here
-│   ├── Storage/
-│   │   ├── Keychain/
-│   │   │   ├── KeychainStore.swift
-│   │   │   └── KeychainKey.swift
-│   │   ├── OutboundQueue/           # offline mutation queue
-│   │   │   ├── QueuedMutation.swift
-│   │   │   ├── EncryptedQueueStore.swift
-│   │   │   └── QueueFlusher.swift
-│   │   └── Cache/                   # BOL cache, image cache
-│   ├── Identity/
-│   │   ├── KYCCoordinator.swift     # captures flow
-│   │   ├── LivenessDetector.swift   # Vision wrapper
-│   │   ├── DocumentScanner.swift    # VisionKit wrapper
-│   │   └── UploadPipeline.swift
-│   ├── Realtime/
-│   │   ├── RealtimeChannel.swift    # protocol
-│   │   ├── WebSocketChannel.swift
-│   │   ├── SSEChannel.swift
-│   │   └── ReconnectPolicy.swift
-│   ├── Logging/
-│   │   ├── Loggers.swift            # category-specific OSLog instances
-│   │   ├── PIIScrubber.swift
-│   │   └── LogExporter.swift        # OSLogStore dumps
-│   ├── Analytics/
-│   │   ├── AnalyticsEvent.swift     # phantom-typed
-│   │   ├── AnalyticsTransport.swift # protocol
-│   │   └── NoOpAnalytics.swift      # M1 impl
-│   └── AIKit/
-│       ├── AssistantClient.swift
-│       └── StreamDecoder.swift      # SSE stream parser
+├── Features/
+│   └── Loads/                              # NEW — the v1.1 feature module
+│       ├── LoadsCoordinator.swift          #   owns the Loads-tab UINavigationController
+│       ├── List/
+│       │   ├── LoadListViewController.swift
+│       │   ├── LoadListViewModel.swift
+│       │   └── LoadListCell.swift
+│       ├── Detail/
+│       │   ├── LoadDetailViewController.swift
+│       │   ├── LoadDetailViewModel.swift
+│       │   └── LoadActionBar.swift         #   tender/accept/reject UIControl strip
+│       └── TrustGraph/
+│           ├── TrustGraphViewController.swift   # child VC
+│           ├── TrustGraphView.swift             # the node-graph UIView (custom drawing)
+│           ├── TrustGraphViewModel.swift        # layout + per-node verification state
+│           └── TrustNodeDetailViewController.swift  # the tap-through party sheet
 │
-├── Features/                        # each a local SPM package in M2+
-│   ├── Onboarding/                  # auth + KYC flows
-│   │   ├── OnboardingCoordinator.swift
-│   │   ├── PhoneEntry/ …
-│   │   ├── OTPEntry/ …
-│   │   └── KYCCapture/ …
-│   ├── Loads/
-│   │   ├── LoadsCoordinator.swift
-│   │   ├── LoadList/ …
-│   │   └── LoadDetail/ …
-│   ├── BOL/
-│   ├── Scanner/
-│   ├── Assistant/
-│   ├── Profile/
-│   └── Settings/
+├── Roles/
+│   ├── ShipperTabBarController.swift       # MODIFIES — "Loads" tab → LoadsCoordinator
+│   ├── BrokerTabBarController.swift        # MODIFIES — same
+│   ├── CarrierTabBarController.swift       # MODIFIES — same
+│   ├── DispatchTabBarController.swift      # MODIFIES — same
+│   └── FactoringTabBarController.swift     # MODIFIES — same
 │
-├── Roles/                           # NEW — per TechStack.md §4, five roles
-│   ├── RoleCoordinator.swift        # base — swaps tab bar per role
-│   ├── Shipper/ShipperCoordinator.swift
-│   ├── Broker/BrokerCoordinator.swift
-│   ├── Carrier/CarrierCoordinator.swift
-│   ├── Dispatch/DispatchCoordinator.swift
-│   └── Factoring/FactoringCoordinator.swift
-│
-├── UI/
-│   ├── DesignSystem/
-│   │   ├── Colors.swift
-│   │   ├── Spacing.swift
-│   │   └── Typography.swift
-│   └── Components/
-│       ├── VLButton.swift
-│       ├── VLTextField.swift
-│       └── ChainOfTrustTimeline.swift   # FR-iOS-LOAD hero component
-│
-└── Resources/
-    ├── Assets.xcassets
-    ├── Localizable.strings
-    └── PrivacyInfo.xcprivacy
+└── App/
+    └── AppContainer.swift                  # MODIFIES — load factories + mock registration
+
+validationLedgerTests/Networking/Fixtures/  # NEW JSON fixtures
+    ├── loads-list-{shipper,broker,carrier,dispatch,factoring}.json
+    ├── load-detail-success.json
+    ├── load-detail-not-found.json
+    ├── load-action-success.json
+    └── load-action-conflict.json           # 409 — stale action / already-tendered
 ```
 
 ### Structure Rationale
 
-- **`App/` is the composition root** — the ONLY place that knows about concrete `Core/` implementations. Everything else sees protocols. This is the single principle that preserves testability as the codebase grows.
-- **`Core/KeyStore/` and `Core/Attestation/` are split out** from TechStack.md §3.2's single `Core/Security/` bucket. Security modules that bundle "certificate pinning + screenshot block + jailbreak detection + key management + attestation" become unreadable at 5+ services. Splitting by *trust primitive* (key material, device integrity claim, runtime defense) pays back within the first month.
-- **`Roles/` is a new top-level directory** not shown in §3.2. The five-role requirement from §4 is too big to live inside `App/` as nested coordinators and too cross-cutting to live inside one `Features/` module. Its coordinators wire `Features/*` modules into role-specific tab bars.
-- **Features are self-contained** exactly per §3.2: each has its own coordinator, view controllers, view models, and repository *protocol* (implementation injected by `AppContainer`).
-- **`UI/` has no outward dependencies** — it's the design system. Features depend on it; it depends on nothing. Prevents circular imports when features expand.
-- **Local SPM packages** per `Core/*` and `Features/*` module start paying off around ~15 modules or ~30 engineers; for 1–2 engineers, a single target with group folders in M1 is fine, and converting to local SPM is a near-mechanical refactor. The STACK.md note about committing `.xcodeproj` without tuist/xcodegen aligns with this — optimize for M1 simplicity, modularize later ([Modular SPM improves build times ~40%](https://ravi6997.medium.com/modern-ios-architecture-building-a-modular-project-with-swift-package-manager-033d8de9799f)).
+- **`Core/Load/` is a NEW shared kernel — not a feature, not duplicated per role.** The load domain types (`Load`, `ChainOfTrust`, `LoadAction`, `RoleLoadPolicy`) are consumed by **all 5 role shells** and by the single `Features/Loads/` module. v1.0 already establishes this exact pattern: `Roles/Role.swift`, `Core/Identity/KYC/KYCSession.swift`, and `KYCUploadInitEndpoint.ArtifactType` are shared domain types that live in `Core/` (or `Roles/`) and are imported freely by features. Putting load types in `Core/Load/` makes them importable by everyone *without* tripping the no-cross-feature-import rule (that rule only fires on `import Features_X` — see §Internal Boundaries). This is the single most important placement decision in v1.1.
 
-**Suggested module migration timeline:**
+- **One `Features/Loads/` module, not five.** The list and detail screens are *structurally identical* across roles — same network call shape, same VC, same VM. Only two things vary by role: (a) which loads come back (server-side / fixture-side filter, keyed by the `role` query param) and (b) which action buttons show (`RoleLoadPolicy`, a pure data table). Neither variation justifies a per-role VC. v1.0 already proved this generalization works: `VehicleCaptureViewController` is one VC parameterized by `ArtifactType` for dlBack/truck/trailer/plate. The load screens follow the same "one VC, parameterized" rule — parameterized by `Role`.
 
-| Milestone | Structure |
-|---|---|
-| M1 | Single app target, group folders matching the tree above |
-| M2 | Extract `Core/Networking` + `Core/Auth` as local SPM packages (they're used by every feature; biggest build-time win) |
-| M3 | Extract `Core/KeyStore`, `Core/Storage`, `Core/Realtime`, `Core/Identity` as local SPM packages |
-| M4 | Extract `Features/*` as local SPM packages as needed; leave stable features as-is |
+- **`Features/Loads/` uses `List/ Detail/ TrustGraph/` subfolders.** v1.0's largest feature, `Features/Onboarding/`, already nests (`Auth/`, `KYC/`, `KYC/Capture/`). The Loads feature is comparably sized (list + detail + an interactive graph + actions) and benefits from the same internal grouping. Critically, the no-cross-feature-import lint rule keys on the *first* path segment under `Features/` (`Features/[^/]+/`), so `Features/Loads/List/` and `Features/Loads/TrustGraph/` are the **same** feature — subfolders inside one feature import each other freely.
+
+- **`TrustGraph/` is inside `Features/Loads/`, not in `Core/` or `UI/`.** The graph *renders* a `Core/Load/ChainOfTrust` value, but it is not a generic, reusable design-system widget — it is specific to the load-detail surface. It belongs to the Loads feature. Only the *data* it renders (`ChainOfTrust`/`TrustNode`) is in `Core/Load/`. (Contrast: `UI/DesignSystem/` holds `Colors`, `Spacing`, `Typography` — genuinely cross-feature primitives. The trust graph is not that.)
+
+- **The 5 role tab-bar controllers each get a one-line edit, no new files.** Today every role's "Loads" tab is `Self.makeTab(title: "Loads", systemImage: "shippingbox")` — a placeholder bare `UIViewController`. v1.1 replaces that single array entry with a real `LoadsCoordinator(role:container:).rootViewController`. Five small, mechanically-identical edits; no new files in `Roles/`.
 
 ---
 
 ## Architectural Patterns
 
-### Pattern 1: MVVM-C with Initializer DI
+### Pattern 1: Role-parameterized feature, role-keyed network filter
 
-**What:** Model-View-ViewModel with a Coordinator owning navigation. Every coordinator and view model receives its dependencies through its initializer from `AppContainer`. No singletons. No service locator.
+**What:** One `LoadListViewController` / `LoadListViewModel`, constructed with a `Role`. The VM issues `LoadListEndpoint(role: role)` — a GET with the role as a query parameter. The server (and, for v1.1, the `MockURLProtocol` fixture) returns the already-filtered list for that role. The client does **not** filter client-side; filtering is a contract concern, so the eventual mock→live swap needs zero list-screen changes.
 
-**When to use:** Default for every screen, every feature, every role.
+**When to use:** Whenever the same screen is surfaced across all 5 role shells with a role-scoped data set. Applies to both list and detail.
 
-**Trade-offs:**
-- **Pro:** Testable without fixtures — you construct a ViewModel with mock protocols. No magic.
-- **Pro:** Forces explicit dependency graphs — you can't hide coupling.
-- **Con:** Parameter lists get long (10+ deps is a smell — split the ViewModel or extract a facade).
-- **Con:** No lazy init — every dep is alive at launch. For 15-20 Core services this is fine; past 50 you need Factory or Needle.
+**Trade-offs:** (+) Zero code duplication; one VC/VM to test and maintain. (+) Filtering logic stays server-authoritative — matches the v1.0 principle "backend is the sole authority" and means no refactor at live-swap. (−) Each role needs its own mock fixture file (`loads-list-<role>.json`) — 5 small JSON files, an acceptable cost and exactly how `MockOTPRoleFixtureRegistry` already varies its response by role.
 
 **Example:**
-
 ```swift
-// Core/Auth/AuthServiceProtocol.swift
-protocol AuthService: AnyObject, Sendable {
-    var sessionState: AnyPublisher<SessionState, Never> { get }
-    func requestOTP(phone: String) async throws
-    func verifyOTP(_ code: String) async throws -> Session
-    func logout() async
+// Core/Networking/Endpoints/LoadListEndpoint.swift  (NEW)
+nonisolated public struct LoadListEndpoint: APIEndpoint {
+    public typealias RequestBody = EmptyBody
+    public struct Response: Decodable, Sendable { public let loads: [Load] }
+    public let path: String
+    public let method: HTTPMethod = .get
+    public let body: RequestBody? = nil
+    public init(role: Role) { self.path = "/loads?role=\(role.rawValue)" }
 }
-
-// Features/Onboarding/OTPEntryViewModel.swift
-@MainActor
-final class OTPEntryViewModel: ObservableObject {
-    @Published private(set) var state: State = .idle
-    @Published var code: String = ""
-
-    private let auth: any AuthService
-    private let coordinator: OnboardingCoordinator
-    private var tasks: Set<Task<Void, Never>> = []
-
-    init(auth: any AuthService, coordinator: OnboardingCoordinator) {
-        self.auth = auth
-        self.coordinator = coordinator
-    }
-
-    func submit() {
-        let task = Task { [weak self] in
-            guard let self else { return }
-            self.state = .verifying
-            do {
-                let session = try await self.auth.verifyOTP(self.code)
-                self.coordinator.didAuthenticate(session: session)
-            } catch {
-                self.state = .failed(error)
-            }
-        }
-        tasks.insert(task)
-    }
-
-    deinit {
-        tasks.forEach { $0.cancel() }
-    }
-}
+// LoadsCoordinator builds LoadListViewModel(role: role, apiClient: container.apiClient, …)
 ```
 
-### Pattern 2: Combine for UI Binding, async/await for Work
+### Pattern 2: Per-role action sets as a pure policy table (`RoleLoadPolicy`)
 
-**What:** ViewModel exposes `@Published` state (Combine) that the View subscribes to. Inside the ViewModel, all work is async/await. When an async method finishes, it assigns to `@Published` via `@MainActor` isolation.
+**What:** "Which of tender/accept/reject can role X take on a load in status Y?" is answered by a **pure function over data**, not by branching scattered through the detail VC. `RoleLoadPolicy.actions(for: role, status: load.status) -> [LoadAction]` is a single deterministic table in `Core/Load/`. `LoadDetailViewModel` calls it once; `LoadActionBar` renders exactly the returned buttons.
 
-**When to use:** Every ViewModel. This is the "2026 right way" per Swift by Sundell and the [Medium 2026 article on hybrid ViewModels](https://medium.com/@maatheusgois/hybrid-viewmodels-with-combine-and-swift-concurrency-5bb7dfdc9955).
+**When to use:** Whenever behavior varies along two axes (role × state) and must stay consistent across 5 entry points. v1.0 uses the same shape: `KYCFlowSequencer` is a "pure, simulator-testable" struct extracted from `KYCCoordinator` precisely so the rule logic is unit-tested without UIKit. `RoleLoadPolicy` is the load-domain analog.
 
-**Trade-offs:**
-- **Pro:** Combine is what UIKit binds to naturally; async/await is what work is written in. Match the tool to the job.
-- **Pro:** Structured concurrency prevents zombie tasks when VMs deinit.
-- **Con:** Two paradigms to reason about. Solution: rule that Combine stays in the VM boundary; no Combine in `Core/`.
+**Trade-offs:** (+) Exhaustively unit-testable with zero UIKit — 5 roles × N statuses is a table-driven test. (+) Adding a role or status is a one-line table edit, not a VC change. (+) The server can return its *own* allowed-actions list later; `RoleLoadPolicy` then becomes a client-side pre-filter / fallback, no structural change. (−) The policy must be kept in sync with backend authorization — but the action endpoint still fails server-side, so a client/table drift is a UX bug, never a security hole.
 
-**Task cancellation discipline:**
-
+**Example:**
 ```swift
-// Wrong — leaks if ViewModel is dismissed mid-request
-func load() {
-    Task {
-        self.items = try await repo.fetch()
-    }
-}
+// Core/Load/RoleLoadPolicy.swift  (NEW)
+public enum LoadAction: String, Sendable, CaseIterable { case tender, accept, reject }
 
-// Right — task is cancelable on deinit and checks cancellation
-private var loadTask: Task<Void, Never>?
-
-func load() {
-    loadTask?.cancel()
-    loadTask = Task { [weak self] in
-        guard let self else { return }
-        do {
-            let items = try await self.repo.fetch()
-            try Task.checkCancellation()
-            self.items = items
-        } catch is CancellationError {
-            return
-        } catch {
-            self.error = error
+public enum RoleLoadPolicy {
+    public static func actions(for role: Role, status: LoadStatus) -> [LoadAction] {
+        switch (role, status) {
+        case (.broker,  .draft):     return [.tender]
+        case (.carrier, .tendered):  return [.accept, .reject]
+        case (.dispatch, .tendered): return [.accept, .reject]
+        // … one row per legal (role, status) pair; default → []
+        default:                     return []
         }
     }
 }
-
-deinit { loadTask?.cancel() }
 ```
 
-**Delta vs TechStack.md §3.4:** §3.4 says "Combine for UI state binding... Avoid mixing GCD into new code." This is correct but incomplete. Add: **Every `Task` created inside a ViewModel must be stored and cancelled on deinit, or created via `.task` modifier (SwiftUI only).** UIKit VMs don't have `.task` — they must track Task handles manually. This is the #1 Swift Concurrency leak mode per Apple Developer Forums.
+### Pattern 3: Trust graph as a self-contained child view controller
 
-**M4 migration gate:** Once iOS 17 features are exercised and Swift 6 strict concurrency is stable, migrate ViewModels from `ObservableObject + @Published` to `@Observable`. The Observation framework offers [higher-precision reactivity and lower allocation cost](https://www.infoq.com/news/2023/06/swiftui-5-wwdc-2023-observation/). For UIKit binding, you'll need an `Observation → AnyPublisher` bridge helper (non-trivial; defer to M4 when the migration is worth doing).
+**What:** The interactive chain-of-trust graph is a `TrustGraphViewController` *embedded as a child VC* inside `LoadDetailViewController` (`addChild` / `didMove(toParent:)`). It owns a `TrustGraphView` (a custom `UIView` that draws the shipper→broker→carrier→dispatch→factoring nodes + edges) and a `TrustGraphViewModel` (computes node layout + per-node `VerificationState`). It is **not** a coordinator and has **no navigation stack of its own** — when a node is tapped it calls a `var onNodeTapped: (TrustNode) -> Void` closure that the *parent* (`LoadDetailViewController` / `LoadsCoordinator`) handles by presenting `TrustNodeDetailViewController` modally.
 
-### Pattern 3: Protocol-First Module Boundaries
+**When to use:** A rich, interactive, but navigationally-shallow component that lives inside one screen. The graph never *owns* a flow — it owns a view and emits taps. A coordinator would be overkill (coordinators exist to own multi-screen `push` chains; `AuthCoordinator`/`KYCCoordinator` each drive a `UINavigationController`). The graph drives nothing.
 
-**What:** Every `Core/*` module exports a protocol. Implementation is private. Features hold `any AuthService`, not `AuthServiceImpl`.
+**Trade-offs:** (+) Child-VC containment gives the graph its own `viewDidLoad`/lifecycle, trait-collection callbacks (needed for iPad-native layout + rotation), and testability in isolation. (+) The closure-out / parent-presents split keeps the graph reusable — if M3's eBOL screen ever wants the same graph, it embeds the same child VC. (−) Slightly more wiring than a bare `UIView`, but the v1.0 KYC capture screens already use the VC-with-injected-VM shape everywhere, so it is the house style. **Must be UIKit** per the project constraint (it is an interactive sensitive-surface component); SwiftUI is not permitted here.
 
-**When to use:** Every cross-module dependency.
-
-**Trade-offs:**
-- **Pro:** Test a `LoadListViewModel` by passing a `MockLoadRepository` — no compile-time coupling to `URLSession` or the Keychain.
-- **Pro:** Swap mock → live networking at the composition root without changing a Feature file.
-- **Con:** Slightly more ceremony — every service needs a protocol and an impl.
-
-**Example (interceptor chain):**
-
+**Example:**
 ```swift
-// Core/Networking/Interceptor.swift
-protocol RequestInterceptor: Sendable {
-    func intercept(_ request: URLRequest) async throws -> URLRequest
-}
-
-// Core/Networking/DeviceSignatureInterceptor.swift
-final class DeviceSignatureInterceptor: RequestInterceptor {
-    private let keyStore: any KeyStoreProtocol  // ← injected, not singleton
-
-    init(keyStore: any KeyStoreProtocol) { self.keyStore = keyStore }
-
-    func intercept(_ request: URLRequest) async throws -> URLRequest {
-        guard request.requiresDeviceSignature else { return request }
-        var signed = request
-        let bodyHash = SHA256.hash(data: request.httpBody ?? Data())
-        let signature = try await keyStore.sign(Data(bodyHash))
-        signed.setValue(signature.base64EncodedString(), forHTTPHeaderField: "X-Device-Signature")
-        return signed
-    }
-}
+// LoadDetailViewController embeds the graph as a child VC:
+let graphVM = TrustGraphViewModel(chain: load.chainOfTrust)
+let graphVC = TrustGraphViewController(viewModel: graphVM)
+graphVC.onNodeTapped = { [weak self] node in self?.onTrustNodeTapped?(node) }
+addChild(graphVC)
+contentStack.addArrangedSubview(graphVC.view)
+graphVC.didMove(toParent: self)
 ```
 
-### Pattern 4: Protocol Witnesses for High-Churn Services (M3+)
+### Pattern 4: Coordinator-owned action flow with optimistic-but-confirmed result
 
-**What:** Instead of `protocol AuthService { func verifyOTP() }` + `class AuthServiceImpl`, use a struct of closures: `struct AuthServiceWitness { var verifyOTP: (String) async throws -> Session }`.
+**What:** Tender/accept/reject are POSTs to `LoadActionEndpoint`. The flow: `LoadActionBar` button → `LoadDetailViewModel.perform(_:)` → `APIClient.request(LoadActionEndpoint(loadID:action:))` → on success the VM sets `state = .actionCompleted(updatedLoad)` and re-renders (the load's `status` changed, so `RoleLoadPolicy` now returns a new — possibly empty — action set). On failure (`409` conflict = stale/already-actioned, `httpError`) the VM surfaces a loud error and re-fetches the detail. The `LoadsCoordinator` is told via `onLoadActioned: (LoadID) -> Void` so it can mark the list row stale / refresh on pop-back.
 
-**When to use:** Services whose test variations explode — anything where tests need to override per-test-case (e.g., a rate-limiting test needs a different `verifyOTP` closure than a happy-path test).
+**When to use:** Any state-mutating action whose result changes what the screen offers next. The "re-render from server truth, never guess locally" rule mirrors `KYCStatusViewModel` (which always re-derives `State` from a fresh `GET /kyc/status`).
 
-**Trade-offs:**
-- **Pro:** No per-test mock class. Override individual closures inline.
-- **Pro:** Enables composable dependencies — `preview()`, `mock()`, `live()` factory methods.
-- **Con:** Extra ceremony vs protocols. Not worth it for services with 2–3 test variations.
-- **Con:** Requires the team to learn [the Point-Free pattern](https://www.pointfree.co/collections/protocol-witnesses); macro-based generators exist ([ProtocolWitness macro](https://github.com/daltonclaybrook/ProtocolWitness)) to reduce boilerplate.
-
-**Verdict for this project:** Start with protocols in M1. If M3 scanner/BOL testing explodes (5+ mock variations per service), introduce protocol witnesses selectively. Do not make it the default — it's a power-user pattern and this is a 1–2 engineer project.
-
-### Pattern 5: Role-Based Shell — Recreate-Root, Don't Swap Children
-
-**What:** On role selection / login / logout, `SceneDelegate` swaps `window.rootViewController` to a brand-new `RoleCoordinator` built from a freshly-constructed `AppContainer` scope. All previous ViewControllers, ViewModels, and coordinators are deallocated.
-
-**Why this, not "TabBarCoordinator.swapChildren(...)":**
-
-Swapping children leaks state. A partially-loaded LoadsViewController from a Broker session can silently survive into a Dispatch session because SwiftUI/UIKit caches, URL caches, and in-flight Tasks outlive the swap. For a security-sensitive app, this is unacceptable.
-
-Recreating the root guarantees:
-- Every ViewModel's `deinit` runs → every Task cancels, every Combine subscription tears down.
-- URLSession caches survive (fine) but authenticated sessions are forced to rebuild via `Core/Auth`.
-- Screenshot-guard observers and screen-recording observers reset cleanly.
-
-```swift
-// App/SceneDelegate.swift
-final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
-    var window: UIWindow?
-    private var appCoordinator: AppCoordinator?
-
-    func scene(_ scene: UIScene, willConnectTo _: UISceneSession, options _: UIScene.ConnectionOptions) {
-        guard let ws = scene as? UIWindowScene else { return }
-        let window = UIWindow(windowScene: ws)
-        self.window = window
-        presentRoot(.launch)
-        window.makeKeyAndVisible()
-    }
-
-    func presentRoot(_ phase: AppPhase) {
-        let container = AppContainer(env: .current)
-        let coordinator = AppCoordinator(container: container, phase: phase)
-        coordinator.onRoleResolved = { [weak self] role in
-            self?.presentRoot(.role(role))
-        }
-        coordinator.onLogout = { [weak self] in
-            self?.presentRoot(.launch)
-        }
-        self.appCoordinator = coordinator
-        self.window?.rootViewController = coordinator.rootViewController
-    }
-}
-
-enum AppPhase {
-    case launch, auth, onboarding, role(UserRole)
-}
-```
-
-**What the OSS enterprise apps do:** [DoorDash Dasher](https://careersatdoordash.com/blog/adopting-swiftui-with-a-bottom-up-approach-to-minimize-risk/) uses per-module self-contained VIP with routers at module boundaries — conceptually identical. [Uber Freight uses RIBs](https://www.uber.com/us/en/blog/uber-freight-app-architecture-design/) which is overkill for our team size, but also recreates root scopes on major context changes. Neither swaps tab children on role transition.
-
-**Delta vs TechStack.md §4:** §4 says "Role-specific UI is swapped at the coordinator level." True, but leaves ambiguity. Specifically: **swap at the SceneDelegate by recreating the root coordinator, not at an intermediate TabBarCoordinator.** The first form is cleanly correct; the second leaks state in ways that matter for a zero-trust-on-client app.
-
-### Pattern 6: WebSocket + SSE Behind a `RealtimeChannel` Protocol
-
-**What:** `Core/Realtime/RealtimeChannel.swift` is a protocol with a single API: `func subscribe<T: Decodable>(to topic: String) -> AsyncThrowingStream<T, Error>`. Two impls: `WebSocketChannel` (uses `URLSessionWebSocketTask`) and `SSEChannel` (uses `URLSession.bytes(for:)` with line parsing). `Core/Networking` configures which based on backend capability advertised at login.
-
-**2026 consensus:** `URLSessionWebSocketTask` has matured enough to replace Starscream for new projects. [Native Swift WebSockets via URLSession is the default choice for iOS 13+](https://getstream.io/blog/swift-websockets-starscream-urlsession/); Starscream is maintained but adds a dependency for no functional gain when you're iOS 17+. `NWConnection` is lower-level and worth it only if you need raw TCP/UDP — not our case.
-
-**Reconnect policy lives in a separate type:**
-
-```swift
-protocol RealtimeChannel: Sendable {
-    func subscribe<T: Decodable>(topic: String, as: T.Type) -> AsyncThrowingStream<T, Error>
-    func disconnect() async
-}
-
-struct ReconnectPolicy: Sendable {
-    let initialDelay: Duration
-    let maxDelay: Duration
-    let jitter: Double   // 0.0...1.0
-
-    func delay(for attempt: Int) -> Duration {
-        let base = initialDelay * pow(2.0, Double(attempt))
-        let capped = min(base, maxDelay)
-        let jittered = capped * (1.0 + .random(in: -jitter...jitter))
-        return jittered
-    }
-}
-```
-
-Heartbeat (ping/pong) is the WebSocket impl's responsibility; `URLSessionWebSocketTask.sendPing()` runs on a timer owned by the channel. On `URLSessionWebSocketDelegate.urlSession(_:webSocketTask:didCloseWith:reason:)`, the channel reconnects per policy and re-subscribes to topics from an in-memory topic registry.
-
-**Where it fits:** `Core/Realtime` depends on `Core/Networking` (for auth headers) and `Core/Auth` (for session-scoped connection). Features subscribe via injected `any RealtimeChannel`.
-
-**Build order implication:** `Core/Realtime` is not M1 — it's M2 (FR-iOS-LOAD real-time updates). But its *protocol shape* should be sketched in M1 so `Core/Networking` isn't refactored when it lands.
-
-### Pattern 7: Offline Mutation Queue with Idempotency Keys
-
-**What:** `Core/Storage/OutboundQueue` persists mutations (arrived-at-shipper, BOL scan confirmation) to an encrypted on-disk SQLite with:
-
-- `id: UUID` (the idempotency key sent in `Idempotency-Key` header)
-- `endpoint: String`
-- `payload: Data` (encrypted with a Keychain-wrapped AES-GCM symmetric key)
-- `createdAt: Date`
-- `attemptCount: Int`
-- `lastError: String?`
-
-A `QueueFlusher` service observes `NWPathMonitor.pathUpdateHandler` and, when connectivity returns, iterates the queue in order, POSTing each mutation. Backend returns 200 OK or "already applied" (dedup). Background continuation uses `BGProcessingTaskRequest` registered at launch — when the app is backgrounded mid-flush, the BGTask completes the flush within its runtime budget.
-
-**Why encrypted at rest:** the queue may contain load IDs, GPS coords (for "arrived" events), and signed timestamps — per PROJECT.md Constraints, "no sensitive data in plain files."
-
-**Idempotency keys are non-negotiable.** Without them, a queue flushed twice after a flaky network looks like two load-arrived events to the backend, which creates duplicate events in a system whose premise is trust. [See Gunnar Morling on idempotency keys](https://www.morling.dev/blog/on-idempotency-keys/) for the rationale pattern.
-
-**Build order:** M4 per TechStack.md §10. But M1 should establish the `IdempotencyInterceptor` (adds header from a request property) so queue flushes use the same code path as live requests.
-
-```
-┌─────────────────┐
-│ Feature calls   │
-│ repo.arrive(...)│
-└────────┬────────┘
-         │ (offline detected by NWPathMonitor)
-         ▼
-┌─────────────────────────┐     ┌─────────────────────┐
-│ OutboundQueue.enqueue() │────▶│ EncryptedQueueStore │
-│   - assigns UUID        │     │  (SQLite + AES-GCM) │
-│   - writes to disk      │     └─────────────────────┘
-└─────────────────────────┘
-         ▲
-         │
-         │ (online detected)
-         │
-┌────────┴────────┐         ┌────────────────┐         ┌──────────┐
-│  QueueFlusher   │────────▶│ NetworkClient  │────────▶│ Backend  │
-│  - FIFO drain   │  sign   │  + Idempotency │         │  (dedup  │
-│  - backoff on   │  inject │   Interceptor  │         │   on UUID)│
-│    429/5xx      │         └────────────────┘         └──────────┘
-└─────────────────┘
-```
+**Trade-offs:** (+) The detail screen is always consistent with server state — no drift. (+) The action endpoint, being a POST, automatically picks up the shipped `IdempotencyInterceptor` (the request-interceptor that injects `Idempotency-Key`) — a double-tapped Accept is safe with zero new code. (−) A round-trip per action (no offline optimism) — acceptable: v1.1 is explicitly mock-backed and offline mode is deferred to M4.
 
 ---
 
 ## Data Flow
 
-### Launch → Role-Routed UI (the "happy path" flow)
+### List → Detail → Action flow
 
 ```
-  SceneDelegate.scene(willConnectTo:)
-          │
-          ▼
-  AppContainer()   ←── builds all Core services from protocols
-          │
-          ▼
-  AppCoordinator.start(phase: .launch)
-          │
-          ├─(no session in Keychain)──► AuthCoordinator (OTP flow)
-          │                                  │
-          │                                  ▼ (verified)
-          │                             AppCoordinator.didAuthenticate()
-          │                                  │
-          ├─(session + kyc pending)────► OnboardingCoordinator (KYC)
-          │                                  │
-          │                                  ▼ (KYC uploaded)
-          │                             AppCoordinator.didCompleteKYC()
-          │                                  │
-          ▼                                  │
-  RoleCoordinator(role:)   ◄────────────────┘
-          │
-          └─► UITabBarController
-                ├── Loads tab (Features/Loads)
-                ├── <role-specific tab>
-                ├── BOL / Chain tab
-                └── Assistant tab
+[Role shell: tap "Loads" tab]
+    ↓
+LoadsCoordinator(role:) builds LoadListViewController(viewModel:)
+    ↓
+LoadListViewModel.load()  →  APIClient.request(LoadListEndpoint(role: role))
+    ↓                              ↓ (MockURLProtocol matches "/loads?role=…" → loads-list-<role>.json)
+[list renders]  ←  Response.loads: [Load]   ←  decode (snake_case → camelCase, ISO-8601 dates)
+    ↓
+[tap a row] → viewModel.onLoadSelected?(loadID) → LoadsCoordinator.pushDetail(loadID)
+    ↓
+LoadDetailViewController(viewModel: LoadDetailViewModel(loadID:role:apiClient:))
+    ↓
+LoadDetailViewModel.load() → APIClient.request(LoadDetailEndpoint(loadID:))
+    ↓                              ↓ (MockURLProtocol → load-detail-success.json)
+[detail renders]  ←  Load (incl. embedded ChainOfTrust)
+    │
+    ├─→ TrustGraphViewModel(chain: load.chainOfTrust) → TrustGraphViewController (child VC)
+    │       ↓ [tap a node] → onNodeTapped(node) → LoadsCoordinator presents
+    │                                              TrustNodeDetailViewController (modal sheet)
+    │
+    └─→ RoleLoadPolicy.actions(for: role, status: load.status) → [LoadAction]
+            ↓ → LoadActionBar renders only those buttons
+            ↓ [tap "Accept"] → LoadDetailViewModel.perform(.accept)
+            ↓ → APIClient.request(LoadActionEndpoint(loadID:action:))   ← IdempotencyInterceptor adds key
+            ↓ → on 200: state = .actionCompleted(updatedLoad); re-render action bar
+            ↓ → on 409/error: loud error + re-fetch detail
+            ↓ → LoadsCoordinator.onLoadActioned(loadID) → list refreshes on pop-back
 ```
 
-### Signed Request (sensitive action — tender/accept/BOL scan)
+### State management
 
-```
- Feature ViewModel
-      │ repo.tender(loadId, carrierId)
-      ▼
- Features/Loads/LoadRepository (impl)
-      │ NetworkClient.post("/tenders", body: ...)
-      ▼
- Core/Networking/NetworkClient
-      │
-      ├─► AuthInterceptor           ─── adds Authorization: Bearer <token>
-      │        (from SessionStore)
-      │
-      ├─► DeviceSignatureInterceptor ─── asks KeyStore.sign(body-hash)
-      │        │
-      │        └─► Core/KeyStore ──► SecureEnclave.P256.Signing.PrivateKey
-      │                                                │
-      │                                                ▼
-      │                              signature returned as raw bytes
-      │                              header: X-Device-Signature: <b64>
-      │
-      ├─► IdempotencyInterceptor    ─── adds Idempotency-Key: <uuid>
-      │
-      └─► PinningSessionDelegate    ─── on TLS handshake:
-               │                        compare server leaf SPKI
-               │                        to pinned SPKI set
-               │                        (reject if no match)
-               ▼
-        URLSession.data(for:)
-               │
-               ▼
-         backend (/live or MockURLProtocol in M1)
-```
+There is **no app-wide store** and v1.1 must not add one — the v1.0 house pattern is per-screen MVVM. Each ViewModel:
+- is `@MainActor public final class`,
+- holds a nested `enum State: Equatable, Sendable`,
+- exposes `private(set) var state` with a `didSet { onStateChange?(state) }`,
+- exposes `on…` closure callbacks for coordinator plumbing,
+- takes dependencies by initializer-DI (`APIClient`, `Logger`).
 
-### KYC Capture → Upload (FR-iOS-KYC)
+`LoadListViewModel.State` ≈ `.loading / .loaded([Load]) / .empty / .error(message:)`.
+`LoadDetailViewModel.State` ≈ `.loading / .loaded(Load) / .actionInFlight / .actionCompleted(Load) / .error(message:)`.
+This is the exact `KYCStatusViewModel` shape — copy it.
 
-```
- Features/Onboarding/KYCCaptureViewController
-      │ "Capture Face" tapped
-      ▼
- Core/Identity/KYCCoordinator
-      │
-      ├─► AVCaptureSession (managed by Core/Identity/CameraSession)
-      │        │
-      │        └─► CMSampleBuffer stream
-      │               │
-      │               ▼
-      │        Core/Identity/LivenessDetector (VNDetectFaceLandmarks)
-      │               │
-      │               └─► returns .passed | .failed(reason)
-      │
-      ├─► On .passed: CLLocationManager snapshot → attach as metadata
-      │
-      ├─► On .passed: CoreImage JPEG encode → temp file
-      │
-      └─► Core/Identity/UploadPipeline
-               │
-               └─► Core/Networking.upload(file:resumable:progress:)
-                        │
-                        └─► (resumable chunking, exponential backoff)
-                                 │
-                                 ▼
-                       backend /kyc/documents
-```
+### Key data flows
 
-### Offline Status Update (FR-iOS-OFF)
-
-```
- Feature ViewModel: repo.markArrived(loadId)
-      │
-      ▼
- LoadRepository
-      │ NWPathMonitor.currentPath.status == .satisfied?
-      │
-      ├─► YES: NetworkClient.post(...) → backend
-      │
-      └─► NO: OutboundQueue.enqueue(
-              endpoint: "/loads/\(id)/arrived",
-              payload: <encrypted>,
-              idempotencyKey: UUID()
-           )
-              │
-              ▼
-         EncryptedQueueStore writes to SQLite
-              │
-              │    ... time passes, app backgrounded ...
-              │
-              ▼
-         NWPathMonitor.pathUpdateHandler fires (connectivity back)
-              │
-              ▼
-         QueueFlusher.drainQueue()
-              │
-              ▼
-         NetworkClient.post(...) with X-Idempotency-Key header
-              │
-              ▼
-         backend dedups on idempotency key
-              │
-              ▼
-         QueueFlusher.markFlushed(id)  → delete from SQLite
-```
-
-### Real-Time Load Status (FR-iOS-LOAD)
-
-```
- RoleCoordinator launches LoadsCoordinator
-      │
-      ▼
- LoadsViewModel.subscribeToUpdates()
-      │
-      ▼
- any RealtimeChannel.subscribe(topic: "loads.\(userId)", as: LoadUpdate.self)
-      │
-      ▼
- WebSocketChannel (or SSEChannel if backend advertises SSE)
-      │
-      ├─► opens URLSessionWebSocketTask
-      │        │
-      │        └─► sends AUTH frame with session token
-      │
-      ├─► heartbeat every 30s (sendPing)
-      │
-      └─► on receive: JSON decode → yield to AsyncThrowingStream
-               │
-               ▼
-          LoadsViewModel merges update into @Published loads
-               │
-               ▼
-          UIKit view controller reacts via Combine subscriber
-```
+1. **Role-scoped list fetch:** `Role` flows from the tab-bar controller → `LoadsCoordinator` → `LoadListViewModel` → into the `LoadListEndpoint` path. The role never leaves the client as anything but a query param; the filtered result is the server's responsibility.
+2. **Chain-of-trust hydration:** `ChainOfTrust` is **embedded in the `LoadDetailEndpoint.Response`**, not a separate fetch. One `GET /loads/{id}` returns the load *and* its 5-party verification graph. This keeps the detail screen a single round-trip and means the graph never has its own loading state.
+3. **Action → status mutation → action-set recompute:** a successful action returns the *updated* `Load`; the detail VM re-runs `RoleLoadPolicy` against the new status, so the action bar self-updates (e.g. after Accept, the accept/reject buttons vanish). No manual button-hiding logic.
 
 ---
 
-## Security Architecture — Where Each Concern Lives
+## Mock-endpoint extension (preserving the one-line mock/live swap)
 
-This is the most important table in this document. Security requirements that are scattered across the module graph become untestable and un-auditable. Explicit placement is enforced by `Core/` module boundaries.
+The v1.0 contract-first pattern has three observed layers, and v1.1 extends each *additively* — no existing file is restructured:
 
-| Concern | Module | Entry Point | Notes |
-|---|---|---|---|
-| **TLS certificate pinning** | `Core/Networking/CertificatePinning/` | `PinningSessionDelegate` attached to the single app `URLSession` | SPKI pinning (not full cert), rotation-friendly. Pins loaded from `Core/Security/SecurityConfig` (bundle-signed JSON). **Do NOT use TrustKit** — it's a transitive CocoaPods-era dep, and URLSession delegate pinning is ~30 lines in Swift per [Medium SSL pinning guide 2025](https://dev.to/arshtechpro/mastering-ssl-pinning-in-ios-from-basics-to-production-4m2e). |
-| **Device key generation / sign** | `Core/KeyStore/SecureEnclaveKeyManager` | `sign(Data) async throws -> Data` | CryptoKit `SecureEnclave.P256.Signing.PrivateKey`. Access control: `.privateKeyUsage + .biometryCurrentSet + .or(.devicePasscode)` so biometric re-enrollment rebinds. Public key registered once at first login; wrapped private key blob persisted in Keychain. |
-| **Token storage (Bearer)** | `Core/Storage/Keychain/KeychainStore` | `store(key:value:access:)` | Keychain with `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`. Hand-rolled `SecItem` wrapper per STACK.md (no KeychainAccess library). |
-| **Session state (in memory)** | `Core/Auth/SessionStore` | `actor SessionStore` | Swift actor — isolated access. Publishes `sessionState: AnyPublisher<SessionState, Never>` for UI. Backgrounds >5min → emits `.requiresBiometricRefresh`. |
-| **Biometric prompt** | `Core/Auth/BiometricService` | `evaluate(reason:) async throws -> Bool` | Wraps `LAContext.evaluatePolicy`. Separate from KeyStore — biometric for UI gating is not the same as biometric-protected key access. |
-| **App Attest / DeviceCheck** | `Core/Attestation/AppAttestService` | `attestKey() async throws -> AttestationBundle` | `DCAppAttestService.generateKey()` + `attestKey(challenge:)`. Challenge fetched from backend per [Apple docs](https://developer.apple.com/documentation/devicecheck/establishing-your-app-s-integrity). Result sent with login payload. |
-| **Jailbreak detection** | `Core/Security/JailbreakHeuristics` | `evaluate() -> JailbreakSignal` | Reports to backend; backend decides policy per spec §5.3. Don't block on client-only signal. |
-| **Secure Enclave availability check** | `Core/KeyStore/SecureEnclaveKeyManager` | `SecureEnclave.isAvailable` (static) | Refuse production login if unavailable. Test builds + simulator bypass to `MockKeyStore`. |
-| **Screenshot block** | `Core/Security/ScreenshotGuard` | Observes `UIScreen.capturedDidChangeNotification`; exposes a `UIView` overlay | Attached by sensitive ViewControllers via `ScreenshotGuardProtocol`. BOL, identity docs, chain-of-trust, QR opt in. |
-| **Screen recording detection** | `Core/Security/ScreenRecordingDetector` | KVO on `UIScreen.main.isCaptured` | Same consumers as ScreenshotGuard. |
-| **PII scrubbing — logging** | `Core/Logging/PIIScrubber` | `OSLogPrivacy` rules + `Logger(subsystem:category:)` | Each subsystem gets a `Logger`. PII-containing strings use `\(x, privacy: .private(mask: .hash))`. `OSLogStore` export runs PII scrubber before writing to support-dump files. |
-| **PII scrubbing — analytics** | `Core/Analytics/AnalyticsEvent` | Phantom-typed `Event<Scope>` where `Scope: PIIScope` | A `RawCoordinate` type can never be attached to `Event<Public>` at compile time. Enforces FR-iOS-GEO "Never attach raw coordinates to analytics events." |
-| **Idempotency key injection** | `Core/Networking/Interceptors/IdempotencyInterceptor` | Reads `URLRequest.idempotencyKey` (custom property), writes header | Set at enqueue time for outbound queue; ensures retries don't double-apply. |
-| **Request signing** | `Core/Networking/Interceptors/DeviceSignatureInterceptor` | Conditionally signs based on `URLRequest.requiresDeviceSignature` | Only tender, accept, BOL-generation, sensitive-action endpoints. |
+1. **`APIEndpoint` conformers** (`Core/Networking/Endpoints/`). Each is a `nonisolated public struct` with `path`, `method`, `body`, an `Encodable RequestBody` (or the `EmptyBody` sentinel for GETs), and a `Decodable & Sendable Response`. v1.1 adds **3 files** here. `APIClient.request<E: APIEndpoint>` already accepts any conformer — **zero change to `APIClient`**.
 
-### Security Architecture Dependency Graph
+2. **`MockURLProtocol` matching is endpoint-agnostic.** `MockURLProtocol` matches purely on `(path, method)` and the `registerFixture(for:path:method:statusCode:body:)` helper is generic over `E: APIEndpoint`. **No change to `MockURLProtocol` or `MockFixture`.** New endpoints "just work" the moment a handler is registered.
 
-```
-                   ┌─────────────────┐
-                   │  Secure Enclave │  (hardware)
-                   │  (hardware)     │
-                   └────────▲────────┘
-                            │
-                   ┌────────┴────────┐
-                   │ Core/KeyStore   │  (CryptoKit wrapper)
-                   └───┬─────────┬───┘
-                       │         │
-               ┌───────▼───┐ ┌───▼──────────────┐
-               │Core/Auth  │ │Core/Networking/  │
-               │(sign OTP  │ │ Interceptors/    │
-               │ challenge)│ │ DeviceSignature  │
-               └─────┬─────┘ └───────┬──────────┘
-                     │               │
-                     └───────┬───────┘
-                             │
-                             ▼
-                   ┌─────────────────┐
-                   │ Feature code    │
-                   │ (never sees     │
-                   │  Enclave API)   │
-                   └─────────────────┘
-```
+3. **Two fixture-registration sites, both extended additively:**
+   - **Tests:** new JSON files in `validationLedgerTests/Networking/Fixtures/` (e.g. `loads-list-broker.json`, `load-detail-success.json`, `load-action-conflict.json`), registered per-test via the existing `registerFixture` helper after `MockURLProtocol.reset()`.
+   - **Organic DEBUG tap-through:** add load cases to `MockDefaultFixtures.dispatchHandler`'s `switch (method, path)` — three new `case`s for `GET /loads`, `GET /loads/{id}`, `POST /loads/{id}/actions`. **OR** (cleaner, recommended) create a parallel `MockLoadFixtureRegistry` modeled exactly on `MockOTPRoleFixtureRegistry`, and call it from the same DEBUG-gated block in `AppContainer.init` that already calls `MockDefaultFixtures.registerAppDefaults()`. A separate registry keeps `MockDefaultFixtures` from growing unbounded and lets the load fixtures vary their response by role (the registry takes a `Role`, like `MockOTPRoleFixtureRegistry.registerForRole(_:)`).
 
-**Critical property:** Features never import `CryptoKit` or `LocalAuthentication`. They call `any SessionService`, `any SignedRequestBuilder`. This is what makes the security layer testable and audit-able — there's exactly one place crypto primitives are touched.
+**Why the live swap stays one-line:** the swap is `AppContainer.defaultNetworkConfig` → `.live(baseURL:)` vs `.mock`, which only changes whether `MockURLProtocol` is in the `URLSession.protocolClasses`. Because the load ViewModels depend on `APIClient` + typed `LoadXxxEndpoint` structs — and *never* on `MockURLProtocol` directly — flipping to `.live` requires **no load-feature code change at all**. The endpoint structs *are* the contract; the fixtures are a swappable backing. This is identically how all 7 v1.0 endpoints behaved through M1.
 
-### Testing Security-Sensitive Modules Without a Real Secure Enclave
+**One contract-design caveat for the roadmap:** the `path`-with-query-string form (`/loads?role=broker`) works against `MockURLProtocol` only if the mock matches on `url.path` *plus* query, OR the fixture is registered per-role. `MockURLProtocol`'s current `registerFixture` matches `request.url?.path` (which **excludes** the query string). So either (a) put the role in the URL *path* (`/loads/broker` — simplest, matches the existing matcher unchanged) or (b) make the load registry inspect `URLComponents.queryItems`. Recommend **(a) role-in-path** for v1.1 — it needs zero matcher change and a real backend can still route it. Flag this as a Phase-7 (model + mocks) design decision.
 
-**The hard truth:** the iOS Simulator does not emulate Secure Enclave ([Apple Developer Forums confirmation](https://developer.apple.com/forums/thread/748611)). Key generation with `.biometryAny`/`.biometryCurrentSet` access control fails on simulator.
+---
 
-**Strategy:**
+## Phase build order (v1.1 starts at Phase 7)
 
-1. **Protocol abstraction in `Core/KeyStore`:**
-   ```swift
-   protocol KeyStoreProtocol: Sendable {
-       func generateKey() async throws -> KeyBundle
-       func sign(_ data: Data) async throws -> Data
-       var isHardwareBacked: Bool { get }
-   }
-   ```
+Dependency-ordered. Each phase is independently demoable, mirroring v1.0's "leanest visible-win slice" discipline.
 
-2. **Two implementations:**
-   - `SecureEnclaveKeyStore` (production — real `SecureEnclave.P256.Signing.PrivateKey`)
-   - `SoftwareKeyStore` (test builds — `P256.Signing.PrivateKey` in memory; `isHardwareBacked == false`)
+| Phase | Scope | Depends on | NEW vs MODIFIES | Visible win |
+|-------|-------|-----------|------------------|-------------|
+| **Phase 7 — Load domain model + mock contract** | `Core/Load/` value types (`Load`, `ChainOfTrust`, `TrustNode`, `LoadStatus`, `LoadAction`, `RoleLoadPolicy`); the 3 `APIEndpoint` structs; `MockLoadFixtureRegistry` + all JSON fixtures; `RoleLoadPolicy` table-driven unit tests. | v1.0 networking (done) | NEW: `Core/Load/`, 3 endpoints, mock registry, fixtures. MODIFIES: `AppContainer` DEBUG mock block. | Endpoints decode every fixture in a unit test; `RoleLoadPolicy` proven across all 5 roles × all statuses. No UI yet — this is the contract foundation. |
+| **Phase 8 — Role-filtered load list** | `LoadsCoordinator`, `LoadListViewController/ViewModel/Cell`; wire the "Loads" tab in all 5 role shells. | Phase 7 | NEW: `Features/Loads/` + `List/`. MODIFIES: 5 role tab-bar controllers, `AppContainer` (`makeLoadListScreen`). | Tap "Loads" in any of the 5 shells → a real, role-correct list renders from mocks. |
+| **Phase 9 — Load detail + chain-of-trust graph** | `LoadDetailViewController/ViewModel`; `TrustGraph/` (graph VC + view + VM + node-detail sheet); list→detail push. | Phase 8 | NEW: `Detail/`, `TrustGraph/`. MODIFIES: `LoadsCoordinator` (push), `AppContainer` (`makeLoadDetailScreen`). | Tap a load → detail screen with the live interactive shipper→…→factoring graph; tap a node → its verification basis. |
+| **Phase 10 — Per-role tender / accept / reject** | `LoadActionBar`; `LoadDetailViewModel.perform(_:)`; action→status→action-set re-render; list-refresh-on-pop. | Phase 9 (needs `RoleLoadPolicy` from 7, detail from 9) | NEW: `LoadActionBar`. MODIFIES: `LoadDetailViewModel`, `LoadsCoordinator` (`onLoadActioned`). | Each of the 5 roles can take its legal actions; the load's state visibly advances; the list reflects it. |
 
-3. **Environment-driven selection in `AppContainer`:**
-   ```swift
-   let keyStore: any KeyStoreProtocol = {
-       #if DEBUG && targetEnvironment(simulator)
-       return SoftwareKeyStore()
-       #else
-       guard SecureEnclave.isAvailable else {
-           fatalError("Production build on non-SE device")  // spec §5.3 MUST
-       }
-       return SecureEnclaveKeyStore()
-       #endif
-   }()
-   ```
-
-4. **Physical-device test gate in CI:** unit tests run on simulator with `SoftwareKeyStore`; a **device-only test plan** runs a smaller "security integration" suite on real iPhone 12 / 15 hardware. GitHub Actions supports runners with connected physical devices, or Xcode Cloud can be configured with real-device destinations.
-
-5. **Explicit tests for the protocol contract,** not the implementation: "key survives app restart," "signature verifies with public key," "biometric re-enrollment invalidates key." These tests run on device; simulator tests are skipped with `XCTSkipUnless(...isHardwareBacked...)`.
+**Ordering rationale:**
+- **Model + mocks first (Phase 7)** is non-negotiable — both the list and detail screens decode `Core/Load/` types, and `RoleLoadPolicy` is needed by Phase 10. Building the contract first means Phases 8–10 never block on schema churn. This is exactly the v1.0 lesson: M1 built `APIEndpoint` + `MockURLProtocol` in Phase 2 before any feature consumed them.
+- **List before detail (8 before 9)** — the detail screen is reached *by tapping a list row*; the list is the entry point and the cheaper screen. A working list is also the natural place to prove the role-parameterization (Pattern 1) in isolation before the graph adds complexity.
+- **Detail+graph together (9)** — the graph data (`ChainOfTrust`) is embedded in the detail response (Data flow #2), so the graph cannot be built before the detail screen exists, and the detail screen is thin without it. Keep them in one phase. If the trust-graph custom drawing proves heavy, the graph is the one part of v1.1 most likely to need its own deeper research spike — **flag Phase 9 for a possible research pass.**
+- **Actions last (10)** — actions mutate state that only exists once detail renders it, and the action set depends on `RoleLoadPolicy` (Phase 7) *and* the detail VM (Phase 9). It is also the most cross-role-sensitive surface (5 roles × the action matrix), so doing it last lets it build on a proven list+detail.
 
 ---
 
 ## Scaling Considerations
 
-| Scale | Architecture Adjustments |
-|-------|--------------------------|
-| **M1 Foundation (single target, ~5k LOC)** | Group folders, single app target, no local SPM. `AppContainer` as a simple struct. 15–20 `Core/` services; initializer DI is trivially tractable. |
-| **M2–M3 (dozens of features, 20k LOC, 2 engineers)** | Extract `Core/Networking` and `Core/Auth` as local SPM packages first. Every change to networking triggers minimal rebuilds. |
-| **M4–M5 (full v1, ~50k LOC)** | Full modular SPM — every `Core/*` and `Features/*` a local package. Build times benefit most here. Consider Factory library if `AppContainer` parameter lists exceed ~40 services ([Factory is the 2026 recommendation for small teams](https://lucasvandongen.dev/di_frameworks_compared.php)). |
-| **Post-v1 (v2, Android parity, 100k+ LOC, 5+ engineers)** | Consider Needle for compile-time DI graph verification. Re-evaluate coordinators vs. `NavigationStack` + SwiftUI if the SwiftUI-first trade-offs flip. |
+Not a user-scale question — v1.1 is a fixed mock-backed iOS client. The relevant axes are *data volume per screen* and *graph rendering cost*.
 
-### Scaling Priorities — What Breaks First
+| Concern | v1.1 (mocks) | At live-backend swap | If graph parties grow |
+|---------|--------------|----------------------|-----------------------|
+| Load list size | Fixtures are small (tens of rows) — a plain `UITableView`/diffable data source is fine. | Add pagination to `LoadListEndpoint` (`cursor`/`page` param) — an additive endpoint change, no VC restructure. | n/a |
+| Trust graph nodes | Fixed at 5 parties (shipper→broker→carrier→dispatch→factoring) — a hand-laid-out static graph, no layout engine needed. | Same 5 — the chain is domain-fixed. | Only if the product later adds sub-brokers/co-brokers: the graph would need a real layout pass. Out of v1.1 scope; `TrustGraphViewModel` should still own layout so that change stays contained to one file. |
+| Detail re-fetch on every action | One round-trip per action — fine against mocks and fine live. | No change. | n/a |
 
-1. **Build times.** Monolith target breaks around 10k LOC for iterative compile. Solution: extract `Core/Networking` as local SPM package at M2 boundary — not earlier (premature) and not later (painful to extract a mature network layer with 50 call sites).
-
-2. **`AppContainer` parameter lists.** If any single coordinator takes more than ~8 dependencies, you have a "god coordinator." Split the feature. This will happen first in `LoadsCoordinator` as chain-of-trust + real-time + offline queue converge.
-
-3. **Cross-module test setup.** When `LoadListViewModelTests` needs to construct 5 mocks + 3 fakes + 1 in-memory queue, the VM is doing too much. Extract a `LoadListDataSource` protocol that composes the plumbing.
-
-4. **Coordinator memory retention.** If a coordinator keeps strong refs to child coordinators and the child to the parent, you leak the whole graph. Parent owns children strongly; children hold `weak var parent: ParentCoordinator?`.
-
-5. **ViewModel Task leaks.** Easy to leak a `Task { ... }` that keeps a VM alive past its view controller's lifetime. Mitigation: audit every `Task {` in VMs by M2 for a `[weak self]` + stored handle + `deinit { task?.cancel() }` pattern.
+**First bottleneck if anything:** the trust-graph custom drawing on iPad in landscape (the constraint says iPad must render *natively*). Mitigation: `TrustGraphView` lays out from `TrustGraphViewModel`-computed positions in `layoutSubviews` / on `traitCollectionDidChange`, never from hard-coded frames — the same safe-area discipline `LimitedTrustBannerContainerViewController` already follows.
 
 ---
 
 ## Anti-Patterns
 
-### Anti-Pattern 1: Singleton "`SessionManager.shared`"
+### Anti-Pattern 1: Five per-role load features (`Features/ShipperLoads/`, `Features/BrokerLoads/`, …)
 
-**What people do:** Put the auth session in a static singleton for easy access from every view model. "Just `SessionManager.shared.token` it, we'll refactor later."
+**What people do:** Create a load list/detail per role because "the roles see different things."
+**Why it's wrong:** The screens are structurally identical; the only differences are a query param and a button set. Five copies = 5× the test surface, 5× the bug-fix cost, and it invites real cross-feature imports if one role wants to reuse another's cell. It also fragments the domain model across features.
+**Do this instead:** One `Features/Loads/` module, role-parameterized (Pattern 1), with the domain model in `Core/Load/`. The role variation is *data* (`RoleLoadPolicy`, the role query param), not *structure*.
 
-**Why it's wrong:** (a) Tests can't swap the session for a fake — tests running in parallel share global state. (b) Deferred-deadlock risk if singleton init does I/O. (c) Obscures the actual dependency graph — you can't see who depends on session without grepping.
+### Anti-Pattern 2: Load domain types inside `Features/Loads/`
 
-**Do this instead:** `any SessionService` injected via `AppContainer` → coordinator → ViewModel. One place holds the session (`AppContainer`), and every dependent explicitly declares it.
+**What people do:** Define `struct Load`, `ChainOfTrust`, `LoadAction` inside the Loads feature folder.
+**Why it's wrong:** The 5 role tab-bar controllers (`Roles/`) and `AppContainer` (`App/`) need to reference load types to construct screens — and a future M3 eBOL feature will too. If the types live in `Features/Loads/`, every other consumer either reaches into a feature (architecturally wrong) or, once `Features/` become SPM modules, *cannot* import them without tripping `no_cross_feature_import`.
+**Do this instead:** Domain value types go in `Core/Load/`. `Core/` is the shared kernel everything may import. v1.0 already does this — `Role` is in `Roles/Role.swift` (importable everywhere), `KYCSession` is in `Core/Identity/KYC/`.
 
-### Anti-Pattern 2: Fat Core module ("`Core/Security/` does everything")
+### Anti-Pattern 3: Giving the trust graph its own coordinator
 
-**What people do:** Dump cert pinning + screenshot block + jailbreak detection + key management + attestation + PII scrubbing into one `Core/Security/` folder per the literal §3.2 reading.
+**What people do:** Build a `TrustGraphCoordinator` because the graph "has a tap-through screen."
+**Why it's wrong:** Coordinators in this codebase exist to own a `UINavigationController` and a multi-screen `push` chain (`AuthCoordinator`, `KYCCoordinator`). The graph drives no flow — it shows nodes and emits one tap event. A coordinator adds a retain-cycle-prone object (v1.0 has explicit ADRs about coordinator retention) for zero navigation.
+**Do this instead:** The graph is a child view controller that exposes `onNodeTapped: (TrustNode) -> Void`. The owning `LoadsCoordinator` (or `LoadDetailViewController`) presents the node-detail sheet. The graph owns a view, not a flow.
 
-**Why it's wrong:** Five different concerns, five different review cadences, five different test surfaces. Can't audit "what touches the private key" without reading the whole module. New engineer asks "where does cert pinning live?" → has to read ten files.
+### Anti-Pattern 4: Client-side load filtering / per-feature mock plumbing
 
-**Do this instead:** Split by trust primitive. `Core/KeyStore` (key material), `Core/Attestation` (device integrity), `Core/Security` (runtime defenses like screenshot/JB), `Core/Networking/CertificatePinning/` (TLS-layer concern — lives with the network client, not in Security). Per §5 above.
+**What people do:** Fetch *all* loads and filter by role in `LoadListViewModel`; or have `LoadListViewModel` talk to `MockURLProtocol` directly in DEBUG.
+**Why it's wrong:** Client-side filtering bakes a business rule into the client that the backend must also enforce — and it breaks the one-line live swap (the live backend filters, the client would double-filter or under-filter). Touching `MockURLProtocol` from a VM couples the feature to the test double.
+**Do this instead:** The role is a contract parameter (`LoadListEndpoint(role:)`); the server/fixture returns the filtered set. The VM only ever knows `APIClient` + typed endpoints. Mock wiring lives in `Core/Networking/Mock/` and `AppContainer`'s DEBUG block — never in a feature.
 
-### Anti-Pattern 3: Combine pipelines inside `Core/`
+### Anti-Pattern 5: SwiftUI for the trust graph
 
-**What people do:** Use Combine throughout the Core modules because "it's reactive" — `NetworkClient.request() -> AnyPublisher<T, Error>`.
-
-**Why it's wrong:** (a) Combine is in maintenance mode per [WWDC 2023+ shift to Observation](https://www.infoq.com/news/2023/06/swiftui-5-wwdc-2023-observation/). (b) Apple's own new APIs are async/await-native. (c) async/await makes cancellation + backpressure + error propagation trivial; Combine makes them incantations. (d) Combine in `Core/` couples every feature to Combine — you can't migrate piecewise later.
-
-**Do this instead:** async/await + `AsyncThrowingStream` in `Core/`. Combine only inside ViewModels for `@Published` output. If a VM needs to consume an `AsyncThrowingStream`, it bridges locally with `for try await` in a stored Task.
-
-### Anti-Pattern 4: Role swap by mutating the existing TabBarController
-
-**What people do:** `tabBarController.viewControllers = newViewControllers` when the user's role changes.
-
-**Why it's wrong:** The old ViewModels, their `@Published` pipelines, their in-flight `Task`s, their cached `URLSession` delegate challenges are still in memory until ARC decides to drop them. A security-sensitive app with 5 roles and an explicit "role cannot change without re-verification" spec must *definitely* guarantee a clean slate — not rely on ARC timing.
-
-**Do this instead:** `SceneDelegate.presentRoot(.role(newRole))` — build a fresh `AppCoordinator` on a fresh `AppContainer` scope. Window gets a new `rootViewController`. Old graph deallocates deterministically. (Pattern 5 above.)
-
-### Anti-Pattern 5: Hiding async/await failures in `Task { try? await ... }`
-
-**What people do:** `Task { try? await repo.fetch() }` — suppress errors because "it compiled."
-
-**Why it's wrong:** Silently swallowed errors in security-critical flows (token refresh, KYC upload) become production bugs that only show up in the field. For a zero-PII, trust-is-the-product app, silent failure is worse than a visible error.
-
-**Do this instead:** Every `Task` in a ViewModel handles `do { try await ... } catch { self.error = error; logger.error(...) }`. Use `Task.checkCancellation()` before assignment to avoid writing state on cancelled tasks. `try?` is allowed only for best-effort telemetry where a caller has already logged the intent.
-
-### Anti-Pattern 6: "We'll add tests later"
-
-**What people do:** Skip testing `Core/Auth`, `Core/KeyStore`, `Core/Networking` in M1 because "the patterns aren't stable yet."
-
-**Why it's wrong:** These are exactly the modules where a regression = a security incident. They are also the modules whose protocols are used by every feature — if the protocols change in M2 because tests forced better design, it's now a 30-file refactor instead of a 5-file refactor.
-
-**Do this instead:** Tests first for `Core/*`, especially `KeyStore`, `Auth`, `Networking` (interceptors + pinning), `Storage` (Keychain round-trip, queue persistence). Target 80%+ coverage for these. Feature tests are looser (60–70% per spec §9). Per the STACK.md commitment to Swift Testing, use `@Test` and parameterized tests from day 1.
+**What people do:** Reach for SwiftUI `Canvas`/`Path` because a node-graph "feels declarative."
+**Why it's wrong:** The project constraint is explicit — UIKit-first, SwiftUI permitted *only* for non-critical surfaces (Settings/static lists). An interactive verification-state graph on the load-detail screen is a core sensitive surface.
+**Do this instead:** `TrustGraphView` is a UIKit `UIView` with custom `draw(_:)` / `CAShapeLayer` edges and `UIControl`/`UIButton` nodes. UIKit also gives the precise iPad-landscape trait-collection control the constraint demands.
 
 ---
 
@@ -892,140 +366,39 @@ This is the most important table in this document. Security requirements that ar
 
 | Service | Integration Pattern | Notes |
 |---------|---------------------|-------|
-| Backend REST API | `Core/Networking/NetworkClient` (single entry), URLProtocol mock in M1, live URL in M2+ | Contract-first. Mock returns realistic payloads. No networking code changes between mock and live — only `BASE_URL`. |
-| Backend WebSocket / SSE | `Core/Realtime/RealtimeChannel` protocol + two impls | Backend picks WS or SSE per capability advertise at login. |
-| APNs | `AppDelegate.didRegisterForRemoteNotifications` → `Core/Notifications/PushTokenService` → backend `POST /devices/push` | Device token + app-bundle id. Silent push handled in `BackgroundFetchHandler`. |
-| Apple App Attest service | `Core/Attestation/AppAttestService` → `DCAppAttestService.attestKey(_:clientDataHash:)` | Challenge fetched from backend per request. |
-| FMCSA (via backend) | `Core/Networking` passthrough; iOS never calls FMCSA directly | §5.2 SHOULD. |
-| Anthropic (via backend only) | `Core/AIKit` → `NetworkClient.stream("/ai/chat")` with SSE | iOS never holds an Anthropic API key. Per §5.9 MUST. |
-| Secure Enclave | `Core/KeyStore` exclusive access | Hardware — no network. |
-| Keychain | `Core/Storage/Keychain/KeychainStore` exclusive access | OS subsystem. |
+| Backend load API | None in v1.1 — `MockURLProtocol` fixtures only. | The 3 `LoadXxxEndpoint` structs are the forward contract; the live swap is `AppContainer.defaultNetworkConfig` → `.live`. Real-time/push/WebSocket are explicitly deferred (PROJECT.md). |
+| Anthropic / Claude | Not touched by v1.1. | The Loads feature has no AI surface. |
 
 ### Internal Boundaries
 
 | Boundary | Communication | Notes |
 |----------|---------------|-------|
-| Feature A ↔ Feature B | Through `Core/` protocols only; never direct import | If `Loads` needs user role, it gets it from `any SessionService`, not from `Profile`. |
-| Coordinator ↔ ViewModel | Coordinator passes closures (`onFinish: () -> Void`) to VM; VM never imports Coordinator type | Inversion of control — coordinator knows about navigation, VM knows nothing of it. |
-| ViewModel ↔ ViewController | `@Published` properties consumed by VC via Combine; VC dispatches user actions via methods on VM | Classic MVVM binding. |
-| `Core/` service ↔ `Core/` service | Via injected protocols at `AppContainer` construction | E.g., `NetworkClient` receives `any KeyStoreProtocol` — not `SecureEnclaveKeyStore`. |
-| `Core/Networking` ↔ `Core/Auth` | Bidirectional-safe via protocol split: `NetworkClient` holds `any AuthTokenProvider`; `AuthService` holds `any NetworkClient` | Break the cycle by splitting the auth contract: `AuthTokenProvider` (what networking needs) vs. `AuthService` (what features need). |
+| `Features/Loads/` ↔ `Core/Load/`, `Core/Networking/` | Direct `import` (same module today; `Core` import when `Features/` become SPM packages). | **Allowed.** The `no_cross_feature_import` lint rule (`regex: '^\s*import\s+Features_[A-Z]'`, scoped to `Features/[^/]+/`) only bans `import Features_X`. Importing `Core` is always fine — that is the whole point of the shared kernel. Putting the domain model in `Core/Load/` is what *keeps* v1.1 lint-clean. |
+| `Features/Loads/List/` ↔ `Features/Loads/Detail/` ↔ `Features/Loads/TrustGraph/` | Direct reference. | **Allowed — same feature.** The lint rule keys on the first segment under `Features/`; all three subfolders are `Features/Loads/…` = one feature. Subfolders are organization, not module boundaries. |
+| `Roles/<Role>TabBarController` ↔ `Features/Loads/LoadsCoordinator` | The tab-bar controller constructs `LoadsCoordinator` and installs `.rootViewController` as the "Loads" tab. | `Roles/` already constructs `Features/` content (it builds `ProfileViewController`). Constructing a `LoadsCoordinator` is the same shape. The `LoadsCoordinator` must be **retained** by the tab-bar controller in a strong property — v1.0 has explicit ADRs/comments (`AuthCoordinator`/`KYCCoordinator` retention bugs) about coordinators that deallocate after `makeRoot` returns. Apply the same discipline. |
+| `AppContainer` ↔ `Features/Loads/` | Composition-root factories: `makeLoadListScreen(role:)`, `makeLoadDetailScreen(loadID:)`. | Mirrors the shipped `makeKYCStatusScreen()` pattern exactly — the factory builds the VM from `Core/` deps and returns an opaque `UIViewController`, so a role shell can get a load screen *without* the Roles layer knowing the feature's internal VM types. Recommended over the tab-bar controller building VMs itself, because it keeps DI in the one composition root. |
+| `LoadsCoordinator` ↔ its ViewModels | Initializer-DI of `APIClient` + `Logger`; `on…` closure callbacks bubble selections/actions up. | The exact `AuthCoordinator`/`KYCCoordinator` shape — `@MainActor final class`, a `let rootViewController: UINavigationController`, `private let container: AppContainer`, `private func push…` methods that wire the next callback before `nav.pushViewController`. Copy `AuthCoordinator` as the structural template. |
 
 ---
 
-## Build Order for M1 Foundation
+## Confidence Assessment
 
-Derived from the data flows and dependency graph above. If you build in this order, each phase's downstream code has a foundation to stand on.
-
-| Order | Phase Topic | Rationale |
-|---|---|---|
-| **1** | `App/` skeleton + `AppContainer` shell + `SceneDelegate` | Everything plugs into this. Without it, you can't wire anything. |
-| **2** | `UI/` design tokens (colors, spacing, typography) — minimum viable set | Unblocks all subsequent VCs from hardcoding constants. |
-| **3** | `Core/Logging` (os_log Loggers + PII scrubber stub) | Every other module uses it. Build first so it can be used in construction logs from day 1. |
-| **4** | `Core/Storage/Keychain/KeychainStore` (hand-rolled `SecItem` wrapper) | Prerequisite for `Core/Auth`. Test Keychain roundtrip before anything touches tokens. |
-| **5** | `Core/KeyStore` (`SecureEnclaveKeyManager` + `SoftwareKeyStore` for simulator) | Prerequisite for device registration in `Core/Auth`. Physical-device test gate established here. |
-| **6** | `Core/Networking` — `NetworkClient` actor + `MockURLProtocol` + `AuthInterceptor` + `DeviceSignatureInterceptor` + `PinningSessionDelegate` | Every feature needs this. Built against a mock first per STACK.md contract-first commitment. Cert pinning wired in even if dev pins are self-signed — production config swap only. |
-| **7** | `Core/Auth` — `SessionStore` actor + `OTPService` + `BiometricService` | Depends on KeyStore + Networking + Keychain. First module that combines multiple Core services — good stress test of the DI wiring. |
-| **8** | `App/AppCoordinator` + `Features/Onboarding/AuthCoordinator` — OTP screen + OTP verify screen | First user-facing flow end-to-end. Validates MVVM + Coordinators + Combine-binding pattern. |
-| **9** | `Roles/RoleCoordinator` base + 5 placeholder tab bars (one per role, each tab a "coming soon" VC) | Spec requires all five roles shippable in M1 with placeholder UI per PROJECT.md Active requirements. Validates role-shell architecture. |
-| **10** | Session persistence + biometric re-prompt (>5 min background) wiring across `Core/Auth` + `SceneDelegate` | The "foundation complete" signal — user can cold-boot, resume, and get prompted correctly. |
-| **11** | `Core/Identity/KYCCoordinator` + capture UI (face + DL + vehicle) + upload pipeline against MockURLProtocol | Final M1 deliverable per spec §10. Exercises camera, Vision, upload, progress UI. |
-| **12** | `Core/Logging/PIIScrubber` production rules + `Core/Analytics/NoOpAnalytics` | Required by spec §8 before any beta. Wire in now so it's exercised against real log output. |
-
-**Post-M1 (M2+), not to start in M1 but to sketch protocols for:**
-
-- `Core/Realtime/RealtimeChannel` protocol (impl M2)
-- `Core/Storage/OutboundQueue` protocol (impl M4)
-- `Core/Attestation` protocol (impl M2, after M1 auth shim works end-to-end)
-
----
-
-## Delta Summary vs TechStack.md §3
-
-| TechStack.md §3 | 2026 Consensus | Delta? |
-|---|---|---|
-| §3.1 MVVM + Coordinators | MVVM + Coordinators still standard for UIKit-first apps this size | **Aligned** |
-| §3.2 `Core/` as flat directory of 8 subdirs | Split `Core/Security` into `Core/KeyStore` + `Core/Attestation` + narrowed `Core/Security` | **Delta — split** |
-| §3.2 "Cross-feature communication goes through Core/" | Correct but needs sharpening: through Core/ *protocols*, not concrete types | **Delta — clarification** |
-| §3.2 No explicit `Roles/` directory | Add `Roles/` at top level; `RoleCoordinator` + per-role subdir | **Delta — addition** |
-| §3.3 Initializer DI via single `AppContainer` | Holds up perfectly for 1–2 engineers at this scale; consider Factory post-v1 only | **Aligned** |
-| §3.4 async/await for new code, Combine for UI binding | Correct; add explicit Task cancellation discipline and plan M4 `@Observable` migration | **Aligned — with discipline note** |
-| (§3 silent) Role swap mechanism | Recreate root coordinator at SceneDelegate, don't mutate TabBar children | **New guidance** |
-| (§3 silent) Certificate pinning placement | In `Core/Networking/CertificatePinning/`, not `Core/Security/` | **New guidance** |
-| (§3 silent) Realtime abstraction | `URLSessionWebSocketTask` + `RealtimeChannel` protocol; skip Starscream | **New guidance** |
-| (§3 silent) Offline queue location | `Core/Storage/OutboundQueue/`, AES-GCM over SQLite, idempotency keys mandatory | **New guidance** |
-
-**Net assessment:** TechStack.md §3 is 85% correct as written. The deltas above are refinements, not rewrites. A human engineer reading §3 and implementing it as written would not produce a bad architecture — they'd produce a working one that benefits from the refinements during M2–M3 refactoring. Shipping §3 as-is to M1 is safe; shipping this ARCHITECTURE.md's refinements to M1 is better.
-
----
+| Area | Confidence | Basis |
+|------|------------|-------|
+| Module placement (`Core/Load/`, `Features/Loads/`, `Roles/` edits) | HIGH | Directly mirrors observed v1.0 placement of `Core/Identity/`, `Features/Onboarding/`, and the `Roles/`-builds-`Features/` pattern in `AppCoordinator.roleCoordinator`. |
+| Mock-endpoint extension preserving the one-line swap | HIGH | `APIClient`, `APIEndpoint`, `MockURLProtocol`, `MockFixture` read in full; the additive-only path is verified against the actual files. |
+| Role-sharing approach vs. the lint rule | HIGH | `.swiftlint.yml` rule 4 read verbatim — the regex demonstrably only matches `import Features_X`, and `Core/` imports are unaffected. |
+| Trust graph as child VC | MEDIUM-HIGH | Child-VC containment is standard UIKit and consistent with the v1.0 VC+VM house style; the *exact* drawing approach (CAShapeLayer vs `draw(_:)`) is an implementation detail to settle in Phase 9. |
+| Build order | HIGH | Dependency-forced (model→list→detail+graph→actions); matches v1.0's contract-first phase discipline. |
 
 ## Sources
 
-Apple / Official:
-- [Protecting keys with the Secure Enclave — Apple Developer](https://developer.apple.com/documentation/security/protecting-keys-with-the-secure-enclave)
-- [SecureEnclave — CryptoKit Documentation](https://developer.apple.com/documentation/cryptokit/secureenclave)
-- [Preparing to use the App Attest service — Apple Developer](https://developer.apple.com/documentation/devicecheck/preparing-to-use-the-app-attest-service)
-- [Establishing your app's integrity — Apple Developer](https://developer.apple.com/documentation/devicecheck/establishing-your-app-s-integrity)
-- [Architecting Your App for Multiple Windows — WWDC19](https://developer.apple.com/videos/play/wwdc2019/258/)
-- [Authentication Services — Apple Developer](https://developer.apple.com/documentation/authenticationservices)
-- [Streamline local authorization flows — WWDC22](https://developer.apple.com/videos/play/wwdc2022/10108/)
-- [Secure Enclave simulator limitations — Apple Developer Forums](https://developer.apple.com/forums/thread/748611)
-
-Architecture references:
-- [iOS Architecture in 2026: Which One Should You Actually Use? — Chandra Welim](https://medium.com/@chandra.welim/ios-architecture-in-2026-which-one-should-you-actually-use-793917181411)
-- [Architecture Patterns in Mobile Development 2026: MVVM, MVI, Clean — J@y](https://medium.com/@jyc.dev/architecture-patterns-in-mobile-development-2026-mvvm-mvi-and-clean-architecture-f26583f53522)
-- [Building an iOS App with MVVM, Coordinators and Protocol-Oriented Programming — Beyza Nur Tekerek, Dec 2025](https://beyzanurtekerek.medium.com/building-an-ios-app-with-mvvm-coordinators-and-protocol-oriented-programming-3f41afcc0257)
-- [awesome-ios-architecture — onmyway133](https://github.com/onmyway133/awesome-ios-architecture)
-- [Coordinators and Tab Bars: A Love Story — Holy Swift](https://holyswift.app/coordinators-and-tab-bars-a-love-story/)
-- [Using Coordinator With Scene Delegates — Mark Struzinski](https://markstruzinski.com/2019/08/using-coordinator-with-scene-delegates/)
-
-Enterprise / multi-role apps:
-- [Building the New Uber Freight App — Uber Engineering](https://www.uber.com/us/en/blog/uber-freight-app-architecture-design/)
-- [Uber's iOS RIBs Architecture: A Deep Dive — Gaurav Harkhani](https://medium.com/@gauravharkhani01/ubers-ios-ribs-architecture-a-deep-dive-716105a7454c)
-- [DoorDash Adopting SwiftUI with Bottom-Up Approach](https://careersatdoordash.com/blog/adopting-swiftui-with-a-bottom-up-approach-to-minimize-risk/)
-- [RIBs — Uber's cross-platform mobile architecture framework](https://github.com/uber/RIBs)
-
-Concurrency + Combine + Observation:
-- [SwiftUI 5 Leaves Combine behind, Extends Animations — InfoQ, 2023 on WWDC23 Observation](https://www.infoq.com/news/2023/06/swiftui-5-wwdc-2023-observation/)
-- [Mastering SwiftUI: Combine vs Async/Await in 2026 — ViralSwift](https://medium.com/@viralswift/mastering-swiftui-combine-vs-async-await-when-to-use-what-in-2026-c458d64eaf35)
-- [Hybrid ViewModels with Combine and Swift Concurrency — Gois](https://medium.com/@maatheusgois/hybrid-viewmodels-with-combine-and-swift-concurrency-5bb7dfdc9955)
-- [Creating Combine-compatible versions of async/await-based APIs — Swift by Sundell](https://www.swiftbysundell.com/articles/creating-combine-compatible-versions-of-async-await-apis/)
-- [Swift Concurrency: Structured Concurrency, Task Cancellation — Chetansinh Rajput, May 2025](https://medium.com/mobile-innovation-network/part-2-swift-concurrency-structured-concurrency-task-cancellation-and-more-fb6aaba7ea78)
-- [Streaming changes with Observations — Swift with Majid, July 2025](https://swiftwithmajid.com/2025/07/30/streaming-changes-with-observations/)
-
-Dependency injection:
-- [Comparing Four different approaches to DI — Lucas van Dongen](https://lucasvandongen.dev/di_frameworks_compared.php)
-- [Factory — hmlongco/Factory on GitHub](https://github.com/hmlongco/Factory)
-- [Needle — uber/needle on GitHub](https://github.com/uber/needle)
-
-Security / networking:
-- [SSL Certificate Pinning on iOS Using TrustKit — Bugsee](https://bugsee.com/blog/ssl-certificate-pinning-on-ios-using-trustkit/)
-- [Mastering SSL Pinning in iOS: From Basics to Production — DEV.to 2025](https://dev.to/arshtechpro/mastering-ssl-pinning-in-ios-from-basics-to-production-4m2e)
-- [Enhancing iOS App Security with SSL Pinning using URLSession — Mohamed Elsdody](https://medium.com/@mohamed.ma872/enhancing-ios-app-security-with-ssl-pinning-a-developers-guide-using-urlsession-fb47c3258304)
-- [iOS Keychain: using Secure Enclave-stored keys — Alexei Gridnev](https://medium.com/@alx.gridnev/ios-keychain-using-secure-enclave-stored-keys-8f7c81227f4)
-- [CryptoKit and the Secure Enclave — Andy Ibanez](https://www.andyibanez.com/posts/cryptokit-secure-enclave/)
-- [Implementing Apple's Device Check App Attest Protocol — DEV.to](https://dev.to/mnelsonwhite/implementing-apples-device-check-app-attest-protocol-4p2g)
-
-Real-time + offline:
-- [Real-Time Networking in iOS: WebSocketTask vs Socket.IO vs Starscream vs SSE — Sreejith Bhatt](https://medium.com/@sreejithbhatt/real-time-networking-in-ios-websockettask-vs-socket-io-vs-starscream-vs-server-sent-events-1111b1992de1)
-- [Swift WebSockets: Starscream or URLSession in 2021 — Stream.io](https://getstream.io/blog/swift-websockets-starscream-urlsession/)
-- [WWDC 2025 - iOS 26 Background APIs: BGContinuedProcessingTask — DEV.to](https://dev.to/arshtechpro/wwdc-2025-ios-26-background-apis-explained-bgcontinuedprocessingtask-changes-everything-9b5)
-- [On Idempotency Keys — Gunnar Morling](https://www.morling.dev/blog/on-idempotency-keys/)
-- [Handling Offline Support and Data Synchronization in iOS — Kalidoss Shanmugam](https://medium.com/@kalidoss.shanmugam/handling-offline-support-and-data-synchronization-in-ios-with-swift-2130ecb3d7c1)
-
-Modularization / build times:
-- [Modern iOS Architecture: Building a Modular Project with SPM — Garejakirit, Mar 2026](https://medium.com/@garejakirit/modern-ios-architecture-building-a-modular-project-with-swift-package-manager-94f6d3fc106c)
-- [Modern iOS Architecture: Build Modular Apps with SPM — 2025 Guide](https://ravi6997.medium.com/modern-ios-architecture-building-a-modular-project-with-swift-package-manager-033d8de9799f)
-- [What's New in Swift Package Manager for 2025 — Commit Studio](https://commitstudiogs.medium.com/whats-new-in-swift-package-manager-spm-for-2025-d7ffff2765a2)
-
-Testability / protocol witnesses:
-- [Protocol Witnesses — Point-Free collection](https://www.pointfree.co/collections/protocol-witnesses)
-- [Simplifying Test Writing with Protocol Witnesses in Swift — Oren Idan, DEV.to](https://dev.to/orenidan/simplifying-test-writing-with-protocol-witnesses-in-swift-4nmg)
-- [ProtocolWitness macro — daltonclaybrook/ProtocolWitness](https://github.com/daltonclaybrook/ProtocolWitness)
-- [Mock-free unit tests in Swift — Swift by Sundell](https://www.swiftbysundell.com/articles/mock-free-unit-tests-in-swift/)
+- `validationLedger/` source tree, v1.0 "M1 Foundation" (shipped 2026-05-18, ~28,700 LOC) — primary source. Files read in full: `Core/Networking/APIClient.swift`, `APIEndpoint.swift`, `Mock/MockURLProtocol.swift`, `Mock/MockFixture.swift`, `Mock/MockDefaultFixtures.swift`, `Mock/MockOTPRoleFixtureRegistry.swift`, `Endpoints/KYCStatusEndpoint.swift`, `Endpoints/KYCUploadInitEndpoint.swift`, `App/AppCoordinator.swift`, `App/AppContainer.swift` (factory section), `Roles/Role.swift`, `Roles/RoleCoordinator.swift`, `Roles/Shipper|BrokerTabBarController.swift`, `Features/Onboarding/Auth/AuthCoordinator.swift`, `Features/Onboarding/KYC/KYCCoordinator.swift`, `Features/Onboarding/KYC/KYCStatusViewModel.swift`.
+- `.swiftlint.yml` — the `no_cross_feature_import` custom rule (rule 4) and the full lint charter.
+- `.planning/PROJECT.md` — v1.1 "Load Flows" scope, constraints, key decisions, the mock-only / no-backend boundary.
+- `Package.swift` — SwiftPM-only dependency set (Nuke, SwiftLintPlugins).
+- Not used: `.planning/codebase/*.md` (stale, dated 2026-04-21, predates all of v1.0); `TechStack.md` (not present at repo root — removed/archived; PROJECT.md used as the authoritative scope source instead).
 
 ---
-
-*Architecture research for: identity-verified freight iOS client (Validation Ledger)*
-*Researched: 2026-04-20*
-*Overall confidence: HIGH — Apple official sources + multiple 2025/2026 architecture references + cross-verified with STACK.md decisions and TechStack.md spec.*
+*Architecture research for: load-domain feature integration into a shipped UIKit/MVVM-C iOS app*
+*Researched: 2026-05-19*

@@ -1,5 +1,27 @@
 # Milestones
 
+## v1.1 Load Flows (Shipped: 2026-05-21)
+
+**Delivered:** the freight load domain end-to-end on iOS — a role-filtered load list, a load detail screen with an interactive chain-of-trust visualization, and per-role tender/accept/reject with optimistic UI and a server-confirmed rollback path — built entirely against `MockURLProtocol` fixtures with zero backend dependency.
+
+**Scope:** 5 phases (7, 8, 9, 9.1, 10), 35 plans, 65 tasks · ~65,000 LOC Swift · 2026-05-19 → 2026-05-21.
+
+**Close:** `tech_debt` milestone audit — 20/22 requirements satisfied (2 partial: LOAD-05/LOAD-06 are SUMMARY-frontmatter bookkeeping only, both verified implemented; 0 unsatisfied), 5/5 phases verified, 11/11 cross-phase connections wired, 0 critical blockers. See `milestones/v1.1-MILESTONE-AUDIT.md`.
+
+### Key accomplishments
+
+1. **Contract-first load domain (Phase 7)** — the `Core/Load/` value-type kernel (Load, ChainOfTrust, TrustNode, LoadStatus, LoadAction, RoleLoadPolicy) with fail-closed decoders, 3 typed endpoints, and a 22-fixture matrix exercised through `apiClient.request<E>` — gating every Phase 8-10 screen on a stable contract.
+2. **Role-filtered load list (Phase 8)** — a working "Loads" tab for all 5 roles over a diffable `LoadListViewController`, the standard freight row, the single reusable TRUST-02 verification badge, skeleton/empty/error states, and pull-to-refresh.
+3. **Load detail & chain-of-trust graph (Phase 9)** — the load detail screen with a status timeline and the marquee interactive trust graph: a pannable/zoomable node-graph rendering server-supplied verification state and double-brokering risk, tap-node-for-verification-basis, tap-edge-for-handoff.
+4. **iPhone chain-of-vouches redesign (Phase 9.1)** — inserted from device-UAT; replaced the 2D graph on iPhone with a vertical attribution tree + role strip (iPad keeps `TrustGraphView`), and extracted the TRUST-02 color ramp into a `DS.Colors.Verification` helper locked by an R12 grep gate.
+5. **Per-role tender / accept / reject (Phase 10)** — a `RoleLoadPolicy`-driven action region, optimistic-predict + server-confirmed rollback (D-15), two-gate hard-disable of tender-to-an-unverified-counterparty, idempotency-routed action POSTs, and an 86-baseline snapshot matrix.
+
+### Known deferred items at close
+
+≈20 physical-device HUMAN-UAT scenarios across Phases 8/9/9.1/10 (visual / multi-touch / VoiceOver / device-ergonomics checks against verified code), 4 `VERIFICATION.md` files at `human_needed`, partial Nyquist coverage on Phases 7/8/9.1, and 6 advisory code-review warnings carried from Phase 9.1. The 2 red test-isolation tests the audit flagged were fixed before close (quick task `260521-l9p`). None blocks the next milestone; full tail catalogued in `milestones/v1.1-MILESTONE-AUDIT.md`. See STATE.md → Deferred Items.
+
+---
+
 ## v1.0 M1 Foundation (Shipped: 2026-05-18)
 
 **Delivered:** the M1 Foundation — all five roles OTP-authenticate into role-distinct tab shells, persist a session across cold boot, complete KYC capture, and resume a chunked upload — on a UIKit/iOS-17 base with device-bound Secure Enclave keys and App Attest.

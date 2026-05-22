@@ -1,19 +1,19 @@
 # Project Research Summary
 
-**Project:** Validation Ledger — iOS Client
-**Domain:** Identity-verified freight iOS client (UIKit-first, five-role, security-sensitive)
-**Researched:** 2026-04-20
-**Confidence:** HIGH
+**Project:** Validation Ledger iOS Client — v1.1 "Load Flows"
+**Domain:** Identity-verified freight load management — role-filtered list, load detail, interactive chain-of-trust graph, and per-role tender/accept/reject — built against MockURLProtocol fixtures on a shipped UIKit/MVVM-C base
+**Researched:** 2026-05-19
+**Confidence:** HIGH overall (all four research files grounded directly in the shipped v1.0 source tree and high-quality freight-domain primary sources)
 
 ---
 
 ## Executive Summary
 
-Validation Ledger is an identity-first freight iOS application targeting five user roles (Shipper, Broker, Carrier, Dispatch, Factoring) on a device-bound trust platform. The 2026 market context directly validates the product thesis: Verified Carrier's "Verified Pickup" shipped April 15 2026 as the first sign that the freight industry is converging on dock-handoff QR verification — Validation Ledger extends that pattern with a rotating 30s-TTL backend-signed QR, Secure Enclave device-bound keys, chain-of-trust visualization as a first-class UI surface, and one-active-device enforcement that no existing competitor implements. The recommended build approach is UIKit-first MVVM + hand-rolled Coordinators + initializer DI via AppContainer, with an App/ → Features/ → Core/ (protocols) dependency direction enforced by directory structure from day one.
+v1.1 "Load Flows" is a subsequent milestone adding the freight load domain to an already-shipped, architecturally settled iOS app (~28,700 LOC, 207 files, 6 phases of v1.0 completed 2026-05-18). The stack, architecture patterns, and dependency graph are fixed; the only genuine open question was how to render the interactive chain-of-trust graph — and research concludes unambiguously: custom UIKit `UIView` nodes with `CAShapeLayer` edges, zero new dependencies. The trust graph is a fixed 5-node directed chain, not an arbitrary topology, so force-directed libraries and SpriteKit are both wrong tools and both violate hard project constraints (UIKit-for-critical-surfaces, closed dependency shortlist). Everything new in v1.1 slots into proven v1.0 patterns: a new `Core/Load/` domain kernel, new `APIEndpoint` conformers extending the contract-first mock networking, a single role-parameterized `Features/Loads/` module consumed by all 5 role shells.
 
-The M1 milestone (4 weeks, 1–2 engineers) should be understood as having two distinct layers of work. The visible layer is OTP auth + role-switched tab shell + persistent session + logout for all five roles with placeholder tabs. The invisible but load-bearing layer is eight foundational conventions that must be established before any feature code is written: PII scrubber, first-launch Keychain wipe, MVVM-C memory rules, simulator/device CI split, dual-pin cert pinning, PrivacyInfo.xcprivacy skeleton, SessionLockService unified invariant, and bootstrap-aware DeepLinkRouter. Research converges on a 30% infrastructure tax that is not reflected in TechStack.md §10's milestone table — the roadmap must budget this explicitly or M1 will slip.
+The load domain is well-understood from freight industry standards. The state machine maps directly to the EDI 204/990 tender handshake. The five-role action matrix collapses to three distinct action surfaces (Shipper/Broker share tendering, Carrier/Dispatch share accept/reject/advance, Factoring is read-only), reducing the apparent complexity. The chain-of-trust graph's node/edge data model is a Validation Ledger-specific design synthesized from FMCSA fraud patterns and the v1.0 identity primitives — defensible and grounded, but with no published competitor rendering it exactly this way. This warrants a design review during Phase 9 planning.
 
-The two non-negotiable differentiators that shape M1's technical obligations are D3 (Secure Enclave device-bound identity) and D1 (chain-of-trust visualization). D3 must be partially realized in M1 Phase 1 because every signed-request feature in M2+ (tender signing, refuse-to-tender enforcement) layers on top of it. D1 is the M2 centerpiece and cannot be deferred further without undermining the product's primary identity claim. The most significant external dependency in the project is the Critical Alerts entitlement from Apple — it has a 2–8 week response time and must be filed no later than M2, not M5.
+The primary risks are: (1) the trust graph becoming a source of client-derived trust signals — verification state must be server-supplied and render-only, never computed client-side; (2) fixture design that only covers the happy path, leaving error/empty/latency states unbuilt; (3) the mock-to-live contract drift if the load list is built without pagination or with loose JSON decoding; and (4) gesture conflicts on the graph surface if tap, page-scroll, and optional pan/zoom are not architected deliberately. All four are preventable if the Phase 7 foundation (contract, data model, fixture matrix) is done correctly before any UI work starts — exactly as v1.0's contract-first discipline proved.
 
 ---
 
@@ -21,244 +21,160 @@ The two non-negotiable differentiators that shape M1's technical obligations are
 
 ### Recommended Stack
 
-The stack is fully pinned with HIGH confidence from verified sources. The notable differences from TechStack.md §2.1's pre-GSD shortlist are corrections of abandoned libraries and stale IDE guidance. Every library version below was verified against GitHub releases on 2026-04-20.
+v1.1 reuses the v1.0 stack wholesale. There are no new dependencies and no version bumps. `Package.swift` and `Package.resolved` are unchanged: two packages only — Nuke 13.0.2 (pinned exact) for async image loading, and SwiftLintPlugins 0.63.2 for lint enforcement. All load-domain features are built on first-party Apple frameworks (UIKit, Core Animation, `UIScrollView`, `UICollectionView`).
 
-**Core technologies:**
+The only framework decision specific to v1.1 is the trust-graph renderer. Four options were evaluated (custom `UIView` nodes, `UICollectionView` custom layout, SpriteKit, and Grape — a third-party SwiftPM graph library). Custom `UIView` nodes with `CAShapeLayer` edges wins on every criterion: interactivity via native hit-testing and `UIScrollView` zoom, trivial layout for a fixed 5-node chain, native iPad rendering via Auto Layout and size classes, and full VoiceOver accessibility because each node is a real view. SpriteKit is rejected for poor VoiceOver support (disqualifying on a trust product). Grape is rejected because it is SwiftUI-only (violates UIKit-first for critical surfaces) and requires a dependency-shortlist exception with no justification.
 
-| Technology | Version | Purpose | Rationale |
-|---|---|---|---|
-| Xcode | 26.4.1 stable (floor Xcode 16.x in CI) | Build toolchain | TechStack.md says "Xcode 15+" — stale. Xcode 15 has no Swift Testing, no Swift 6 mode, no iOS 26 SDK. Floor CI at Xcode 16; dev at Xcode 26.4.1. |
-| Swift | 5.9 floor in Package.swift; Swift 6 mode per-module | Language | Matches spec intent; new Core/ modules can opt into Swift 6 strict concurrency immediately. |
-| UIKit / iOS 17.0 | iOS 17 SDK | Primary UI framework | Spec-locked. No SwiftUI on camera/KYC/scanner/BOL. |
-| URLSession + thin wrapper | native | HTTP transport | No Alamofire — overkill for 5-endpoint M1 on a zero-PII product. |
-| Hand-rolled KeychainStore | native (SecItem) | Token + key-handle storage | OVERRIDES TechStack.md: KeychainAccess last released 2021-03-01 (v4.2.2); last commit 2023-11-12. Abandoned. A 150-line SecItem wrapper in Core/Storage/Keychain/ is smaller than the vendoring cost and is auditable. |
-| CryptoKit SecureEnclave.P256.Signing | native | Device-bound keypair (FR-iOS-DEV) | P-256 is the only SEP-supported curve. Device-bound, non-exportable, non-restorable by design. |
-| Native URLSessionDelegate cert pinning | native | SPKI-hash cert pinning (FR-iOS-SEC) | TrustKit (3.0.7) is maintained but adds a dep for ~80 lines of delegate code. Use native; pin SPKI hash (not full cert) for rotation resilience. |
-| Nuke 13.0.2 | 2026-04-15 | Async image load + cache | OVERRIDES TechStack.md tie: Nuke wins over SDWebImage — fully Sendable, @globalActor ImagePipelineActor, Swift 6-clean. SDWebImage is ~85% ObjC. |
-| Swift Testing + XCTest | bundled with Xcode 16+ | Unit tests + UI tests | Swift Testing for all new unit tests; XCTest for UI tests. No Quick/Nimble. |
-| MockURLProtocol (hand-rolled) | in-repo | Contract-first mock networking | Core/Networking/Mock/MockURLProtocol swaps with live BASE_URL without model changes. Mocker 3.0.2 in test target only. |
-| swift-snapshot-testing 1.19.2 | 2026-03-30 | Visual regression for key screens | Chain-of-trust timeline, BOL render, QR screen. |
-| SwiftLint 0.63.2 via SwiftLintPlugins | 2026-01-26 | Style enforcement | SwiftPM build tool plugin. Custom rules for PII scrubber audit points. |
-| SwiftFormat 0.61.0 (nicklockwood) | 2026-04-11 | Automated formatting | Pre-commit hook + Xcode Run Script phase. |
-| os_log / OSLog / OSLogStore | native | Structured logging + PII scrubbing | M1 only. Crash vendor deferred to M2 per PROJECT.md. |
-
-**Libraries NOT used (with reasons):** KeychainAccess (abandoned 2021), Alamofire (overkill), SDWebImage (ObjC-heavy), Quick/Nimble (superseded), TrustKit (one host — native suffices), XCoordinator (abandoned 2023-02-28), Swinject/Resolver (spec-locked out), RxSwift (no role in 2026), tuist/xcodegen (no payoff on single-module M1).
-
-**TechStack.md items research invalidates:**
-
-| TechStack.md says | Correct posture |
-|---|---|
-| "Xcode 15+" | Floor Xcode 16.x in CI; Xcode 26.4.1 locally |
-| "KeychainAccess or hand-rolled" | Hand-rolled only — KeychainAccess is abandoned |
-| "Crash/analytics: pick one in M1" | Deferred to M2; M1 uses os_log/OSLogStore |
-| "Image loading: Nuke or SDWebImage" | Nuke 13.0.2 only |
-| FR-iOS-GEO impossible-travel as MUST on client | Already downgraded to SHOULD in PROJECT.md; backend enforces |
-
----
+**Core technologies (v1.1 additions):**
+- `UIView` / `UIControl` node subclasses + `CAShapeLayer` edges: trust-graph rendering — deterministic fixed-topology layout, full accessibility, zero new deps
+- `UIScrollView` (with `viewForZooming`): graph pan/zoom — canonical UIKit solution, no custom gesture math
+- `UICollectionView` compositional layout: load list — already the v1.0 default for list surfaces
+- `MockURLProtocol` + `APIClient` + `Endpoint` (in-repo, v1.0): extended with 3 new load-domain endpoints and a `MockLoadFixtureRegistry` — no networking-layer change
 
 ### Expected Features
 
-The competitive analysis confirms the product is in the identity-first freight stack camp. Verified Pickup's April 2026 launch is the strongest external validator of the product thesis. Validation Ledger's delta over Verified Pickup: rotating 30s-TTL backend-signed QR vs. static encrypted QR; Secure Enclave device-bound keys (no competitor does this); chain-of-trust visualization as first-class UI; all five roles in one binary.
+The feature set is scoped tightly to what PROJECT.md marks Active. All 13 load-domain features are P1 for v1.1 — there is no P2/P3 within the milestone. The relevant signal is dependency order, not priority tiers.
 
-**M1 table stakes:**
-- T1 Phone + SMS OTP auth
-- T2 Biometric re-prompt on sensitive actions
-- T3 Role-switched tab-bar shell for all five roles with placeholder tabs
-- T4 Live face + DL front/back capture (no liveness enforcement in M1)
-- T5 Vehicle/trailer/plate photo capture with GPS metadata
-- T6 Resumable upload pipeline with visible progress
-- T7 KYC status UI with rejection-reason text
+**Must have (table stakes — the load domain does not exist without these):**
+- L1 Role-filtered load list — each of 5 roles sees only its relevant loads via server-side fixture filter
+- L2 Standard load row with freight field set + verification badge
+- L3 Load detail screen — host for the graph and action bar
+- L4 Load status timeline — Posted to Tendered to Accepted to Dispatched to In-Transit to Delivered
+- L5 Tender / Accept / Reject interaction — EDI 204/990 modelled, mock-only
+- L6 One-tap status advancement (Carrier/Dispatch only)
+- L7 Empty / loading / error states on list and detail
+- L8 Pull-to-refresh — the only state-propagation path in a mock-only milestone
 
-**M1 differentiators (non-negotiable — foundational code must land in M1):**
-- D3 Secure Enclave device-bound EC P-256 keypair + one-active-device enforcement — every M2+ signed-request feature builds on this
-- D5 Client-side US-only country pre-check
-- D6 Screenshot block on DL-capture screen (KYC subset; extended to BOL/QR in M3)
-- D11 App Attest / DeviceCheck on login payload
-- D12 .biometryCurrentSet Keychain access control on device key
+**Should have (Validation Ledger differentiators — the reason this milestone exists):**
+- L9 Interactive chain-of-trust graph — the marquee v1.1 feature; no competitor renders the full per-load chain as a tappable node-graph
+- L10 Per-party verification state badges everywhere a party appears — reusable `VerificationBadge` component
+- L11 Tap-a-node for verification basis detail — KYC date, device binding, USDOT authority, relationship history
+- L12 Refuse-to-tender when counterparty unverified — hard client-side disable with inline reason
+- L13 Double-brokering risk rendered on the graph — flagged nodes/edges from fixture-supplied `chainIntegrity` verdict
 
-**M2 centerpiece (non-negotiable):**
-- D1 Chain-of-trust visualization — TechStack §13 calls it "the single most important screen." Depends on T8 + T9. M2 must deliver this well; placeholder is not acceptable.
-- D4 Refuse-to-tender-to-unverified counterparty with inline reason
-- T11 Tender / Accept / Reject flow with device-key signing
+**Defer (post-v1.1, requires running backend):**
+- Real-time load updates (WebSocket/SSE) — replaces pull-to-refresh post-v1.1
+- APNs push for tender/status-change notifications
+- Full load-creation form for Shipper/Broker
+- Edge-tap detail on the trust graph (scope-trim candidate if Phase 9 runs long)
+- eBOL / rotating QR / dock scanner — explicit M3 milestone
+- Factoring invoice-submission write-path — post-v1.1
 
-**M3 dock-and-BOL tier:**
-- D2 Live rotating QR (30s TTL, backend-signed) — external backend signing service dependency; largest cross-team dep in M3
-- T14 eBOL render + PDF share; T15 QR scanner at dock; T16 POD capture
-- D6 Screenshot block extended to eBOL, QR, chain-of-trust
+**The load state machine (canonical for REQUIREMENTS.md):**
+`draft > posted > tendered > accepted > dispatched > in_transit > delivered` plus `rejected`, `expired`, `cancelled` as non-terminal side-states. `pod_captured`, `invoiced`, `funded` are display-only in v1.1 (kept in the enum so Factoring's list has content; no interactive transitions).
 
-**Anti-features (deliberately NOT built):**
-- No "remember me" / no self-serve password reset / no multi-device simultaneous login
-- No third-party chat SDK (defer messaging to M4/v2)
-- No third-party analytics in M1 (os_log only)
-- No offline QR verification (fraud window too large)
-- Background location only for Carrier role with active load, explicit opt-in
-
----
+**Per-role action matrix collapses to 3 action surfaces:**
+- Shipper + Broker: post, tender, retender, cancel
+- Carrier + Dispatch: accept, reject, advance status (dispatched > in_transit > delivered)
+- Factoring: view only
 
 ### Architecture Approach
 
-TechStack.md §3 holds up in 2026 with four surgical amendments. MVVM + hand-rolled Coordinators + initializer DI via AppContainer is the 2026 consensus for UIKit apps at 1–2 engineer scale.
+v1.1 adds exactly two new structural areas and modifies four existing files/groups. NEW: `Core/Load/` (shared domain kernel — value types, state machine, `RoleLoadPolicy`) and `Features/Loads/` (the feature module — `LoadsCoordinator`, list, detail, trust graph). MODIFIED: the 5 role tab-bar controllers (swap the placeholder Loads tab for a real `LoadsCoordinator`), and `AppContainer` (add load factories and `MockLoadFixtureRegistry` registration). Every other v1.0 file is untouched. The `APIClient`, `MockURLProtocol`, `APIEndpoint`, and `IdempotencyInterceptor` require zero changes — v1.1 simply adds conformers and fixture registrations.
 
-**Directory structure (corrected from TechStack.md §3.2):**
+**Major components:**
+1. `Core/Load/` — `Load`, `ChainOfTrust`, `TrustNode`, `LoadStatus`, `LoadAction`, `RoleLoadPolicy` as pure `Decodable & Sendable` value types; the single source of truth for the load state machine and the role-to-action-set policy table. Lives in `Core/` so all 5 role shells and `AppContainer` can import it without tripping the `no_cross_feature_import` lint rule.
+2. `Features/Loads/` — one module, role-parameterized: `LoadsCoordinator` (owns the Loads-tab nav stack), `List/` (VC + VM + cell), `Detail/` (VC + VM + `LoadActionBar`), `TrustGraph/` (child VC + view + VM + `TrustNodeDetailViewController`). Five role shells each instantiate the same coordinator with their `Role`.
+3. `MockLoadFixtureRegistry` + JSON fixtures — extends the v1.0 `MockOTPRoleFixtureRegistry` pattern; a separate registry keeps `MockDefaultFixtures` from growing unbounded. Must cover every verification-state permutation, every load-status state, and both happy-path and failure responses for every action.
+4. `RoleLoadPolicy` — a pure `(Role, LoadStatus) -> [LoadAction]` table in `Core/Load/`; `LoadDetailViewModel` calls it once; `LoadActionBar` renders the result. Zero `switch load.status` in any view.
+5. `TrustGraphViewController` — a child VC embedded in `LoadDetailViewController` via `addChild`; exposes `onNodeTapped: (TrustNode) -> Void`; the owning coordinator presents `TrustNodeDetailViewController` modally. Not a coordinator — it owns a view, not a flow.
 
-```
-App/            — composition root; the ONLY place that knows concrete Core/ implementations
-Core/
-  Networking/   — NetworkClient actor + MockURLProtocol + Interceptors + CertificatePinning/
-  Auth/         — SessionStore actor + OTPService + BiometricService
-  KeyStore/     — NEW (split from Security/): SecureEnclaveKeyManager + SoftwareKeyStore (sim)
-  Attestation/  — NEW (split from Security/): AppAttestService + DeviceCheckService
-  Security/     — NARROWED: ScreenshotGuard + ScreenRecordingDetector + JailbreakHeuristics
-  Storage/      — hand-rolled KeychainStore + EncryptedQueueStore + Cache
-  Identity/     — KYCCoordinator + DocumentScanner + UploadPipeline
-  Realtime/     — RealtimeChannel protocol (impl M2)
-  Logging/      — PIIScrubber + OSLog Loggers per subsystem + LogExporter
-  Analytics/    — phantom-typed AnalyticsEvent (NoOpAnalytics impl in M1)
-  AIKit/        — AssistantClient (M4)
-Features/       — self-contained; consume Core/ protocol types only
-Roles/          — NEW: RoleCoordinator + per-role subdirs
-UI/             — design system; depends on nothing
-Resources/      — Assets, Localizable.strings, PrivacyInfo.xcprivacy
-```
-
-**Four architecture amendments to TechStack.md §3:**
-
-1. Split Core/Security/ into Core/KeyStore/ (key material), Core/Attestation/ (device integrity), Core/Security/ (runtime defenses). Certificate pinning lives in Core/Networking/CertificatePinning/ — it is a networking concern.
-
-2. Features hold protocol existentials (any AuthService, any NetworkClient), never concrete implementation types. This is what makes features testable.
-
-3. Role-based shell uses RoleCoordinator swap at the SceneDelegate level, not TabBarCoordinator mutation. SceneDelegate.presentRoot(.role(newRole)) constructs a fresh AppCoordinator on a fresh AppContainer scope — all old ViewModels, Tasks, and Combine subscriptions deallocate deterministically.
-
-4. Roles/ is a new top-level directory. The five-role requirement is too big for App/ nested coordinators and too cross-cutting for one Features/ module.
-
-**Build order for M1 Foundation (use as roadmap phase scaffolding):**
-
-| Step | What | Rationale |
-|---|---|---|
-| 1 | App/ skeleton + AppContainer + SceneDelegate | Everything plugs in here |
-| 2 | UI/ design tokens | Unblocks all VCs |
-| 3 | Core/Logging (os_log + PII scrubber stub) | Every module uses it |
-| 4 | Core/Storage/Keychain/KeychainStore | Prerequisite for Core/Auth |
-| 5 | Core/KeyStore (SecureEnclaveKeyManager + SoftwareKeyStore) | Device test gate established here |
-| 6 | Core/Networking (NetworkClient + MockURLProtocol + Interceptors + PinningDelegate) | Contract-first; every feature needs this |
-| 7 | Core/Auth (SessionStore + OTPService + BiometricService) | First multi-Core service composition |
-| 8 | AppCoordinator + Features/Onboarding/AuthCoordinator (OTP screens) | First user-facing flow; validates MVVM+C+Combine |
-| 9 | Roles/RoleCoordinator + 5 placeholder tab bars | Phase 1 goal |
-| 10 | Session persistence + biometric re-prompt wiring | Foundation complete signal |
-| 11 | Core/Identity/KYCCoordinator + capture UI + upload pipeline | Final M1 deliverable |
-| 12 | PII scrubber production rules + NoOpAnalytics | Required before any beta |
-
----
+**Key data-flow decisions:**
+- `ChainOfTrust` is embedded in the `LoadDetailEndpoint.Response` — one round-trip for the detail screen, no separate graph fetch, no graph-level loading state.
+- Role-in-path URL scheme (`/loads/broker`) rather than query-string (`/loads?role=broker`) to match `MockURLProtocol`'s path-only matcher without modifying it.
+- The one-line mock/live swap (`AppContainer.defaultNetworkConfig`) requires zero load-feature code changes.
 
 ### Critical Pitfalls
 
-Eight M1-critical foundational conventions — must be established before feature work proliferates.
+1. **Reaching for a third-party graph library or SwiftUI Canvas for the trust graph** — Both violate hard project constraints (UIKit-for-critical-surfaces, closed dependency shortlist). The trust graph is a fixed 5-node directed chain, not an arbitrary topology; it needs a layout, not a layout algorithm. Build it with `UIView` nodes and `CAShapeLayer` edges. Ratify this in the Phase 9 plan before any code is written.
 
-1. **Keychain first-launch wipe (Pitfall 2):** iOS Keychain survives app delete+reinstall; prior user's tokens are accessible on reinstall. On first launch, check a UserDefaults boolean (UserDefaults IS cleared on uninstall); if absent, enumerate-and-delete all Keychain items under the app's access group before any auth work. Free to prevent in Phase 1; expensive to retrofit.
+2. **Client-derived verification state** — A green checkmark computed from local fixture fields is a fraud vector on a fraud-prevention product. Verification state must be a server-supplied opaque enum on every party object, rendered as-is, defaulting to least-trusted when absent or unknown. Design this into the Phase 7 contract; no client code path may upgrade trust based on local logic.
 
-2. **PII scrubber from day one (Pitfall 4):** Build Core/Logging/PIIScrubber in M1 Phase 1 as the ONLY logging API. No direct os_log, no print. Enforce via SwiftLint custom rule. URL query params must never carry PII. Deep link URLs use opaque UUIDs. VC titles must not contain dynamic user data.
+3. **Happy-path-only mock fixtures** — `MockURLProtocol` is synchronous and instant. If the fixture matrix only covers 200-OK responses, the UI for loading/empty/error/latency states never gets built. Extend the fixture layer with injectable latency and forced-failure in Phase 7; require per-screen demos against empty, error, and slow fixtures as acceptance criteria.
 
-3. **Dual-pin cert pinning with rotation plan (Pitfall 3):** Pin two SPKI hashes from day one — current leaf public key AND a pre-provisioned backup. Single-hash pinning bricks all users on cert rotation (Let's Encrypt is 90-day). Write the cert rotation runbook before M5.
+4. **Optimistic action UI with only a success branch** — Tender/accept/reject actions must ship their rollback path in the same plan as their forward path. The pre-action state snapshot, revert-on-failure, and specific error copy are not polish — they are correct behavior on a chain-of-custody product. Wire every action endpoint through the existing v1.0 idempotency-key interceptor; control disabled in-flight.
 
-4. **MVVM-C memory conventions codified before M2 (Pitfall 5):** House rules in an ADR at end of M1 Phase 1 — every sink starts with [weak self]; assign(to:on:) is banned (no weak variant); Coordinators hold VMs, VMs hold weak var coordinator. Undiscovered retain cycles compound through M2–M3 and require a feature freeze to fix.
-
-5. **Simulator/device CI split for Secure Enclave code (Pitfall 8):** SecureEnclave.isAvailable returns false on simulator. Two CI pipelines from Phase 1: (a) unit tests on simulator excluding security code, (b) real-device smoke tests gating PRs that touch Core/Auth/, Core/KeyStore/, Core/Identity/. Set up the device pipeline in M1 — not M3.
-
-6. **SessionLockService as unified biometric re-prompt invariant (Pitfall 10):** Single SessionLockService.shouldRequireBiometric reads lastBiometricSuccessTimestamp from Keychain; called unconditionally on every app activation. Root UI starts behind an opaque lock screen. Two separate code paths for cold launch vs. foreground is the failure mode.
-
-7. **PrivacyInfo.xcprivacy skeleton in M1, not M5 (Pitfall 14):** Must be in Copy Bundle Resources (not just the project tree) and declare required-reason APIs. Missing it fails App Store submission validation. Add skeleton in M1 Phase 1; verify in the .ipa at M3 TestFlight.
-
-8. **Bootstrap-aware DeepLinkRouter sketch in Phase 1 (Pitfall 18):** Push notifications (M3) fire scene(_:openURLContexts:) before app bootstrap completes. Central DeepLinkRouter with bootstrap-aware pending queue must be designed in M1 even though push notifications don't land until M3 — retrofitting into a mature coordinator graph is painful.
-
-**Additional M2–M5 pitfalls to track:**
-- Critical Alerts entitlement (Pitfall 17): File by M2. 2–8 week Apple response. Prepare .timeSensitive fallback.
-- App Attest rate limits (Pitfall 13): Generate key once; persist to Keychain; regenerate only on DCErrorInvalidKey.
-- Biometric re-enrollment bricks SE session (Pitfall 1): DeviceKeyService must handle errSecItemNotFound → re-bind flow and errSecAuthFailed → Settings deep link. Test on physical device by re-enrolling Face ID.
-- KYC GPS metadata stripped by UIImage (Pitfall 6): Capture path must be AVCapturePhoto.fileDataRepresentation() → CGImageDestination GPS injection; never through UIImage before upload.
-- 30% infrastructure tax not in TechStack.md §10 (Pitfall 20): Logging, error handling, CI, accessibility, privacy manifest, tooling together consume ~30% of M1. Budget it explicitly.
+5. **Load list built without pagination** — The mock can return everything in page 1, but if the ViewModel and diffable data source are not built for pages, the eventual backend forces a list/VM/snapshot rework. Build pagination from Phase 8; the mock returns a paginated response even if it always has exactly one page.
 
 ---
 
 ## Implications for Roadmap
 
-The roadmap consumer is gsd-roadmapper. Scope is M1 Foundation only (4 weeks, 1–2 engineers). Phase 1 goal is fixed by PROJECT.md: OTP auth + role-switched tab shell + persistent session + logout for all five roles with placeholder tabs.
+Research identifies a clear 4-phase dependency order for v1.1, continuing from v1.0's Phase 6. Phase numbering continues at 7.
 
-### Phase 1: UIKit Foundation + Security Skeleton
+### Phase 7: Load Domain Model + Mock Contract
 
-**Rationale:** Codebase is currently a SwiftUI Xcode template scaffold. Phase 1 must rebuild it as UIKit, establish the directory structure, wire the eight foundational conventions, and deliver the Phase 1 goal. Nothing in M2 is possible without this. Security conventions are cheaper to establish here than at any future phase.
+**Rationale:** This is the load-bearing foundation that all subsequent phases consume. The state machine, action policy table, typed endpoints, and fixture matrix must exist before any screen can decode a load. v1.0's identical lesson: the `APIEndpoint` + `MockURLProtocol` infrastructure was built in Phase 2 before any feature consumed it. Skipping this phase produces fixture-over-fitted screens that require a refactor at the live-backend swap.
 
-**Delivers:**
-- UIKit module layout: App/, Core/ (Logging, Storage/Keychain, KeyStore, Networking, Auth, Security), Features/Onboarding/, Roles/, UI/, Resources/
-- AppContainer + AppCoordinator + SceneDelegate composition root
-- Core/Logging/PIIScrubber — the ONLY logging path from day one
-- Core/Storage/Keychain/KeychainStore with first-launch Keychain wipe
-- Core/KeyStore/SecureEnclaveKeyManager + SoftwareKeyStore + simulator/device CI split declared
-- Core/Networking/NetworkClient actor + MockURLProtocol + dual-pin PinningSessionDelegate + AuthInterceptor + DeviceSignatureInterceptor + IdempotencyInterceptor
-- Core/Auth/SessionStore actor + OTPService + BiometricService + SessionLockService
-- OTP phone entry + OTP verification screens (MVVM-C pattern validated end-to-end)
-- Roles/RoleCoordinator + 5 placeholder tab bars (one per role)
-- Session persistence + biometric re-prompt wiring (foundation complete signal)
-- PrivacyInfo.xcprivacy skeleton in Copy Bundle Resources
-- SwiftLint + SwiftFormat + pre-commit hooks + CI pipelines (sim + device)
-- DeepLinkRouter skeleton with bootstrap-aware queue (protocol sketch; full impl M3)
-- UI/ design tokens (colors, spacing, typography)
-- Core/Analytics/NoOpAnalytics stub
+**Delivers:** `Core/Load/` value types (Load, ChainOfTrust, TrustNode, LoadStatus, LoadAction, RoleLoadPolicy); 3 typed `APIEndpoint` structs (LoadListEndpoint, LoadDetailEndpoint, LoadActionEndpoint); `MockLoadFixtureRegistry`; full fixture matrix (per-role list fixtures, per-state loads, empty/error/large/latency/action-failure fixtures); `RoleLoadPolicy` unit tests covering all (role, status) pairs; MockURLProtocol latency/failure-injection capability.
 
-**Features addressed:** T1, T2, T3 (shell), T22 (logout wiring), D3 (SE keypair generation + registration), D12 (.biometryCurrentSet on device key)
+**Features addressed:** Prerequisite for L1-L13 and the load endpoints Active item. The fixture schema (verificationState, chain, chainIntegrity, stateHistory, respondByAt, tenderEligibility) must be designed here — it gates L9, L10, L11, L12, L13.
 
-**Pitfalls this phase MUST prevent:** P1 (Keychain wipe), P2 (PII scrubber), P3 (dual-pin), P4 (MVVM-C memory conventions ADR), P5 (sim/device CI split), P6 (SessionLockService), P7 (PrivacyInfo.xcprivacy), P8 (DeepLinkRouter skeleton)
+**Pitfalls to prevent:** Pitfall 3 (verification state as server-supplied opaque field), Pitfall 7 (state machine + RoleLoadPolicy as a tested module, not view logic), Pitfall 8 (fixture matrix + latency/failure injection), Pitfall 9 (contract-first strict models, pagination shape).
 
-**Infrastructure tax:** Budget 30% of Phase 1 for CI, tooling, error handling boilerplate, ADR writing. If week 2 shows Phase 1 behind, defer D11 (App Attest) and D5 (country pre-check) to M1 Phase 2 — they are SHOULD-tier.
-
-**Research flag:** Standard patterns. No per-phase research needed.
+**Research flag:** Standard patterns — follows proven v1.0 contract-first discipline. No deeper research phase needed. The one design decision to ratify here is the role-in-path URL scheme for the load list endpoint.
 
 ---
 
-### Phase 2: KYC Capture + Upload Pipeline
+### Phase 8: Role-Filtered Load List
 
-**Rationale:** After the foundation is solid, the first real product feature is identity capture. This is M1's "subsequent phases" scope from PROJECT.md. The upload pipeline architecture must be decided here because it shapes the backend API contract.
+**Rationale:** The load list is the critical-path root. Load detail, the trust graph, and all action surfaces are reached by tapping a list row. The list is also the cheaper screen and the natural place to prove role-parameterization in isolation before the graph adds complexity.
 
-**Delivers:**
-- Core/Identity/KYCCoordinator + LivenessDetector (Vision, no third-party SDK in M1) + DocumentScanner + UploadPipeline
-- Live face capture (T4 — no liveness enforcement; liveness decision deferred per Open Q1)
-- DL front + back capture with GPS metadata via AVCapturePhoto.fileDataRepresentation() → CGImageDestination GPS injection (never via UIImage)
-- Vehicle/trailer/plate photo capture with GPS metadata (T5)
-- Resumable chunked upload with jittered exponential backoff + idempotency keys + background URLSessionConfiguration (T6)
-- KYC status UI with rejection-reason text (T7)
-- Screenshot block on DL-capture screen (D6 subset)
-- App Attest / DeviceCheck on login payload (D11)
-- Client-side US-only country pre-check (D5)
-- Jailbreak heuristics reporting to backend (Core/Security/JailbreakHeuristics)
-- MC/DOT entry + backend FMCSA lookup (T21 — SHOULD; defer under schedule pressure)
+**Delivers:** `LoadsCoordinator`, `LoadListViewController/ViewModel/Cell`; "Loads" tab wired in all 5 role shell tab-bar controllers; `AppContainer` load factory; pull-to-refresh; empty/loading/error states; iPad-native regular-width layout. The `VerificationBadge` design-system component (L10) is created here because the row depends on it; it is reused by L12 and L9.
 
-**Features addressed:** T4, T5, T6, T7, T21, D5, D6 (KYC subset), D11
+**Features addressed:** L1 (role-filtered list), L2 (standard load row + L10 verification badge), L7 (empty/loading/error), L8 (pull-to-refresh).
 
-**Pitfalls this phase MUST prevent:** Pitfall 6 (UIImage strips GPS), Pitfall 7 (whole-file upload is not resumable — must be chunked), Pitfall 13 (App Attest key generated once, not on every launch)
+**Pitfalls to prevent:** Pitfall 5 (iPad native layout — multi-column on regular width, size-class-driven), Pitfall 9 (paginated list against a paginated fixture, strict decoding), Pitfall 8 (per-role empty-list and error fixtures exercised before marking done).
 
-**Research flag:** Needs research during planning. Chunked upload + background URLSession + idempotency key contract is non-trivial. App Attest server-side counter/challenge design needs to be specified as part of the API contract work.
+**Research flag:** Standard patterns — role-parameterized UICollectionView list against MockURLProtocol fixtures is a proven v1.0 shape. No deeper research phase needed.
+
+---
+
+### Phase 9: Load Detail + Chain-of-Trust Graph
+
+**Rationale:** The load detail screen is the host for the trust graph and cannot exist without the list to navigate from (Phase 8). The `ChainOfTrust` is embedded in the detail response, so the graph cannot be a standalone screen — detail and graph are a single phase. This is the highest-complexity and highest-design-investment phase in v1.1.
+
+**Delivers:** `LoadDetailViewController/ViewModel`; `LoadActionBar` (renders but shows no actions yet — that is Phase 10); `TrustGraph/` sub-module (`TrustGraphViewController` as child VC, `TrustGraphView` with UIView nodes + CAShapeLayer edges, `TrustGraphViewModel`, `TrustNodeDetailViewController`); list-to-detail navigation in `LoadsCoordinator`; `AppContainer` detail factory; status timeline (L4); iPad-native graph layout (horizontal chain on regular width, responsive to traitCollectionDidChange and bounds changes).
+
+**Features addressed:** L3 (load detail), L4 (status timeline), L9 (chain-of-trust graph), L11 (tap-node for verification basis), L13 (double-brokering risk rendering — flagged nodes/edges from fixture's chainIntegrity field).
+
+**Pitfalls to prevent:** Pitfall 1 (UIView nodes + CAShapeLayer edges — ratify before Phase 9 code starts; no library, no SwiftUI), Pitfall 2 (gesture arbitration designed up front — fixed-aspect graph in a scrolling page, generous 44pt hit targets, physical-device smoke test), Pitfall 3 (graph renders server-supplied verification state only; fail-closed to least-trusted; no offline/cached chain), Pitfall 5 (iPad-native graph layout, re-layout on Split View resize), Pitfall 10 (VoiceOver: each node view is an accessibilityElement with role + verification state label; Dynamic Type: UIFont.preferredFont on node labels).
+
+**Research flag:** FLAG FOR DEEPER RESEARCH. The trust graph is the only HIGH-complexity feature with no off-the-shelf component. Phase 9 should open with a brief design-spike step covering: (a) the four-state visual language finalized as a design artifact, (b) gesture arbitration model written into the plan before implementation, (c) VoiceOver traversal order and accessibility element setup, (d) iPad-wide vs. iPhone-tall layout decision. The STACK.md research already resolved the rendering approach (Option A wins unambiguously); the remaining open items are design and interaction decisions.
+
+---
+
+### Phase 10: Per-Role Tender / Accept / Reject
+
+**Rationale:** Action buttons mutate state that only exists once the detail screen renders it (Phase 9). The action set computation depends on `RoleLoadPolicy` (Phase 7) and `LoadDetailViewModel` (Phase 9). Doing actions last lets them build on a proven foundation; it is also the most cross-role-sensitive surface.
+
+**Delivers:** Active `LoadActionBar` buttons (tender, accept, reject, advance-status) driven by `RoleLoadPolicy.actions(for: role, status:)`; `LoadDetailViewModel.perform(_:)` with optimistic UI + rollback path; `LoadsCoordinator.onLoadActioned` -> list refresh on pop-back; L12 refuse-to-tender disable (inline reason from `tenderEligibility` fixture field); action -> status -> action-set recompute loop.
+
+**Features addressed:** L5 (tender/accept/reject), L6 (one-tap status advance), L12 (refuse-to-tender-to-unverified).
+
+**Pitfalls to prevent:** Pitfall 4 (rollback path ships in the same plan as the forward path; pre-action snapshot captured; action demoed against 409/422/timeout fixtures), Pitfall 6 (every action endpoint registered with v1.0 idempotency interceptor; control disabled in-flight; action key generated per-action not per-retry), Pitfall 7 (zero switch load.status in any VC/cell; all gating from RoleLoadPolicy; unit-tested before UI).
+
+**Research flag:** Standard patterns — the action POST -> recompute -> re-render cycle mirrors `KYCStatusViewModel`. The idempotency interceptor is shipped. `RoleLoadPolicy` is designed and tested in Phase 7. No deeper research phase needed, but Phase 10 planning must include an explicit checklist item verifying action endpoints are registered with the interceptor.
 
 ---
 
 ### Phase Ordering Rationale
 
-- Phase 1 before Phase 2: Networking layer, Keychain, and security conventions must exist before identity capture code is written. There is no safe order reversal.
-- D3 (Secure Enclave) in Phase 1, not Phase 2: Signed-request device headers are needed by every M2 feature. DeviceSignatureInterceptor must be wired in Phase 1 so M2 features do not require a retrofit.
-- D1 (chain-of-trust visualization) NOT in M1: It depends on T8 and T9 (M2 features). M1 should focus on the SE foundation so D1 can be delivered well in M2. Do not ship a D1 placeholder in M1.
-- DeepLinkRouter skeleton in Phase 1, not M3: Push notification work (M3) is an implementation pass, not a design-from-scratch pass inside a mature coordinator graph.
-- Physical-device CI in Phase 1, not M3: Set up the device pipeline early; gate it on changes to Core/Auth/, Core/KeyStore/, Core/Identity/.
+- **Contract first (Phase 7) is non-negotiable.** Both list and detail decode `Core/Load/` types; `RoleLoadPolicy` is needed by Phase 10; the fixture schema gates the trust graph, verification badges, and the refuse-to-tender feature. Building the contract first means Phases 8-10 never block on schema churn.
+- **List before detail (8 before 9).** Detail is reached by tapping a list row; the list also proves role-parameterization in isolation. The trust graph cannot be a standalone screen.
+- **Detail and graph together (Phase 9).** `ChainOfTrust` is embedded in the detail response; the graph has no independent host. Splitting them creates a detail screen with a placeholder graph that then needs to be removed — more total work.
+- **Actions last (Phase 10).** Actions depend on `RoleLoadPolicy` (Phase 7) AND the detail VM (Phase 9). They are the most cross-role-sensitive surface and benefit from building on a proven foundation.
+- **Each phase is independently demoable:** Phase 7 — endpoint fixtures decode in unit tests. Phase 8 — tap "Loads" in any role shell -> real role-correct list. Phase 9 — tap a load -> detail with live trust graph; tap a node -> verification basis. Phase 10 — each role can take its legal actions; load state advances visibly; list reflects it.
 
 ### Research Flags
 
-**Needs /gsd-research-phase during planning:**
-- M1 Phase 2 (KYC + Upload): Chunked multipart upload contract design, App Attest server-side counter/challenge spec, AVCapturePhoto → CGImageDestination GPS pipeline.
-- M2 (Load flows + chain-of-trust): Chain-of-trust visualization data model, WebSocket vs. SSE capability advertisement protocol, tender-signing request body canonicalization.
-- M3 (BOL + rotating QR): Rotating QR backend signing contract — no published competitor precedent; requires a security review pass before M3 starts.
-- Critical Alerts entitlement (file at M2): Research Apple's current acceptance bar for freight/identity products; prepare fallback to .timeSensitive.
+**Needs deeper research / design spike at phase planning time:**
+- **Phase 9** (Load Detail + Trust Graph): The rendering approach is settled (UIKit Option A), but the visual design language, gesture arbitration model, VoiceOver accessibility design, and iPad-wide layout need to be explicit written decisions in the Phase 9 plan before implementation starts. A half-day design spike is appropriate; avoid discovering these mid-build.
 
-**Standard patterns (skip research-phase):**
-- M1 Phase 1 (Foundation): MVVM + Coordinators + AppContainer + hand-rolled Keychain + URLSession — well-documented, no novel integration.
-- M4 (Offline queue + AI assistant): Well-understood SQLite + idempotency pattern; AI assistant is backend-mediated SSE stream with no novel iOS work.
-- M5 (Beta hardening): App Store submission, privacy manifest, TestFlight — procedural.
+**Standard patterns — no research phase needed:**
+- **Phase 7** (Load Domain Model + Mock Contract): Follows proven v1.0 contract-first discipline. The `APIEndpoint` + `MockURLProtocol` + fixture registry pattern is well-established in the codebase.
+- **Phase 8** (Role-Filtered Load List): Role-parameterized `UICollectionView` list against mock fixtures is the v1.0 house pattern. The iPad multi-column layout is standard UIKit.
+- **Phase 10** (Per-Role Actions): The action POST -> recompute -> re-render cycle mirrors `KYCStatusViewModel`. The idempotency interceptor is shipped. `RoleLoadPolicy` is designed and tested in Phase 7.
 
 ---
 
@@ -266,50 +182,49 @@ The roadmap consumer is gsd-roadmapper. Scope is M1 Foundation only (4 weeks, 1�
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All library versions verified against GitHub releases API on 2026-04-20. KeychainAccess and XCoordinator abandonment verified by release date and commit recency. Xcode 26.4.1 verified against Apple developer pages. SEP constraints verified against Apple Developer Documentation + Forums thread 748611. |
-| Features | HIGH | Table stakes cross-verified against 6+ competitor 2026 product docs. Differentiators (D1–D3, D6, D11, D12) validated against Verified Pickup / Highway / Trustd gap analysis. Anti-features grounded in 2026 iOS security guidance and FMCSA fraud patterns. |
-| Architecture | HIGH | MVVM + Coordinators 2026 consensus verified against multiple sources. Module split rationale grounded in Apple docs and enterprise iOS architecture references. SecureEnclave.isAvailable simulator behavior confirmed via Apple Developer Forums 748611. |
-| Pitfalls | HIGH (P1–P6, P8); MEDIUM (P7 App Store timing, P13 App Attest rate limits) | Pitfalls verified against Apple docs, WWDC23/24, Let's Encrypt 2024 rotation incident. App Store review behavior is quarterly-variable. App Attest rate limits are undocumented. |
+| Stack | HIGH | No new technology decisions. Trust-graph rendering choice (UIKit Option A) supported by Apple official docs and a clear four-option decision matrix. Package.swift unchanged. |
+| Features | HIGH | Load state model grounded in EDI 204/990 industry standards. Per-role action matrix cross-verified against settled freight industry structure. Scope mapped 1:1 against PROJECT.md Active list. |
+| Architecture | HIGH | Every placement decision mirrors an observed v1.0 pattern in the shipped source tree. `Core/Load/` mirrors `Core/Identity/`; `Features/Loads/` mirrors `Features/Onboarding/`; child-VC graph pattern mirrors `KYCCoordinator` shape. |
+| Pitfalls | HIGH | UIKit gesture arbitration, diffable data source identifier pitfalls, and security rules are well-documented. The exact `CAShapeLayer` vs `draw(_:)` implementation detail for graph edges is a Phase 9 implementation choice, not a research gap. |
 
-**Overall confidence:** HIGH
+**Overall confidence: HIGH**
 
 ### Gaps to Address
 
-- **Liveness SDK decision (Open Q1):** Vision-only liveness may have false-reject rates above acceptable threshold. Decision gate is M1 results. If FRR is unacceptable, budget Jumio/Onfido/Persona at M2.
-- **Rotating QR security review:** No competitor does a 30s-TTL backend-signed rotating QR. Explicit security review (ideally external) required before M3 ships.
-- **Critical Alerts entitlement:** Apple response is 2–8 weeks and acceptance is not guaranteed. Roadmap should treat "entitlement granted" as a dependency with a hard deadline at M2 and .timeSensitive fallback as the default path.
-- **SIM-swap / biometric re-enrollment recovery UX (Open Q5):** "Re-bind this device" UX must be designed in M1 — is it full re-KYC or a lighter recovery? The answer shapes DeviceKeyService error handling in Phase 1.
-- **Crash vendor pick (Open Q7):** Deferred to M2. When chosen, wrap SDK behind a CrashReporter protocol in Core/Analytics/ with beforeSend hook running through the PII scrubber.
-- **iPad bespoke layouts vs. adaptive (Open Q3):** Deferred to post-M2. Roles/ directory supports iPad-specific coordinators without a refactor — plan for it but do not build in M1.
+- **Trust-graph visual design language**: The four states (verified/pending/unverified/flagged) need a concrete visual design (colors, glyphs, typography) finalized as a design artifact before Phase 9 implementation. This is a design gap, not a research gap.
+
+- **`post`/`cancel` action scope**: The per-role action matrix includes post and cancel as optional for Shipper/Broker, but there is no load-creation form (AL5 is an anti-feature for v1.1). REQUIREMENTS.md should clarify whether these actions are entirely omitted from v1.1 UI or rendered as disabled with a reason.
+
+- **Edge-tap interaction scope**: Tapping a graph edge (the handoff/tender detail) is noted as a "nice to have" and is the most plausible scope-trim candidate if Phase 9 runs long. REQUIREMENTS.md should mark it as optional with a clear cut condition.
+
+- **`MockURLProtocol` latency/failure injection**: The current implementation is synchronous and instant (confirmed by direct source inspection). Phase 7 must extend it with injectable latency and forced-failure capability before any load screen is built.
+
+- **`TechStack.md` dangling reference (minor cleanup)**: `PROJECT.md` and `CLAUDE.md` both reference `TechStack.md` in the repo root as the authoritative v1 iOS spec. That file no longer exists (removed/archived; `PROJECT.md` was used as the authoritative scope source throughout this research without issue). Update those references at the next convenient opportunity. Not a blocker.
 
 ---
 
 ## Sources
 
-### Primary (HIGH confidence — verified 2026-04-20)
+### Primary (HIGH confidence)
 
-- Apple Developer Documentation — SecureEnclave.P256, DCAppAttestService, CLLocationUpdate, URLSessionWebSocketTask, PrivacyInfo.xcprivacy required-reason APIs
-- Apple Developer Forums thread 748611 — Secure Enclave simulator unavailability confirmed
-- Apple Developer Forums thread 706428 — SEP inter-device key limitations
-- Apple Xcode system requirements page — Xcode 26.4.1 stable; floor 16.x for Swift Testing
-- GitHub releases API (2026-04-20): KeychainAccess v4.2.2 (2021-03-01, abandoned), Nuke 13.0.2 (2026-04-15, active), XCoordinator v2.2.1 (2023-02-28, abandoned), SwiftLintPlugins 0.63.2 (2026-01-26, active), SwiftFormat 0.61.0 (2026-04-11, active), swift-snapshot-testing 1.19.2 (2026-03-30, active), Mocker 3.0.2 (2024-01-15, active), TrustKit 3.0.7 (2025-06-04, active)
-- Verified Carrier "Verified Pickup" launch — GlobeNewswire + FleetOwner, April 15 2026 — primary market validation
-- Highway, Trustd, Samsara Driver, Uber Freight, McLeod, Vector eBOL — product docs and App Store listings
+- `.planning/PROJECT.md` — v1.1 scope, constraints, Active/Deferred feature list, key decisions, milestone context (authoritative project doc)
+- `validationLedger/` source tree, v1.0 "M1 Foundation" shipped 2026-05-18, ~28,700 LOC — all architecture decisions grounded in direct source inspection
+- Apple Developer Documentation — `UIScrollView`, UIKit gesture recognizers, `UICollectionViewDiffableDataSource`, Apple HIG minimum tap targets
+- [EDI X12 204 Motor Carrier Load Tender — Stedi](https://www.stedi.com/edi/x12/transaction-set/204)
+- [EDI 990 Response to a Load Tender — Infocon Systems](https://www.infoconn.com/EDIDOCS/EDI990.htm)
+- [FMCSA — Broker and Carrier Fraud and Identity Theft](https://www.fmcsa.dot.gov/mission/help/broker-and-carrier-fraud-and-identity-theft)
+- [FMCSA Registration Modernization FAQs](https://www.fmcsa.dot.gov/registration/modernization-faqs) — USDOT-only identity post-Oct-2025
+- [SwiftGraphs/Grape — GitHub](https://github.com/SwiftGraphs/Grape) — evaluated and rejected; SwiftUI-only renderer
 
-### Secondary (MEDIUM confidence — community consensus)
+### Secondary (MEDIUM confidence)
 
-- Jumio / UXCam / Zyphe — KYC abandonment data (15–30% with generic rejection copy; 25–30% improvement with specific reasons)
-- FMCSA MOTUS rollout coverage (Trucksafe, Overdrive, iDispatchHub 2025–2026)
-- Swift by Sundell, SwiftUI by Majid 2026 articles — Swift Concurrency + Combine coexistence patterns
-- Approov, NowSecure 2026 mobile security assessment reports
-- Let's Encrypt R3 → R10/R11 intermediate rotation 2024 — cert pinning real-world failure case
-
-### Tertiary (LOW confidence — training data; used for background only)
-
-- Stack Overflow CLLocationUpdate.liveUpdates discussions — corroborated by Apple WWDC notes; used for Pitfall 11 background only
+- [altLINE — Freight Broker vs. Dispatcher](https://altline.sobanco.com/freight-broker-vs-dispatcher-differences/)
+- [Triumph — Comprehensive Guide to Freight Invoice Factoring](https://triumph.io/blog/carrier/comprehensive-guide-to-freight-invoice-factoring/)
+- [AltexSoft — Transportation Management Systems](https://www.altexsoft.com/blog/transportation-management-system/)
+- [Jesse Squires — Diffable data source behavior changes iOS 15](https://www.jessesquires.com/blog/2021/07/08/diffable-data-source-behavior-changes-and-reconfiguring-cells-in-ios-15/)
+- SpriteKit pan/zoom and `SKShapeNode` performance pitfalls — community sources, corroborated across multiple results
+- `.planning/research/v1.0/STACK.md`, `.planning/research/v1.0/PITFALLS.md` — prior milestone research (used as context)
 
 ---
-
-*Research completed: 2026-04-20*
+*Research completed: 2026-05-19*
 *Ready for roadmap: yes*
-*Downstream consumer: gsd-roadmapper scoping M1 Foundation phases*

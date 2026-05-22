@@ -1,347 +1,205 @@
-# Stack Research — Validation Ledger iOS Client
+# Stack Research — v1.1 "Load Flows"
 
-**Domain:** Security-sensitive, identity-verified freight iOS client (UIKit-first, iOS 17+, Swift 5.9+, SwiftPM-only)
-**Researched:** 2026-04-20
-**Milestone:** M1 Foundation (greenfield — bundle id `com.maldin.validationLedger`)
-**Overall confidence:** HIGH
+**Domain:** Load domain for a security-sensitive identity-verified freight iOS client (UIKit-first, iOS 17, SwiftPM-only, MockURLProtocol contract-first networking, MVVM + Coordinators)
+**Researched:** 2026-05-19
+**Milestone:** v1.1 "Load Flows" — subsequent milestone on a shipped v1.0 codebase
+**Confidence:** HIGH
 
-> This file is prescriptive. Where it disagrees with `TechStack.md §2.1`, a **Delta vs TechStack.md** callout appears with rationale. TechStack.md §2.1 is an 8-month-old "pre-approved shortlist" written before GSD init; several of its named candidates are stale in 2026.
+> Scope of this research is deliberately narrow. v1.1 reuses M1's validated stack wholesale (UIKit, iOS 17, SwiftPM, hand-rolled `APIClient` + `MockURLProtocol`, Secure Enclave keystore, App Attest, MVVM + Coordinators, initializer-DI `AppContainer`, SwiftLint + SwiftFormat, Swift Testing + XCUITest, Nuke for images). None of that is re-opened here — see `.planning/research/v1.0/STACK.md` for that work. The one genuinely open question for v1.1 is **how to render the interactive chain-of-trust node-graph in UIKit on iOS 17.** This file answers that and nothing else.
 
 ---
 
-## TL;DR — The Pinned Stack
+## TL;DR — The Recommendation
 
-| Concern | Pick | Version | Confidence |
-|---|---|---|---|
-| IDE / toolchain | **Xcode 26.4.1** (stable), floor Xcode 16.x | 26.4.1 (2026-04-16) | HIGH |
-| Language | **Swift 5.9 floor, Swift 6 mode allowed per-file** | 6.3 compiler in toolchain | HIGH |
-| UI | **UIKit** (SwiftUI allowed in Settings/static only) | iOS 17 SDK | HIGH (spec-locked) |
-| Architecture | **MVVM + hand-rolled Coordinators** (no library) | — | HIGH |
-| DI | **Initializer injection via `AppContainer`** (no Swinject/Resolver) | — | HIGH (spec-locked) |
-| Concurrency | **async/await primary, Combine for UI binding only** | native | HIGH |
-| Networking | **URLSession + thin custom wrapper** (no Alamofire) | native | HIGH |
-| Mocking | **URLProtocol subclass in-repo** + Mocker in tests | Mocker 3.0.2 | HIGH |
-| Keychain | **Hand-rolled `SecItem` wrapper in `Core/Storage/`** (NOT KeychainAccess) | native | **HIGH — overrides TechStack.md** |
-| Crypto / device key | **Apple CryptoKit `SecureEnclave.P256.Signing`** | native | HIGH |
-| Cert pinning | **Native `URLSessionDelegate`** on a single `NetworkClient` | native | HIGH |
-| Images | **Nuke 13.0.2** (not SDWebImage) | 13.0.2 (2026-04-15) | HIGH |
-| QR gen / scan | **CoreImage / AVFoundation** (built-in) | native | HIGH (spec-locked) |
-| Testing | **Swift Testing for new unit tests + XCTest for UI tests** | Swift Testing in Xcode 16/26 | HIGH |
-| Snapshots | **swift-snapshot-testing** | 1.19.2 (2026-03-30) | MEDIUM |
-| Linting | **SwiftLint 0.63.2** via **SwiftLintPlugins** SwiftPM plugin | 0.63.2 (2026-01-26) | HIGH |
-| Formatting | **SwiftFormat 0.61.0** (nicklockwood) | 0.61.0 (2026-04-11) | HIGH |
-| Project file | **Commit `.xcodeproj`** (no xcodegen/tuist for M1) | — | HIGH |
-| Logging | **os_log / OSLog + OSLogStore** | native | HIGH (spec-locked) |
+**Build the chain-of-trust graph with first-party Apple frameworks. Add zero new dependencies.**
 
-Everything above is verifiable — see `Sources` at the bottom.
+| Concern | Pick | Rationale (one line) |
+|---|---|---|
+| Graph rendering | **Custom `UIView` subclasses, one per node** + a container view drawing edges in `CAShapeLayer` | A 5-node directed chain is trivial UIKit; nodes-as-views gives free hit-testing, accessibility, and Auto Layout. |
+| Layout algorithm | **Hand-coded fixed layered layout** (left→right or top→bottom column-per-stage) | The chain is a known, fixed topology (shipper→broker→carrier→dispatch→factoring). No layout algorithm is needed — positions are deterministic. |
+| Pan / zoom | **`UIScrollView` host with `viewForZooming`** | The standard, accessibility-correct UIKit pan/zoom container. Zero custom gesture math. |
+| Node tap | **`UITapGestureRecognizer` per node view** (or `UIControl` subclass) | Native hit-testing; each node is a real view, not a drawn region. |
+| Accessibility | **Native — each node view is its own `accessibilityElement`** | A graph drawn into a single layer/canvas is invisible to VoiceOver; views are not. This is the decisive reason against SpriteKit / single-canvas approaches. |
+| iPad-native render | **Auto Layout + size classes on the same views** | Views adapt; a fixed-pixel canvas does not render natively on iPad. |
+
+**Dependency-shortlist verdict: NO exception required.** The trust-graph does not justify a new SwiftPM dependency. The pre-approved shortlist stands unchanged. `Package.swift` stays at exactly two dependencies (Nuke 13.0.2, SwiftLintPlugins 0.63.2).
 
 ---
 
 ## Recommended Stack (Detailed)
 
-### Core Technologies
+### Core Technologies — all first-party, all already in the M1 toolchain
 
 | Technology | Version | Purpose | Why Recommended |
 |---|---|---|---|
-| **Xcode** | 26.4.1 stable (floor 16.x) | Build toolchain | Xcode 16 shipped Swift Testing + Swift 6 mode; Xcode 26 ships Swift 6.3 with improved Observation, strict-concurrency warnings, and iOS 17–26.5 SDKs. Xcode 15 still technically builds iOS 17 but is two major versions behind, has no Swift Testing, and will not receive iOS 26 SDK updates. |
-| **Swift** | 5.9 floor in `Package.swift` `swift-tools-version`; Swift 6 language mode permitted per-module | Language | Matches spec §2: "Swift 5.9+, Swift 6 concurrency adoption allowed in new code, not required retroactively." Targeting 5.9 keeps SwiftPM broadly compatible; new `Core/` modules can opt into Swift 6 mode with `.enableUpcomingFeature("StrictConcurrency")`. |
-| **iOS SDK / deployment target** | iOS 17.0 minimum | Platform | Spec-locked. Enables `Observable` macro, VisionKit `DataScannerViewController`, modern URLSession async APIs without back-deploy shims. Apple SDK policy (Xcode 26) supports deployment targets down to iOS 15, so 17 is comfortably current. |
-| **UIKit** | iOS 17 SDK | Primary UI framework | Spec-locked for all sensitive surfaces (camera, KYC, scanner, BOL). No SwiftUI rendering quirks on `AVCaptureVideoPreviewLayer`, stable lifecycle for screenshot-block overlays, mature for the team size. |
-| **Swift Package Manager** | bundled | Dependency management | Spec-locked. No CocoaPods, no Carthage. All packages below are SwiftPM-compatible. |
-| **CryptoKit (SecureEnclave.P256.Signing)** | native | Device-bound keypair (FR-iOS-DEV) | Apple-blessed, SEP-backed, P-256 only (the only curve SEP supports). See `Secure Enclave gotchas` below. |
-| **URLSession (async/await)** | native | HTTP transport | `URLSession.data(for:)`, `URLSession.upload(for:fromFile:)`, `URLSessionWebSocketTask` cover every M1 need. No feature Alamofire provides that justifies a 228-file dependency for a team of 1–2 and a zero-PII app. |
-| **os_log / OSLog / OSLogStore** | native | Structured logging w/ PII scrubbing | Spec-locked (§10 Open Q7 defers crash vendor). `OSLog.Logger` provides privacy annotations (`.private(mask: .hash)`) that belong in the PII-scrubber. No SDK weight, no network surface, queryable via `OSLogStore` in-app for support dumps. |
+| **UIKit** (`UIView`, `UIControl`, `UIScrollView`) | iOS 17 SDK | Trust-graph nodes, container, pan/zoom host | Spec-locked: CLAUDE.md mandates UIKit for all sensitive surfaces, and the trust-graph *is* the product's core trust surface. Each of the 5 parties is a real `UIView` — this buys hit-testing, Auto Layout, Dynamic Type, and VoiceOver for free. |
+| **Core Animation** (`CAShapeLayer`, `CALayer`, `UIBezierPath`) | iOS 17 SDK | Drawing the 4 directed edges between the 5 nodes | Edges are non-interactive decoration — exactly what `CAShapeLayer` is for. A handful of `UIBezierPath` strokes with an arrowhead. GPU-composited, animatable for state transitions, costs nothing. |
+| **UIKit gesture recognizers** (`UITapGestureRecognizer`, `UIScrollView` built-in pinch/pan) | iOS 17 SDK | Tap-a-node-for-verification-basis, pan, zoom | `UIScrollView`'s `viewForZooming` delegate is the canonical UIKit pan/zoom solution; tap recognizers on each node view give precise per-node hit detection with no geometry math. |
+| **`MockURLProtocol` + `APIClient` + `Endpoint`** | in-repo (M1) | New load-domain endpoints and fixtures | Reuse verbatim. v1.1 adds `Endpoint` conformers (load list, load detail) and JSON fixtures under the existing `Core/Networking/Mock/` registry pattern. No networking-stack change. |
+| **MVVM + Coordinators**, initializer-DI `AppContainer` | in-repo (M1) | `LoadListViewModel`, `LoadDetailViewModel`, a `LoadsCoordinator` | Reuse verbatim. The trust-graph is a view inside the load-detail screen; its data comes from `LoadDetailViewModel`. No architecture change. |
+| **`UICollectionView`** (compositional layout) | iOS 17 SDK | The role-filtered **load list** (not the graph) | Already the default for M1 list surfaces. Listed here only to be explicit: the *list* uses `UICollectionView`; the *graph* does not. |
 
-### Supporting Libraries (pinned to SwiftPM)
+### Supporting Libraries
+
+**None.** v1.1 adds no library. The existing two SwiftPM dependencies are unchanged:
 
 | Library | Version | Purpose | When to Use |
 |---|---|---|---|
-| **Nuke** | `13.0.2` (2026-04-15) | Async image load + cache for load photos, ID doc thumbnails, avatars | Any image from backend; use `ImagePipeline.shared` + `LazyImage` (UIKit) or `ImageTask` with async/await. Memory cap configurable, disk cache off by default in `Core/Networking/ImageLoader`. |
-| **swift-snapshot-testing** | `1.19.2` (2026-03-30) | Snapshot tests for chain-of-trust timeline, BOL render, QR screen | Pair with XCTest in `Tests/SnapshotTests/`. Record on iPhone 15 simulator only; don't chase device matrix in snapshots. |
-| **Mocker** | `3.0.2` (2024-01-15) | URLProtocol-backed mocks in tests | Test target only — do NOT ship in main target. M1 production-side mock is a hand-rolled `MockURLProtocol` in `Core/Networking/Mock/` so the dev build can swap between `live` and `mock` BASE_URL configs without a library dep. |
-| **SwiftLint** | `0.63.2` via **SwiftLintPlugins 0.63.2** | Style enforcement | SwiftPM build tool plugin on every target. Start with `opt_in_rules` set; add custom rules for `// MARK: - PII` scrubber audit points. |
-| **SwiftFormat** | `0.61.0` (nicklockwood) | Automated format pass | Pre-commit hook + Xcode Run Script phase. Run-only-on-staged-files mode. Prefer nicklockwood's SwiftFormat over Apple's swift-format 602.x — larger rule surface, more aggressive on import ordering, and broader community config baseline. |
-
-**Libraries explicitly NOT installed (see "What NOT to Use" for why):**
-KeychainAccess, Alamofire, SDWebImage, Quick, Nimble, TrustKit, XCoordinator, Swinject, Resolver, RxSwift, tuist, xcodegen.
+| **Nuke** | `13.0.2` (pinned `exact`) | Async image load/cache | Already wired. v1.1 may reuse it for any party logo/avatar shown inside a node, or a load photo on the detail screen. No version bump needed. |
+| **SwiftLintPlugins** | `0.63.2` (`from`) | Lint enforcement | Unchanged. |
 
 ### Development Tools
 
-| Tool | Purpose | Notes |
-|---|---|---|
-| **Xcode 26.4.1** | Build + debug + Swift Testing UI | Enable "Strict Concurrency Checking: Targeted" in build settings. Enable "Sendable compliance warnings: error" on new modules once Phase 1 stabilizes. |
-| **Xcode build plugin: SwiftLintPlugins** | Runs SwiftLint on every build | Per `Package.swift` plugin config; fails build on violations in CI, warnings locally. |
-| **Git pre-commit hook** | SwiftFormat --lint + SwiftLint --strict on staged `.swift` | `.git/hooks/pre-commit` shell script — do not use husky or similar cross-language tools. |
-| **GitHub Actions** (or Xcode Cloud) | CI: lint, unit tests, snapshot tests, smoke UI per role | Spec §9. Use `xcodebuild test` against the same simulator as snapshot recording to avoid pixel-diff flakiness. |
-| **xcbeautify** (optional) | Prettier `xcodebuild` output | Dev convenience only; no CI dependency. |
+No additions. v1.1 uses the M1 toolchain as-is: Xcode 26.x, SwiftLint + SwiftFormat, Swift Testing for unit tests, XCUITest for UI/device tests, the sim/device CI split.
+
+One **testing note** specific to the graph: snapshot tests are a strong fit for the trust-graph's discrete visual states (all-verified, one-party-unverified, one-party-revoked, etc.) because the layout is deterministic and non-animating at rest. M1 did not adopt `swift-snapshot-testing` (it was MEDIUM-confidence in v1.0 STACK and never installed). v1.1 can verify graph rendering with **`XCUITest` screenshot assertions** or plain `Tests/` view-configuration unit tests instead — do **not** add `swift-snapshot-testing` solely for this. If the team later wants pixel snapshots broadly, that is a separate, milestone-level dependency decision, not a Load-Flows one.
 
 ---
 
-## Installation
+## The Trust-Graph Rendering Decision (the actual research question)
 
-```swift
-// Package.swift  (or add via Xcode > File > Add Package Dependencies)
-dependencies: [
-    .package(url: "https://github.com/kean/Nuke.git",                              from: "13.0.2"),
-    .package(url: "https://github.com/pointfreeco/swift-snapshot-testing.git",     from: "1.19.2"),
-    .package(url: "https://github.com/WeTransfer/Mocker.git",                      from: "3.0.2"),
-    .package(url: "https://github.com/SimplyDanny/SwiftLintPlugins.git",           from: "0.63.2"),
-],
-targets: [
-    .target(
-        name: "ValidationLedger",
-        dependencies: [
-            .product(name: "Nuke",      package: "Nuke"),
-            .product(name: "NukeUI",    package: "Nuke"),
-        ],
-        plugins: [ .plugin(name: "SwiftLintBuildToolPlugin", package: "SwiftLintPlugins") ]
-    ),
-    .testTarget(
-        name: "ValidationLedgerTests",
-        dependencies: [
-            "ValidationLedger",
-            .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
-            .product(name: "Mocker",          package: "Mocker"),
-        ]
-    ),
-],
-```
+Four candidate approaches were evaluated against: interactivity (pan/zoom/tap), layout for a ~5-node directed chain, iPad-native rendering, accessibility, and maintenance cost for a 1–2 engineer team.
 
-**CLI tooling (Homebrew, not SwiftPM):**
-```bash
-brew install swiftformat   # nicklockwood/SwiftFormat, currently 0.61.0
-# SwiftLint is resolved via SwiftLintPlugins; no Homebrew install needed.
-```
+### Option A — Custom `UIView` per node + `CAShapeLayer` edges ✅ RECOMMENDED
 
----
+**What it is:** Each party (shipper, broker, carrier, dispatch, factoring) is a `UIView` (or `UIControl`) subclass — a card showing the party name, role, and a verification-state badge. A container `UIView` lays the 5 nodes out in fixed positions and draws the 4 connecting edges into `CAShapeLayer`s. The container sits inside a `UIScrollView` for pan/zoom.
 
-## Deltas vs `TechStack.md §2.1` (the pre-GSD shortlist)
+| Criterion | Assessment |
+|---|---|
+| Interactivity | **Excellent.** Each node is a real view → native hit-testing, `UITapGestureRecognizer` or `UIControl` `.touchUpInside` per node. Pan/zoom via `UIScrollView.viewForZooming`. Zero custom gesture math. |
+| Layout (~5 nodes) | **Trivial.** The topology is *fixed and known*: a linear directed chain of exactly 5 stages. Positions are a hand-coded layered layout (one column/row per stage). No graph-layout algorithm needed. Auto Layout constraints or a manual `layoutSubviews` both work. |
+| iPad-native | **Excellent.** Auto Layout + size classes → the graph reflows for iPad's wider canvas natively (e.g. horizontal chain on iPad, vertical on compact-width iPhone). Satisfies the "iPad must render natively, not scale" constraint. |
+| Accessibility | **Excellent — and decisive.** Each node is its own view → each is automatically a VoiceOver `accessibilityElement` with its own label/traits ("Broker, verification verified, double-tap for basis"). Edges can be exposed via `accessibilityElements` ordering or a summary element. This is impossible to get right with a single-canvas drawing. |
+| Maintenance cost | **Lowest.** Pure UIKit — the exact framework the 1–2 engineer team is fluent in (CLAUDE.md rationale). No new framework to learn, no dependency to track, no upgrade risk. ~200–400 LOC total. |
 
-| TechStack.md said | 2026 recommendation | Why the override |
-|---|---|---|
-| "**Networking:** Apple URLSession + lightweight wrapper. No Alamofire unless a blocker emerges." | Keep as written — URLSession only. | Agrees with 2026 consensus. For a security-sensitive, zero-PII app with 1–2 engineers, Alamofire's interceptor stack adds surface area (retry semantics, parameter encoders) the app doesn't use. Device-signed headers belong in a hand-rolled wrapper next to the `SecureEnclave` signer anyway. |
-| "**Keychain:** `KeychainAccess` or hand-rolled wrapper." | **Hand-rolled.** | **KeychainAccess is effectively unmaintained.** Last release `v4.2.2` is from **2021-03-01**; last commit on `master` is **2023-11-12** (repo chore: "Remove screenshots"). No iOS 17 or Swift 6 concurrency support has landed. The lib wraps ~15 `SecItem*` calls — the exact size and shape of thing a security-critical app should own. A 150-line `KeychainStore` in `Core/Storage/` is smaller than the vendoring cost, audits cleanly, and binds `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` + `.biometryCurrentSet` ACLs exactly per FR-iOS-AUTH / §8. |
-| "**Crash/analytics:** Sentry or Firebase Crashlytics (pick one in M1). PII-scrubbed." | **Defer past M1** (per PROJECT.md §Out-of-Scope → "Crash/analytics vendor pick deferred to M2 per §12 Open Q7"). Use `os_log` / `OSLogStore` for M1. | Already captured in PROJECT.md. Noted here so `STACK.md` agrees. |
-| "**Image loading/caching:** Nuke or SDWebImage." | **Nuke 13.0.2.** | Both are actively maintained (Nuke commit 2026-04-15, SDWebImage commit 2026-04-13), so both are viable. Nuke wins for a *new Swift 6-capable app*: it is **pure Swift, fully Sendable, uses a `@globalActor ImagePipelineActor` for thread-safety compiler-enforced**, and integrates natively with async/await and Combine. SDWebImage is Objective-C at its core (still ~85% ObjC), requires `@objc` bridging at API boundaries, and its Swift concurrency story is bolt-on. For a 2026 UIKit + async/await stack, Nuke is the native-feeling choice. |
-| "**QR generation:** CoreImage (built-in). **QR scanning:** AVFoundation (built-in). **Liveness:** Apple Vision framework." | Keep as written. | Correct. No third-party liveness SDK in M1 (PROJECT.md §Out-of-Scope). |
-| (Not mentioned) "**Certificate pinning**" (FR-iOS-SEC MUST) | **Hand-rolled in `URLSessionDelegate`**, pinned to **SPKI hash** of the leaf, with a rotation-plan constant file. | TrustKit (`3.0.7`, 2025-06-04) is maintained but adds a dependency + Objective-C runtime for ~80 lines of delegate code. Pin SPKI (public-key-info hash) not the cert; that way cert rotation does not require a client update if the key is reused. Keep the hash list in `Core/Security/PinnedHosts.swift`, emit a telemetry event on pin failure (no PII), fail closed. |
-| (Not mentioned) "**UIKit coordinator library**" | **Hand-rolled.** | **XCoordinator is abandoned** (last release `2.2.1` on 2023-02-28, commits stopped same day). Hand-rolling a `Coordinator` protocol + `AppCoordinator` + role coordinators is <100 LOC for the five roles and composes cleanly with `AppContainer` initializer DI. No library dep is the 2026 consensus for UIKit coordinators when MVVM+Coordinators is the target architecture. |
+**Why this wins:** The problem is not "render an arbitrary graph" — it is "render one specific, fixed 5-stage chain, interactively, accessibly, on iPhone and iPad." That is a basic UIKit layout problem, not a graph-visualization problem. Reaching for SpriteKit or a graph library is over-engineering a known, tiny, static topology.
 
-**TechStack.md §2 Xcode guidance ("Xcode 15+"):** Technically accurate but stale — Xcode 15 is two major versions behind in April 2026. Recommendation: floor Xcode 16.x in CI so Swift Testing is available. Developers should use Xcode 26.4.1 locally. This is a **minor update to TechStack.md §2**, not a behavior change.
+### Option B — `UICollectionView` with a custom `UICollectionViewLayout`
 
----
+**What it is:** Nodes are cells; a custom layout positions them; edges drawn in a layout decoration view or a background layer.
 
-## Architecture Patterns (how the pieces fit)
+| Criterion | Assessment |
+|---|---|
+| Interactivity | Good — cell selection is native; pan/zoom needs extra work (collection views scroll, but free-form zoom is not built in). |
+| Layout | Workable but **awkward** — `UICollectionViewLayout` is designed for flowing/scrolling content, not fixed 2D node placement with connecting edges. Edges-as-decoration-views is fiddly. |
+| iPad-native | Good. |
+| Accessibility | Good — cells are accessibility elements. |
+| Maintenance | **Higher than Option A for no benefit.** A custom `UICollectionViewLayout` is more code and more concepts than just placing 5 views. Collection views earn their keep with *many, recycled, scrolling* items; a 5-node graph has none of those properties. |
 
-### UIKit Coordinators — hand-rolled skeleton
+**Verdict:** Reasonable but strictly worse than Option A here. Use `UICollectionView` for the **load list** (many rows, recycling, scrolling — its sweet spot), not for the graph.
 
-```swift
-// Core/Navigation/Coordinator.swift
-@MainActor protocol Coordinator: AnyObject {
-    var children: [Coordinator] { get set }
-    var navigationController: UINavigationController { get }
-    func start()
-}
+### Option C — SpriteKit (`SKScene`, `SKNode`, `SKShapeNode`, `SKCameraNode`)
 
-@MainActor extension Coordinator {
-    func add(_ child: Coordinator)    { children.append(child) }
-    func remove(_ child: Coordinator) { children.removeAll { $0 === child } }
-}
-```
+**What it is:** A game-engine scene; nodes are `SKSpriteNode`/`SKShapeNode`; an `SKCameraNode` provides pan/zoom; edges are `SKShapeNode` paths.
 
-- **`AppCoordinator`** decides: splash → OTP auth → role router.
-- **`RoleCoordinator`** per role (ShipperCoordinator, BrokerCoordinator, …) swaps the tab bar's VC graph.
-- **ViewModels** are `@MainActor` classes that own `@Published` state (Combine) + expose `async` methods for side effects.
-- **Coordinators receive dependencies** (auth, network, keychain) from the `AppContainer` via initializer — no service locator, no property wrappers.
+| Criterion | Assessment |
+|---|---|
+| Interactivity | Good for pan/zoom (camera node); tap requires manual `touchesBegan` + node hit-testing. |
+| Layout | Manual — same fixed-position math as Option A, but in scene coordinates. |
+| iPad-native | Scene scales; getting *native* (not scaled) iPad layout means re-deriving positions per size class anyway. |
+| Accessibility | **Poor — disqualifying.** SpriteKit's accessibility story is weak: `SKNode` accessibility is limited, VoiceOver support is partial and historically buggy, and a scene is fundamentally a rendered surface, not a view tree. For a product whose *entire premise is trust and verifiability*, a trust-graph that VoiceOver users cannot inspect is a real defect. |
+| Maintenance | **Higher.** SpriteKit is a game framework — a new mental model (scenes, the run loop, nodes-not-views) for a team picked for *UIKit* fluency. `SKShapeNode` performance pitfalls are well documented. Heavy machinery for 5 static cards. |
 
-This matches TechStack.md §3.1–3.3 exactly.
+**Verdict:** Rejected. Justifiable only for large, animated, force-directed graphs (hundreds of nodes). v1.1 has five. The accessibility gap alone rules it out given the product's trust mandate.
 
-### Swift Concurrency + Combine coexistence (2026 consensus)
+### Option D — Third-party SwiftPM graph/diagram library (e.g. Grape)
 
-| Shape of work | Tool | Example |
-|---|---|---|
-| **Single-response async operation** (login, KYC upload, load fetch) | `async`/`await` + `throws` | `let session = try await auth.login(code:)` |
-| **Values over time** (ViewModel state → View binding, WebSocket/SSE, location stream) | Combine `@Published` / `PassthroughSubject` | `@Published var session: Session?` observed by VC |
-| **Multiple cooperating async operations** | `async let` / `TaskGroup` | Parallel KYC uploads |
-| **Bridge async → Combine** | `Future { promise in Task { ... } }` wrapper | Rare; prefer refactoring to one or the other |
-| **Bridge Combine → async** | `.values` async sequence | Consuming `@Published` from an async loop |
+**What it is:** A dependency that renders graphs. The most credible current Swift option is **Grape** (`SwiftGraphs/Grape`, latest **1.1.0**, Jan 2026; iOS 17 / Swift tools 5.9; D3-inspired force simulation).
 
-**Rule for this codebase:** ViewModels expose `async throws` methods *and* `@Published` state. Use case (Repository) layer is pure `async`. Networking is pure `async`. Only the seam between VM and VC uses Combine.
+| Criterion | Assessment |
+|---|---|
+| Interactivity | Grape provides a `ForceDirectedGraph` with pan/zoom/drag built in. |
+| Layout | Force-directed (physics simulation) — designed to *discover* layout for unknown topologies. v1.1's topology is **fixed and known**, so a force simulation is the wrong tool: it would animate 5 nodes into a layout we already know exactly. |
+| iPad-native | Renders on iPad, but as a SwiftUI canvas. |
+| Accessibility | The graph is drawn into a SwiftUI `Canvas`-style surface → same accessibility weakness as a single-canvas approach; individual node VoiceOver elements are not a documented feature. |
+| **`Grape`-specific blockers** | (1) **It is SwiftUI-only.** `Grape`'s `ForceDirectedGraph` is a SwiftUI `View`. CLAUDE.md forbids SwiftUI on sensitive surfaces, and the trust-graph is the most sensitive surface in the app — embedding it via `UIHostingController` directly violates the UIKit-first constraint for exactly the wrong screen. (The `ForceSimulation` sub-module is UIKit-agnostic, but it only does physics math, not rendering — using it still leaves you hand-rolling the entire renderer, i.e. Option A plus a useless dependency.) (2) **It needs a dependency-shortlist exception** — and there is no justification for one. (3) New dependency = upgrade tracking, Swift-6/iOS-version compatibility risk, attack surface — all of which v1.0 STACK explicitly minimized for this zero-PII security app. |
+| Maintenance | **Highest.** A dependency the team must learn, track, and trust, solving a problem (arbitrary-graph layout) the project does not have. |
 
-### Secure Enclave — the gotchas that matter for FR-iOS-DEV
+**Verdict:** Rejected. Grape is a good library for its purpose — interactive *force-directed* graphs of *unknown* topology. v1.1's trust-graph is neither. Recommending it would mean a SwiftUI violation on the app's core trust surface plus an unjustified shortlist exception.
 
-1. **SEP keys are device-bound and non-exportable.** A key generated on Device A cannot be used on Device B. An iCloud restore to a new device **invalidates every SEP key**. ⇒ Spec-appropriate: "one active device per user" plus re-KYC on device switch is the correct UX.
-2. **Only P-256 is supported** (`SecureEnclave.P256.Signing.PrivateKey`, `.KeyAgreement.PrivateKey`). No P-384, no Ed25519, no RSA. The spec already aligns (EC P-256).
-3. **Simulator has no SEP.** `SecureEnclave.isAvailable` returns `false`. Write dev-time fallback gated by `#if targetEnvironment(simulator)` that uses a plain `P256.Signing.PrivateKey` stored in Keychain — but **fail production login if SEP is unavailable on-device** (FR-iOS-DEV MUST).
-4. **Private key material never surfaces.** `.rawRepresentation` throws `ENOTSUP`. Persist the **`.dataRepresentation` blob** (opaque key handle) in Keychain bound to `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` + `.biometryCurrentSet`. Reload with `SecureEnclave.P256.Signing.PrivateKey(dataRepresentation:)`.
-5. **Access control triggers biometric prompts.** Sign operations with a `.biometryCurrentSet` key will prompt Face ID / Touch ID. For the "sign every sensitive request" requirement (FR-iOS-AUTH), decide which key ACL class applies: either (a) no biometric gate for routine signs + a separate biometric-gated key for tender/accept, or (b) a single biometric key + a short in-process LAContext reauth window. Recommend **two keys**: `deviceKey` (passcode-only) and `authorizationKey` (biometric-current-set) — cleaner than managing LAContext lifetime.
-6. **Re-enrollment of biometrics invalidates `.biometryCurrentSet` keys.** This is the intended trust-boundary behavior and aligns with §8 "biometric re-enrollment invalidates the key and forces re-binding."
-7. **Attestation is separate.** App Attest / DeviceCheck are **not** the same as SEP key attestation. SEP P-256 keys have no Apple-signed attestation — backend must accept the client's registration on trust of the TLS + attested App Attest payload. (M1 deferred, implement in later M1 phase per PROJECT.md.)
+### Decision Matrix
 
-### Networking — shape of the wrapper
+| Criterion | A: UIView + CAShapeLayer | B: UICollectionView | C: SpriteKit | D: Grape (3rd-party) |
+|---|---|---|---|---|
+| Interactivity (pan/zoom/tap) | ✅ Excellent | 🟡 Good | 🟡 Good | ✅ Good |
+| Layout for fixed 5-node chain | ✅ Trivial | 🟡 Awkward | 🟡 Manual | ❌ Wrong tool (force sim) |
+| iPad-native rendering | ✅ Excellent | ✅ Good | 🟡 Scales | 🟡 SwiftUI canvas |
+| Accessibility / VoiceOver | ✅ Excellent | ✅ Good | ❌ Poor | ❌ Poor |
+| UIKit-first constraint | ✅ Compliant | ✅ Compliant | ✅ Compliant | ❌ SwiftUI-only |
+| Dependency-shortlist constraint | ✅ No new dep | ✅ No new dep | ✅ No new dep | ❌ Needs exception |
+| Maintenance cost (1–2 eng) | ✅ Lowest | 🟡 Medium | ❌ High | ❌ Highest |
 
-```swift
-// Core/Networking/NetworkClient.swift
-protocol NetworkClient: Sendable {
-    func send<R: Endpoint>(_ req: R) async throws -> R.Response
-}
-
-struct URLSessionNetworkClient: NetworkClient {
-    let session: URLSession
-    let baseURL: URL
-    let signer: RequestSigner?         // nil except on sensitive endpoints
-    let pinningDelegate: PinningDelegate
-    // ...
-}
-```
-
-- One `URLSession` instance per app (shared), configured with a custom `URLSessionDelegate` that implements cert pinning (SPKI hash list).
-- One `MockURLProtocol` subclass registered in `URLSessionConfiguration.protocolClasses` for dev builds pointing at `mock://` BASE_URL.
-- `Endpoint` is a protocol with associated `Response: Decodable`; request building + decoding lives in the generic `send`.
-- Retry with exponential backoff is a wrapping decorator (`RetryingNetworkClient`) not a `URLSession` feature — keeps idempotency-key handling explicit per spec §7.
+**Option A wins on every criterion that matters.** Recommendation is unambiguous.
 
 ---
 
-## Alternatives Considered
+## Integration Points (how the graph fits the existing architecture)
 
-| Our choice | Alternative | When the alternative would win |
-|---|---|---|
-| URLSession + wrapper | **Alamofire 5.11.2** | Large team, multipart form-data heavy, needs interceptors/adapters/retriers with battle-tested edge cases. Not our profile. |
-| URLSession + wrapper | **kean/Get 2.2.1** | Like a tiny Alamofire, Swift-native. Attractive — but last release 2024-10-15 (stale by 18 months), 100-line `NetworkClient` is cheaper than vendoring. |
-| Hand-rolled Keychain wrapper | **KeychainAccess 4.2.2** | If the library were still maintained. It is not (see Deltas). |
-| Hand-rolled Coordinators | **XCoordinator 2.2.1** | Never, at this scale — it is abandoned. |
-| Native URLSessionDelegate pinning | **TrustKit 3.0.7** | If iOS + tvOS + macOS + watchOS all share pinning config and the team wants SPKI hash reporting built in. For iOS-only with one host, native is lighter. |
-| Nuke 13 | **SDWebImage 5.21.7** | A large ObjC/Swift mixed codebase that already has SDWebImage elsewhere, or a need for animated WebP/JPEG-XL plugins (`SDWebImageWebPCoder`, `SDWebImageJPEGXLCoder`) that Nuke doesn't ship. Not our profile. |
-| Swift Testing | **XCTest-only** | If CI must run on Xcode < 16 (not our situation — we floor at Xcode 16 for this very reason). |
-| Swift Testing | **Quick 7.6.2 + Nimble 14.0.0** | BDD-style specs with describe/it syntax. Quick last released 2024-07-23 (slow cadence). Swift Testing's `#expect` + traits + parameterized tests covers 95% of what Quick offered with zero external deps and native concurrency support. |
-| Commit `.xcodeproj` | **XcodeGen 2.45.4** | Merge conflicts on `project.pbxproj` becoming a real tax — revisit at M3 when the file-tree settles. For M1 (single-module, 1–2 devs), XcodeGen is overhead. |
-| Commit `.xcodeproj` | **Tuist 4.182.0** | Multi-module modularization with build-time caching (Tuist cache) moves the needle. Our app is one module in M1. Revisit at M4 if modularization becomes a real goal. |
-| SwiftFormat (nicklockwood) | **Apple swift-format 602.0.0** | Apple's official formatter paired with `swift format lint` in CI. Smaller ruleset, less aggressive. Use if the team wants "just Apple's thing." |
-| Combine for VM ↔ VC binding | **Observation (@Observable)** | Pure SwiftUI apps. Our UIKit VCs subscribe via `AnyCancellable`; the Observation framework's `withObservationTracking` is awkward from UIKit. When/if we adopt SwiftUI for a feature, switch that feature's VM to `@Observable`. |
+- **Where it lives:** `validationLedger/Features/Loads/` — the directory already exists (currently just `.gitkeep`). Suggested files: `LoadListViewController.swift`, `LoadDetailViewController.swift`, `TrustGraphView.swift` (the container), `TrustGraphNodeView.swift` (the per-party node), `LoadsCoordinator.swift`, plus `LoadListViewModel` / `LoadDetailViewModel`.
+- **Data source:** `LoadDetailViewModel` fetches load detail (including the 5 parties and each party's verification state) via a new `Endpoint` conformer through the existing `APIClient`. The view model hands `TrustGraphView` a plain value-type model (e.g. `[TrustGraphParty]`); the view does no networking. Tapping a node calls back to the coordinator (closure on the view model's init, per the M1 SwiftUI-bridge pattern in v1.0 STACK) to present the verification-basis screen.
+- **Networking / mocks:** Add load-domain `Endpoint`s under `Core/Networking/Endpoints/` and JSON fixtures registered in the `Core/Networking/Mock/` registry (mirroring `MockOTPRoleFixtureRegistry` / `MockDefaultFixtures`). The fixtures must cover every verification-state permutation the graph needs to render (verified / pending / unverified / revoked per party) so the discrete graph states are testable without a backend.
+- **DI:** `LoadsCoordinator` and the view models receive `APIClient` (and `Logger`, etc.) from `AppContainer` via initializer injection — no change to the composition root beyond registering the new coordinator.
+- **Role filtering:** The load *list* is role-filtered; `LoadListViewModel` receives the current role from the existing session/`RoleCoordinator` context. The trust-graph itself renders the same 5-party chain for all roles — only the per-role tender/accept/reject action set on the detail screen varies (a view-model concern, not a graph-rendering one).
+- **Security constraints carry over unchanged:** no PII in logs (use the existing `Logger`), nothing sensitive in `UserDefaults`. The graph renders data already in memory from an authenticated fetch — it introduces no new storage or key surface.
 
 ---
 
-## What NOT to Use
+## What NOT to Add (explicit)
 
-| Avoid | Why (specific) | Use Instead |
+| Avoid | Why | Use Instead |
 |---|---|---|
-| **KeychainAccess** | Last release 2021-03 (v4.2.2); last commit 2023-11 is a repo cleanup, not code. No iOS 17 / Swift 6 validation. In a security-critical app, depending on an unmaintained crypto-storage wrapper is a liability — and the library's surface is 15 `SecItem` calls you can own in 150 LOC. | Hand-rolled `KeychainStore` in `Core/Storage/Keychain/` |
-| **XCoordinator** | Abandoned: last release v2.2.1 on 2023-02-28, commits stopped the same day. Pre-Swift-6, pre-concurrency. | Hand-rolled `Coordinator` protocol + per-role coordinators |
-| **Alamofire** | Not "bad" — overkill. Adds 228 code snippets' worth of surface (interceptors, serializers, route enums) for a 5-endpoint M1. Every dep is attack surface; zero-PII apps should minimize. | URLSession + thin `NetworkClient` wrapper |
-| **Quick / Nimble** | Quick 7.6.2 last released 2024-07; framework ties you to describe/it syntax and a spec-runner-in-a-framework model that Swift Testing now renders redundant. | Swift Testing + XCTest (UI) |
-| **Swinject / Resolver** | Spec-locked out: TechStack.md §3.3 mandates initializer DI via `AppContainer`. Runtime-registered DI containers hide dependency graphs and slow compile-time error detection. For a 5-feature app, initializer DI is faster, safer, grep-able. | `AppContainer` + initializer injection |
-| **RxSwift / RxCocoa** | Combine + Swift Concurrency replace 100% of Rx's role in a 2026 app. Rx adds ObjC runtime dependency, slow compile, complex operator chains. | Combine (for streams) + async/await (for single-response) |
-| **SDWebImage** (for this app) | Actively maintained, but 85% ObjC. Requires `@objc` bridging at API boundaries, bolt-on Swift concurrency. Adds ObjC runtime weight we don't need for a pure-Swift M1. | Nuke 13 |
-| **Xcode 15.x** (as active IDE) | No Swift Testing (requires Xcode 16+), no Swift 6 language mode, no iOS 26 SDK. Two major versions stale by April 2026. | Xcode 26.4.1 locally; floor Xcode 16.x in CI |
-| **Tuist / XcodeGen in M1** | Overhead without payoff on a single-module project. Adds a generation step and YAML/Swift config churn. Worth reconsidering at M3+ when file-tree churn and multi-module builds become a tax. | Commit `.xcodeproj`, tolerate small pbxproj diffs |
-| **ObservableObject / @Published for new SwiftUI surfaces** | Apple has effectively replaced it with `@Observable`. Combine is still alive for non-SwiftUI, but don't build new SwiftUI code on the deprecated path. | `@Observable` macro for any SwiftUI surface (Settings, static lists) |
-| **Third-party crash SDKs in M1** | PROJECT.md §Out-of-Scope — vendor pick deferred to M2 pending real failure data. | `os_log` + `OSLogStore` |
+| **Grape** (`SwiftGraphs/Grape`) or any third-party graph/diagram SwiftPM package | SwiftUI-only renderer (violates UIKit-first on the core trust surface); needs a dependency-shortlist exception with no justification; force-directed layout is the wrong tool for a fixed 5-node chain; adds upgrade/compat/attack surface a zero-PII security app should not. | Custom `UIView` nodes + `CAShapeLayer` edges (Option A). |
+| **SpriteKit** for the trust-graph | Weak/partial VoiceOver support — unacceptable for the product's core trust-verification surface; a game-engine mental model for a UIKit-fluent team; `SKShapeNode` performance pitfalls; over-engineered for 5 static nodes. | Option A. |
+| **A graph-layout algorithm** (Sugiyama / layered / force-directed, hand-rolled or library) | The topology is fixed and known (shipper→broker→carrier→dispatch→factoring). Node positions are deterministic constants. An algorithm solves a problem that does not exist. | A hand-coded fixed layered layout — one column/row per stage. |
+| **`swift-snapshot-testing`** added *just* for the graph | M1 deliberately did not adopt it. Adding a dependency for one feature's tests is disproportionate; the graph's deterministic states are coverable with XCUITest screenshots or view-config unit tests. | XCUITest screenshot assertions / plain view-configuration unit tests. A broad snapshot-testing adoption is a separate, milestone-level decision. |
+| **`UICollectionView` for the graph** | Custom `UICollectionViewLayout` is more code and more concepts than placing 5 views; collection views pay off with many recycled scrolling items, none of which a 5-node graph has. | `UICollectionView` for the load *list* (its sweet spot); Option A for the graph. |
+| **A new networking/real-time dependency** (WebSocket client, SSE library) | v1.1 is explicitly mock-only — no backend, no real-time. The verification state is static fixture data for this milestone. | The existing `MockURLProtocol` + `APIClient` with new fixtures. |
+| **Any analytics/crash SDK** | Still out of scope (deferred per PROJECT.md); zero-PII posture unchanged. | Existing `Logger` (`os_log` / `OSLogStore`). |
+| **CocoaPods / Carthage** | Spec-locked: SwiftPM-only. | SwiftPM (no new packages anyway). |
 
 ---
 
 ## Stack Patterns by Variant
 
-**If a feature needs SwiftUI (Settings, static lists, possibly onboarding content screens):**
-- ViewModel becomes `@Observable` class, not `@Published` `ObservableObject`.
-- Bridge to parent Coordinator via a callback closure stored on the ViewModel's init.
-- Keep the rule: no SwiftUI on camera/KYC/scanner/BOL screens (spec §2.1 / §3.1).
+**If the chain ever becomes branching/dynamic (multiple carriers, multi-broker chains) in a later milestone:**
+- The fixed layered layout still holds for any *tree* — derive node columns from chain depth. Only a genuinely arbitrary graph (cycles, large fan-out) would justify revisiting a layout algorithm or a library.
+- Even then, reach for a layered (Sugiyama-style) layout you control before a force-directed library — directed trust chains read best left-to-right, not as a physics blob.
 
-**If the app adds a second active device class (iPad with Apple Pencil for dispatch docs):**
-- Keep the same `AppContainer` graph. iPad-specific coordinators live in `App/iPad/` but consume the same `Core/` services.
-- SEP key management is unchanged — each device has its own key by design.
+**If a later milestone adds real-time verification-state updates (deferred post-v1.1):**
+- The node views just re-render on a new model value pushed by the view model — animate the badge with `CALayer` state transitions. The rendering approach (Option A) does not change; only the data source (mock → live + WebSocket/SSE) does.
 
-**If the team grows >3 engineers and multi-module becomes useful:**
-- Migrate to Tuist 4.182.0 (Swift config, cache) not XcodeGen (YAML, no cache). Tuist's Swift-as-config plays better with Swift-first teams and the cache pays back on >5-module projects.
-- Flip `Feature/*` modules to SwiftPM local packages before touching Tuist — often the cheaper first step.
-
-**If M2 picks Sentry or Firebase for crash reporting:**
-- Wrap the SDK behind a `CrashReporter` protocol in `Core/Analytics/`. `os_log` path becomes the fallback. Swap the implementation in `AppContainer` only.
+**If the team later wants the graph on a SwiftUI surface (not planned — trust-graph is sensitive, stays UIKit):**
+- It would not. CLAUDE.md keeps sensitive surfaces UIKit. Documented only to close the loop: do not migrate the trust-graph to SwiftUI.
 
 ---
 
 ## Version Compatibility
 
-| Package | Min Swift | Min iOS | Notes |
+| Item | Version | iOS Min | Notes |
 |---|---|---|---|
-| Nuke 13.0.2 | 5.9 | 13 | Uses `@globalActor ImagePipelineActor`; Sendable-clean under strict concurrency. Swift 6 compatible. |
-| swift-snapshot-testing 1.19.2 | 5.9 | 13 | Works with both XCTest and Swift Testing. |
-| Mocker 3.0.2 | 5.5 | 12 | Stable API since 3.0. Test-target only. |
-| SwiftLintPlugins 0.63.2 (= SwiftLint 0.63.2) | 5.7 | — | SwiftPM build tool plugin; runs on host at build time, not bundled into app. |
-| SwiftFormat 0.61.0 | — | — | CLI tool run via Homebrew or SwiftPM command plugin; host-only. |
-| Alamofire 5.11.2 | 5.7.1 | 13 | (Not used) |
-| SDWebImage 5.21.7 | 5.4 | 12 | (Not used) |
-| KeychainAccess 4.2.2 | 5.0 | 9 | (Not used, abandoned) |
+| UIKit / Core Animation / `UIScrollView` zoom | iOS 17 SDK | 17.0 | First-party; matches the deployment target exactly. No compatibility risk. |
+| Nuke (unchanged) | 13.0.2 (pinned `exact`) | 13 | No bump for v1.1. |
+| SwiftLintPlugins (unchanged) | 0.63.2 (`from`) | — | No bump for v1.1. |
+| Grape (evaluated, **rejected**) | 1.1.0 (2026-01-17) | 17 | iOS 17 / Swift tools 5.9. SwiftUI-only renderer. Not adopted. |
 
-**Xcode / Swift / iOS combined:**
-
-| Xcode | Bundled Swift | Supported deployment targets | Status (2026-04-20) |
-|---|---|---|---|
-| 26.4.1 | 6.3 | iOS 15–26.5 | Current stable — **recommended for local dev** |
-| 26.5 beta 2 | 6.3 | iOS 15–26.5 | Beta — use only if chasing a beta-only fix |
-| 16.4 | 6.0 | iOS 13–18 | Minimum for CI; has Swift Testing |
-| 15.x | 5.9 | iOS 12–17 | Deprecated for this project |
-
----
-
-## Confidence Notes (be honest)
-
-- **HIGH** on every library version number above — verified 2026-04-20 via `api.github.com/repos/.../releases/latest`.
-- **HIGH** on KeychainAccess and XCoordinator being abandoned — verified via release date + commit recency.
-- **HIGH** on Xcode 26.4.1 / Swift 6.3 current state — verified via `developer.apple.com/xcode/system-requirements`.
-- **HIGH** on Nuke's Swift-concurrency native posture — verified via `kean/Nuke` CHANGELOG + Context7 docs.
-- **HIGH** on Secure Enclave P-256-only, simulator-unavailable, device-bound constraints — verified via Apple Developer docs + Apple Developer Forums thread 749596.
-- **MEDIUM** on Snapshot testing recommendation — widely used but snapshot tests are easy to get wrong (simulator pixel differences, dynamic type). Use only on visual fixtures that don't animate.
-- **MEDIUM** on "Commit .xcodeproj for M1" — a defensible 2026 consensus for single-module, small-team projects, but some teams prefer XcodeGen even for single module. The call is reversible.
-- **LOW** on the exact precise answer to "does TrustKit provide enough over native pinning to justify the dep?" — reasonable people disagree; we pick native because FR-iOS-SEC requires one host and the dep surface of TrustKit for that case is not justified. Revisit if M2 adds a second backend host.
+`Package.swift` and `Package.resolved` require **no changes** for v1.1.
 
 ---
 
 ## Sources
 
-### Context7 library IDs fetched
-- `/kishikawakatsumi/keychainaccess` — installation, version, BioAuth policies
-- `/kean/nuke` — installation, Combine bridge, processors, cache
-- `/sdwebimage/sdwebimage` — installation, SwiftPM support
-- `/alamofire/alamofire` — async/await surface, chained requests
-- `/realm/swiftlint` — SwiftPM plugin config
-- `/swiftlang/swift-testing` — Swift 6 / Xcode 16 bundling, CMake/toolchain
-
-### Live GitHub release verification (2026-04-20)
-- KeychainAccess → `v4.2.2` 2021-03-01 (abandoned; last commit 2023-11-12)
-- Nuke → `13.0.2` 2026-04-15 (active; commit 2026-04-15)
-- SDWebImage → `5.21.7` 2026-02-26 (active; commit 2026-04-13)
-- Alamofire → `5.11.2` 2026-04-06
-- SwiftLint / SwiftLintPlugins → `0.63.2` 2026-01-26
-- SwiftFormat (nicklockwood) → `0.61.0` 2026-04-11
-- swift-format (swiftlang) → `602.0.0` 2025-09-16
-- Tuist → `4.182.0` 2026-04-17
-- XcodeGen → `2.45.4` 2026-04-14
-- kean/Get → `2.2.1` 2024-10-15 (stale)
-- Quick → `v7.6.2` 2024-07-23
-- Nimble → `v14.0.0` 2025-11-28
-- swift-snapshot-testing → `1.19.2` 2026-03-30
-- Mocker → `3.0.2` 2024-01-15
-- TrustKit → `3.0.7` 2025-06-04 (active; commit 2026-03-24)
-- XCoordinator → `2.2.1` 2023-02-28 (abandoned)
-
-### Apple official (HIGH confidence)
-- Apple — Xcode system requirements (live page, fetched 2026-04-20): Xcode 26.4.1 stable, Swift 6.3, iOS deployment targets 15–26.5.
-- Apple Developer Documentation — `SecureEnclave.P256` — P-256-only, device-bound, simulator-unavailable constraints.
-- Apple Developer Forums thread 749596 — Secure Enclave security model clarifications.
-- Apple Developer — Swift Testing landing page — bundled with Swift 6 toolchain + Xcode 16.
-
-### Secondary (MEDIUM confidence — corroborates but not authoritative)
-- Swift Forums ST-0021 proposal review — Swift Testing / XCTest interoperability direction.
-- kean.blog / Nuke 13 announcement — @globalActor ImagePipelineActor, Sendable completeness.
-- tuist.dev 2025-02-25 — project generation rationale.
-- Swift Forums "MVVM uikit async await actor" — @MainActor on ViewModel consensus.
-- Apple Developer Forums thread 706428 — SEP inter-device key limitations.
-
-### Training-data only (LOW confidence, flagged)
-- None of the version numbers above rely on training data. The trust-but-verify protocol was followed in full.
+- `.planning/PROJECT.md` — v1.1 scope, constraints, dependency shortlist, mock-only mandate (HIGH — authoritative project doc).
+- `.planning/research/v1.0/STACK.md` — validated M1 stack, reused wholesale (HIGH — prior research, context only).
+- Repo inspection: `Package.swift`, `Package.resolved` (2 deps: Nuke 13.0.2, SwiftLintPlugins 0.63.2); `validationLedger/Features/Loads/` (exists, empty); `Core/Networking/Mock/` + `Core/Networking/Endpoints/` patterns (HIGH — direct source).
+- [Apple — `UIScrollView.minimumZoomScale` / `viewForZooming`](https://developer.apple.com/documentation/uikit/uiscrollview/1619428-minimumzoomscale) — canonical UIKit pan/zoom pattern (HIGH — official docs).
+- [Apple — UIKit](https://developer.apple.com/documentation/uikit) — `UIView`, `UIControl`, gesture recognizers, accessibility element model (HIGH — official docs).
+- [SwiftGraphs/Grape — GitHub](https://github.com/SwiftGraphs/Grape) and [Grape releases](https://github.com/SwiftGraphs/Grape/releases) — latest 1.1.0 (2026-01-17), iOS 17 / Swift tools 5.9, SwiftUI-only `ForceDirectedGraph`, standalone `ForceSimulation` module (HIGH — repo + release page; evaluated and rejected).
+- [Grape — Swift Package Index](https://swiftpackageindex.com/SwiftGraphs/Grape) — package metadata (MEDIUM — index page returned 403 on direct fetch; corroborated via the repo's `Package.swift`).
+- WebSearch — SpriteKit pan/zoom (`SKCameraNode`) and `SKShapeNode` performance pitfalls; `CAShapeLayer` as the path-drawing alternative (MEDIUM — community sources, corroborated across results): [SpriteKit touch gestures](https://medium.com/@thomsmed/touch-gestures-and-spritekit-9fe09387104b), [SKCameraNode pan/zoom — Apple Developer Forums](https://developer.apple.com/forums/thread/27843), [Force-directed graphing in iOS](https://medium.com/@joecrozier/force-directed-graphing-in-ios-11202e6e3c48).
+- [SwiftGraph (davecom/SwiftGraph)](https://github.com/davecom/SwiftGraph) — noted as a graph *data-structure* library, not visualization; not relevant to rendering (HIGH — repo).
 
 ---
 
-*Stack research for: security-sensitive identity-verified freight iOS client (Validation Ledger M1 Foundation)*
-*Researched: 2026-04-20*
-*Downstream: roadmap phase structure + M1 Phase 1 planning*
+*Stack research for: v1.1 "Load Flows" trust-graph rendering decision*
+*Researched: 2026-05-19*
+*Downstream: v1.1 requirements definition + roadmap creation*
